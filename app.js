@@ -9,7 +9,7 @@ function updateNavActive() { document.querySelectorAll('.nav-item').forEach(btn 
 function render() {
     document.getElementById('stepper-container').style.display = 'none'; document.getElementById('footer-area').style.display = 'none';
     var content = document.getElementById('content-area'), title = document.getElementById('header-title');
-    if (state.page === 'dashboard') { title.innerText = "Accueil"; content.innerHTML = `<h1>Bonjour ${user.name} !</h1><div class="card" style="background:var(--primary);color:#fff;border:none"><h3 style="color:#fff">Reprends le cours</h3><button class="btn btn-secondary" style="color:var(--primary)" onclick="navigate('courses')">Cours</button></div>`; }
+    if (state.page === 'dashboard') { title.innerText = "Accueil"; content.innerHTML = `<h1>Bonjour ${user.name} !</h1><div class="card" style="background:var(--primary);color:#fff;border:none"><h3 style="color:#fff">Reprends le cours</h3><button class="btn" style="color:var(--primary)" onclick="navigate('courses')">Cours</button></div>`; }
     else if (state.page === 'courses' || state.page === 'exercises') { title.innerText = state.page === 'courses' ? "Cours" : "Exercices"; if (state.navLevel === 0) renderSubjects(); else if (state.navLevel === 1) renderChapters(); else if (state.navLevel === 2) renderNotions(); else if (state.navLevel === 3) renderNotionDetail(); }
 }
 function renderSubjects() { var subjects = Object.keys(CURRICULUM); var html = `<div class="breadcrumb"><span onclick="navigate('${state.page}')">${state.page}</span></div><h1>Matières</h1>`; subjects.forEach(s => { html += `<div class="card card-hover" onclick="openSubject('${s}')"><h3>${s}</h3></div>`; }); document.getElementById('content-area').innerHTML = html; }
