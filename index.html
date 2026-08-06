@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LEX Academy</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Newsreader:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="login-screen" class="login-screen">
+        <div class="card login-card">
+            <div class="login-logo">L</div>
+            <h1>LEX Academy</h1>
+            <p>Espace Élève</p>
+            <input type="text" id="login-name" class="input" placeholder="Ton nom..." onkeyup="if(event.key==='Enter')document.getElementById('btn-login').click()">
+            <button id="btn-login" class="btn btn-primary" style="width:100%;justify-content:center;" onclick="login()">Se connecter</button>
+        </div>
+    </div>
+
+    <div id="app" class="app-container" style="display:none;">
+        <aside class="sidebar">
+            <div class="nav-logo">
+                <div class="logo-icon">L</div>
+                <div>
+                    <h3>LEX Academy</h3>
+                    <p id="user-class">Seconde C</p>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <button class="nav-item active" data-nav="dashboard" onclick="navigate('dashboard')"><i class="fas fa-house"></i> Accueil</button>
+                <button class="nav-item" data-nav="courses" onclick="navigate('courses')"><i class="fas fa-book"></i> Cours</button>
+                <button class="nav-item" data-nav="exercises" onclick="navigate('exercises')"><i class="fas fa-pen"></i> Exercices</button>
+                <button class="nav-item" data-nav="leaderboard" onclick="navigate('leaderboard')"><i class="fas fa-trophy"></i> Classement</button>
+            </nav>
+            <div class="sidebar-footer">
+                <button class="nav-item" onclick="logout()"><i class="fas fa-right-from-bracket"></i> Déconnexion</button>
+            </div>
+        </aside>
+        <div class="main-area">
+            <header class="header">
+                <h2 id="header-title">Accueil</h2>
+                <div class="user-info">
+                    <span id="user-name">Élève</span>
+                    <div id="user-avatar" class="user-avatar">E</div>
+                </div>
+            </header>
+            <div id="stepper-container" class="stepper" style="display:none;"></div>
+            <div class="content" id="content-area"></div>
+            <div id="footer-area" class="footer" style="display:none;">
+                <button class="btn btn-secondary" id="prev-btn" onclick="prevStep()"><i class="fas fa-arrow-left"></i> Précédent</button>
+                <button class="btn btn-primary" id="next-btn" onclick="nextStep()">Suivant <i class="fas fa-arrow-right"></i></button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="toast-container"></div>
+
+    <script src="data_anglais.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
