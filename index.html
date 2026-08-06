@@ -10,7 +10,7 @@
 </head>
 <body>
     <div id="login-screen" class="login-screen">
-        <div class="card login-card">
+        <div class="login-card">
             <div class="login-logo">L</div>
             <h1>LEX Academy</h1>
             <p>Espace Élève</p>
@@ -23,16 +23,12 @@
         <aside class="sidebar">
             <div class="nav-logo">
                 <div class="logo-icon">L</div>
-                <div>
-                    <h3>LEX Academy</h3>
-                    <p id="user-class">Seconde C</p>
-                </div>
+                <div><h3>LEX Academy</h3><p id="user-class">Seconde C</p></div>
             </div>
             <nav class="sidebar-nav">
                 <button class="nav-item active" data-nav="dashboard" onclick="navigate('dashboard')"><i class="fas fa-house"></i> Accueil</button>
                 <button class="nav-item" data-nav="courses" onclick="navigate('courses')"><i class="fas fa-book"></i> Cours</button>
                 <button class="nav-item" data-nav="exercises" onclick="navigate('exercises')"><i class="fas fa-pen"></i> Exercices</button>
-                <button class="nav-item" data-nav="leaderboard" onclick="navigate('leaderboard')"><i class="fas fa-trophy"></i> Classement</button>
             </nav>
             <div class="sidebar-footer">
                 <button class="nav-item" onclick="logout()"><i class="fas fa-right-from-bracket"></i> Déconnexion</button>
@@ -40,6 +36,7 @@
         </aside>
         <div class="main-area">
             <header class="header">
+                <button class="btn menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')"><i class="fas fa-bars"></i></button>
                 <h2 id="header-title">Accueil</h2>
                 <div class="user-info">
                     <span id="user-name">Élève</span>
@@ -48,15 +45,15 @@
             </header>
             <div id="stepper-container" class="stepper" style="display:none;"></div>
             <div class="content" id="content-area"></div>
-            <div id="footer-area" class="footer" style="display:none;">
-                <button class="btn btn-secondary" id="prev-btn" onclick="prevStep()"><i class="fas fa-arrow-left"></i> Précédent</button>
+            <div id="footer-area" class="footer">
+                <button class="btn" id="prev-btn" onclick="prevStep()"><i class="fas fa-arrow-left"></i> Précédent</button>
                 <button class="btn btn-primary" id="next-btn" onclick="nextStep()">Suivant <i class="fas fa-arrow-right"></i></button>
             </div>
         </div>
     </div>
-    
     <div id="toast-container"></div>
 
+    <!-- CHARGEMENT DES FICHIERS EXTERNES -->
     <script src="data_anglais.js"></script>
     <script src="app.js"></script>
 </body>
