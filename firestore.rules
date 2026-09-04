@@ -1,0 +1,33 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Contenu pédagogique : lecture libre (l'app n'a pas encore Firebase Auth),
+    // écriture interdite depuis les clients.
+    match /cours/{doc} { allow read: if true; allow write: if false; }
+    match /exercices/{doc} { allow read: if true; allow write: if false; }
+    match /annales/{doc} { allow read: if true; allow write: if false; }
+
+    // Comptes élèves : lecture libre (le classement a besoin de nom+xp).
+    // Écriture ouverte EN ATTENDANT Firebase Auth (l'app en dépend pour
+    // l'inscription/connexion et les XP). Les mots de passe sont hachés
+    // SHA-256 → plus aucun secret lisible même en lecture libre.
+    match /utilisateurs/{doc} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Jeux et interactions : écriture libre (scores, signalements, devoirs,
+    // défis) mais lecture limitée aux collections nécessaires au classement.
+    match /defi_jour/{doc} { allow read: if true; allow write: if true; }
+    match /devoirs/{doc} { allow read: if true; allow write: if true; }
+    match /devoir_reponses/{doc} { allow read: if true; allow write: if true; }
+    match /signalements/{doc} { allow read: if true; allow write: if true; }
+    match /progression/{doc} { allow read: if true; allow write: if true; }
+    match /groq_quota/{doc} { allow read: if false; allow write: if false; }
+    match /admins/{doc} { allow read: if true; allow write: if true; }
+
+    // Refus par défaut pour tout le reste
+    match /{document=**} { allow read, write: if false; }
+  }
+}
