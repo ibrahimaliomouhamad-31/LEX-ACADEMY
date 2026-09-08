@@ -1,0 +1,75 @@
+/**
+ * 🔐 RÈGLES FIRESTORE SÉCURISÉES
+ * À copier dans Firebase Console -> Firestore -> Rules
+ */
+
+export const SECURE_FIRESTORE_RULES = `
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ✅ CONTENU PÉDAGOGIQUE : Lecture libre, écriture admin
+    match /cours/{doc=**} { 
+      allow read: if true; 
+      allow write: if isAdmin();
+    }
+    match /exercices/{doc=**} { 
+      allow read: if true; 
+      allow write: if isAdmin();
+    }
+    match /annales/{doc=**} { 
+      allow read: if true; 
+      allow write: if isAdmin();
+    }
+
+    // ✅ PROFILS UTILISATEURS
+    match /utilisateurs/{userId} {
+      allow read: if true; // Classement public OK
+      allow write: if isUserOrAdmin(userId);
+    }
+
+    // ✅ PROGRESSION PERSONNELLE
+    match /progression/{userId} {
+      allow read: if isUserOrAdmin(userId);
+      allow write: if isUserOrAdmin(userId);
+    }
+
+    // ✅ RÉVISIONS PERSONNELLES
+    match /revisions/{docId} {
+      allow read: if isUserOrAdmin(request.resource.data.userId);
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isUserOrAdmin(request.resource.data.userId);
+    }
+
+    // ✅ DÉFIS QUOTIDIENS
+    match /defi_jour/{docId} {
+      allow read: if true;
+      allow create: if isAuth();
+      allow update, delete: if isUserOrAdmin(request.resource.data.userId);
+    }
+
+    // ✅ LOG D'AUDIT (admin)
+    match /journal_audit/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ✅ HELPER FUNCTIONS
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isUserOrAdmin(userId) {
+      return isAuth() && (request.auth.uid == userId || isAdmin());
+    }
+
+    function isAdmin() {
+      return isAuth() && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // Défaut : deny all
+    match /{document=**} { 
+      allow read, write: if false; 
+    }
+  }
+}
+`;
