@@ -2,32 +2,73 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Contenu pédagogique : lecture libre (l'app n'a pas encore Firebase Auth),
-    // écriture interdite depuis les clients.
-    match /cours/{doc} { allow read: if true; allow write: if false; }
-    match /exercices/{doc} { allow read: if true; allow write: if false; }
-    match /annales/{doc} { allow read: if true; allow write: if false; }
-
-    // Comptes élèves : lecture libre (le classement a besoin de nom+xp).
-    // Écriture ouverte EN ATTENDANT Firebase Auth (l'app en dépend pour
-    // l'inscription/connexion et les XP). Les mots de passe sont hachés
-    // SHA-256 → plus aucun secret lisible même en lecture libre.
-    match /utilisateurs/{doc} {
-      allow read: if true;
-      allow write: if true;
+    // ✅ CONTENU PÉDAGOGIQUE : Lecture libre, écriture admin
+    match /cours/{doc=**} { 
+      allow read: if true; 
+      allow write: if isAdmin();
+    }
+    match /exercices/{doc=**} { 
+      allow read: if true; 
+      allow write: if isAdmin();
+    }
+    match /annales/{doc=**} { 
+      allow read: if true; 
+      allow write: if isAdmin();
     }
 
-    // Jeux et interactions : écriture libre (scores, signalements, devoirs,
-    // défis) mais lecture limitée aux collections nécessaires au classement.
-    match /defi_jour/{doc} { allow read: if true; allow write: if true; }
-    match /devoirs/{doc} { allow read: if true; allow write: if true; }
-    match /devoir_reponses/{doc} { allow read: if true; allow write: if true; }
-    match /signalements/{doc} { allow read: if true; allow write: if true; }
-    match /progression/{doc} { allow read: if true; allow write: if true; }
-    match /groq_quota/{doc} { allow read: if false; allow write: if false; }
-    match /admins/{doc} { allow read: if true; allow write: if true; }
+    // ✅ PROFILS UTILISATEURS
+    match /utilisateurs/{userId} {
+      allow read: if true; // Classement public OK
+      allow write: if isUserOrAdmin(userId);
+    }
 
-    // Refus par défaut pour tout le reste
-    match /{document=**} { allow read, write: if false; }
+    // ✅ PROGRESSION PERSONNELLE
+    match /progression/{userId} {
+      allow read: if isUserOrAdmin(userId);
+      allow write: if isUserOrAdmin(userId);
+    }
+
+    // ✅ RÉVISIONS PERSONNELLES
+    match /revisions/{docId} {
+      allow read: if isUserOrAdmin(resource.data.userId);
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isUserOrAdmin(resource.data.userId);
+    }
+
+    // ✅ DÉFIS QUOTIDIENS
+    match /defi_jour/{docId} {
+      allow read: if true;
+      allow create: if isAuth();
+      allow update, delete: if isUserOrAdmin(resource.data.userId);
+    }
+
+    // ✅ JOURNAL D'AUDIT (admin)
+    match /journal_audit/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ✅ RÔLES UTILISATEURS (admin panel)
+    match /roles/{userId} {
+      allow read: if isAdmin() || request.auth.uid == userId;
+      allow write: if isAdmin();
+    }
+
+    // ✅ HELPER FUNCTIONS
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isUserOrAdmin(userId) {
+      return isAuth() && (request.auth.uid == userId || isAdmin());
+    }
+
+    function isAdmin() {
+      return isAuth() && get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // Défaut : deny all
+    match /{document=**} { 
+      allow read, write: if false; 
+    }
   }
 }
