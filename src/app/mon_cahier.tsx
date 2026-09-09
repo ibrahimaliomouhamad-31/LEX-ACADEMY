@@ -49,10 +49,8 @@ export default function MonCahier() {
       matiere: '',
     };
     cours.cahier = contenu;
-    await saveCours(cours);
-    // Maintenir une cantonade : on garde la théorié de base si existante,
-    // sinon on met le cahier comme contenu de secours.
-    if (!cours.theorie) cours.theorie = contenu;
+    // Le cahier sert de contenu de secours si le cours Firebase est absent.
+    if (!cours.theorie && !cours.methode_content) cours.theorie = contenu;
     await saveCours(cours);
     setSauvegarde(true);
     Alert.alert('✅ Mon cahier', `Enregistré ! ${n.length} micro-notion(s) détectée(s) dans ce chapitre.`);
@@ -117,7 +115,7 @@ const styles = StyleSheet.create({
   cardInfo: { backgroundColor: '#1B1630', borderRadius: 12, padding: 16, marginBottom: 16, borderLeftWidth: 3, borderLeftColor: '#8B5CF6' },
   infoEmoji: { fontSize: 28, marginBottom: 6 },
   infoText: { color: '#D6CCFF', fontSize: 13, lineHeight: 20 },
-  input: { minHeight: 180, backgroundColor: '#111827', color: '#E5E7EB', fontSize: 14, borderRadius: 12, padding: 14, textAlignVertical: 'top', marginBottom: 16 },
+  input: { minHeight: 180, backgroundColor: '#111827', color: '#E5E7EB', fontSize: 14, borderRadius: 12, padding: 14, marginBottom: 16 },
   rowStats: { marginBottom: 16 },
   statTexte: { color: '#FBBF24', fontSize: 13, fontWeight: 'bold' },
   btnPrevisu: { backgroundColor: '#334155', padding: 14, borderRadius: 10, alignItems: 'center', marginBottom: 10 },
