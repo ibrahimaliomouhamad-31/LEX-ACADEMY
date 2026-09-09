@@ -33,6 +33,6 @@ export async function streakAuthentique(streak: number, dateISO: string): Promis
 }
 
 /** Réinitialise le streak après détection d'altération. */
-export async function signalerAltération(): Promise<void> {
+export async function signalerAlteration(): Promise<void> {
   await AsyncStorage.removeItem(CLE_EMPREINTE);
 }

@@ -17,6 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setUserItem, getUserItem } from './userStorage';
 import { gagnerXp, lireXpTotal } from './xpLocal';
 import { syncQueue } from './syncQueue';
+import { streakAuthentique, scellerStreak } from './integrite';
 
 const STATS_KEY = 'stats_gamifiees';
 
@@ -73,6 +74,14 @@ export async function initRevisionStats(): Promise<RevisionStats> {
     };
     await saveRevisionStats(stats);
   }
+  // 🛡️ INTÉGRITÉ (amélioration 7) : le streak est vérifié contre son empreinte scellée ;
+  // une valeur falsifiée (édition manuelle du cache) est réinitialisée.
+  const authentique = await streakAuthentique(stats.streak, stats.dernierJour);
+  if (!authentique) {
+    stats.streak = 0;
+    await saveRevisionStats(stats);
+  }
+  await scellerStreak(stats.streak, stats.dernierJour);
   return stats;
 }
 
@@ -183,6 +192,8 @@ export async function enregistrerRevision(
   }
 
   await saveRevisionStats(stats);
+  // Re-scelle l'empreinte après chaque mise à jour légitime du streak (amélioration 7)
+  await scellerStreak(stats.streak, stats.dernierJour);
 
   // Journal de révision dans la file offline-first (docId null-safe).
   const userId = await getUserCourant();

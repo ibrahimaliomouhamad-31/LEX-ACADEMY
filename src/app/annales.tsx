@@ -13,6 +13,7 @@ import {
 import { collection, getDocs, orderBy, query, where } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
 import { saveCours } from '../services/cacheHorsLigne';
+import { annalesParMatiere } from '../services/annalesPasAPas';
 
 // FORMAT D'UN SUJET dans Firestore (collection 'annales') :
 // {
@@ -43,6 +44,8 @@ export default function Annales() {
   const [horsLigne, setHorsLigne] = useState(false);
   const [filtreMatiere, setFiltreMatiere] = useState('Toutes');
   const [ouvert, setOuvert] = useState<string | null>(null);
+  const [onglet, setOnglet] = useState<'sujets' | 'demarches'>('sujets');
+  const [demarcheOuverte, setDemarcheOuverte] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -83,9 +86,45 @@ export default function Annales() {
         </TouchableOpacity>
         <Text style={styles.subject}>SUJETS RÉELS DU BAC</Text>
         <Text style={styles.title}>📚 Annales BAC</Text>
+        {/* Onglets : sujets réels ou démarches complètes pas-à-pas (amélioration 28) */}
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+          {([['sujets', '📚 Sujets'], ['demarches', '🪜 Démarches pas-à-pas']] as const).map(([k, label]) => (
+            <TouchableOpacity
+              key={k}
+              style={[styles.chip, onglet === k && styles.chipActive]}
+              onPress={() => setOnglet(k)}
+            >
+              <Text style={[styles.chipText, onglet === k && styles.chipTextActive]}>{label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
-      {chargement ? (
+      {onglet === 'demarches' ? (
+        <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
+          <Text style={styles.videTexte}>La démarche complète, étape par étape — pas juste la réponse. C'est comme ça qu'on gagne des points au BAC 🎯</Text>
+          {annalesParMatiere(filtreMatiere === 'Toutes' ? undefined : filtreMatiere).map((d) => (
+            <View key={d.enonce} style={styles.carte}>
+              <TouchableOpacity style={styles.carteHaut} onPress={() => setDemarcheOuverte(demarcheOuverte === d.enonce ? null : d.enonce)}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.carteTitre}>{d.matiere}</Text>
+                  <Text style={styles.carteDetail}>{d.annee}</Text>
+                </View>
+                <Text style={styles.fleche}>{demarcheOuverte === d.enonce ? '▾' : '▸'}</Text>
+              </TouchableOpacity>
+              {demarcheOuverte === d.enonce && (
+                <View style={styles.contenu}>
+                  <Text style={styles.texte}>📝 {d.enonce}</Text>
+                  {d.etapes.map((e, i) => (
+                    <Text key={i} style={[styles.texte, { marginTop: 8, color: '#CBD5E1' }]}>{e}</Text>
+                  ))}
+                  <Text style={styles.corrige}>✅ RÉPONSE FINALE : {d.reponseFinale}</Text>
+                </View>
+              )}
+            </View>
+          ))}
+        </ScrollView>
+      ) : chargement ? (
         <ActivityIndicator size="large" color="#FBBF24" style={{ marginTop: 50 }} />
       ) : horsLigne ? (
         <Text style={styles.vide}>
