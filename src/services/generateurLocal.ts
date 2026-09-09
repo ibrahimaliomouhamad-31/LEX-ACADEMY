@@ -667,6 +667,43 @@ const SUJETS: Sujet[] = [
   },
 ];
 
+function arrangementCombinaison(rng: () => number, n: number): ExoGenere {
+  const factorielle = (x: number): number => {
+    let r = 1;
+    for (let i = 2; i <= x; i++) r *= i;
+    return r;
+  };
+
+  if (n > 45) {
+    const k = 2;
+    const totalB = entier(rng, 8, 15);
+    const totalA = entier(rng, 6, 10);
+    const nb = choix<string[]>(rng, [
+      [`Dans une classe de ${totalB} élèves, combien de comités de ${k} élèves peut-on former ? (ordre sans importance)`, `${factorielle(totalB) / (factorielle(k) * factorielle(totalB - k))}`, 'C(n,k) = n! / (k!·(n-k)!). Le comité n\'est pas ordonné.', `C(${totalB},${k}) = ${factorielle(totalB) / (factorielle(k) * factorielle(totalB - k))}.`],
+      [`Sur le podium d'un concours, combien de classements possibles pour ${k} médaillés parmi ${totalA} candidats ? (ordre important)`, `${factorielle(totalA) / factorielle(totalA - k)}`, 'A(n,k) = n! / (n-k)!. L\'ordre des médailles compte.', `A(${totalA},${k}) = ${factorielle(totalA) / factorielle(totalA - k)}.`],
+    ]);
+    return { enonce: nb[0], bonne_reponse: nb[1], indice1: nb[2], indice2: `Formule : ${nb[2].includes('n\'est pas ordonné') ? 'C(n,k)' : 'A(n,k)'}.`, explication: nb[3] };
+  }
+
+  const total = entier(rng, 6, 12);
+  const k = 2;
+  const useArrangement = rng() < 0.4;
+  const rep = useArrangement
+    ? factorielle(total) / factorielle(total - k)
+    : factorielle(total) / (factorielle(k) * factorielle(total - k));
+  return {
+    enonce: (useArrangement
+      ? `Combien de mots de ${k} lettres (sans répétition) peut-on écrire avec ${total} lettres distinctes ?`
+      : `De combien de façons peut-on choisir un comité de ${k} personnes parmi ${total} ? (ordre sans importance)`),
+    bonne_reponse: String(rep),
+    indice1: useArrangement
+      ? 'C\'est un arrangement : A(n,k) = n! / (n-k)! (l\'ordre compte).'
+      : 'C\'est une combinaison : C(n,k) = n! / (k!·(n-k)!  (l\'ordre ne compte pas).',
+    indice2: isFinite(rep) ? `Formule appliquée avec n=${total}, k=${k}.` : 'Attention au calcul factoriel.',
+    explication: `Résultat : ${rep} possibilités.`,
+  };
+}
+
 // POOL COMPLET : couvre TOUTES les notions du programme BAC C/D (>13 notions)
 const POOL_DEFAUT: GenFonction[] = [
   // Algèbre (6 notions)
