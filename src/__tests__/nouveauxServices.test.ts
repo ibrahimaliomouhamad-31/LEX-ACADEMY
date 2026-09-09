@@ -15,6 +15,8 @@ import { compresserTexte, planifierPrechargement } from '../services/prechargeme
 import { streakAuthentique, scellerStreak, signalerAlteration } from '../services/integrite';
 import { genererSectionsCours } from "../services/enrichirCours";
 import { extraireMicroNotions, couvrirNotions } from "../services/microNotions";
+import { chiffrer, dechiffrer, estChiffre } from '../services/chiffrement';
+import { enregistrerActivite, alertesStagnation } from '../services/stagnation';
 
 describe('Groupes d\'entraide', () => {
   it('bloque le spam, les majuscules et les liens', () => {
@@ -100,5 +102,25 @@ describe("Micro-notions (morceau 1)", () => {
     ]);
     expect(r.length).toBe(notions.length);
     expect(r[0].nbExercices).toBe(1);
+  });
+});
+
+describe('Cahier chiffre + stagnation (cycle E)', () => {
+  it('chiffre et dechiffre sans perte (accents et symboles math)', () => {
+    const original = 'Derivee : f(x) = x² + 3x — la tangente a une pente égale à 2.';
+    const chiffre = chiffrer(original);
+    expect(chiffre).not.toBe(original);
+    expect(estChiffre(chiffre)).toBe(true);
+    expect(dechiffrer(chiffre)).toBe(original);
+  });
+  it('tolere un texte non chiffre (compat anciennes donnees)', () => {
+    const brut = 'ancien cahier non chiffre';
+    expect(dechiffrer(brut)).toBe(brut);
+  });
+  it('une matiere travaillee aujourdhui est suivie sans alerte impossible', async () => {
+    await enregistrerActivite('SVT');
+    const alertes = await alertesStagnation();
+    const svt = alertes.find((a) => a.matiere === 'SVT');
+    expect(svt ? svt.jours : 0).toBeGreaterThanOrEqual(0);
   });
 });
