@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { getAllCoursCache } from '../services/cacheHorsLigne';
 import { getStats, niveauMaitrise, type LexStats } from '../services/statsSuivi';
 
@@ -37,7 +37,14 @@ export default function Pieges() {
     })();
   }, []);
 
-  if (!stats) return <View style={styles.container} />;
+  if (!stats) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#FBBF24" style={{ marginTop: 60 }} />
+        <Text style={{ color: '#FBBF24', marginTop: 12, textAlign: 'center' }}>Analyse de tes stats...</Text>
+      </View>
+    );
+  }
 
   // Chapitres avec ≥ 4 tentatives et taux < 55% → mes pièges personnels
   const mesPieges = Object.entries(stats.chapitres)

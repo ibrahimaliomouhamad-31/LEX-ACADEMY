@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ActivityIndicator, ScrollView, Share, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Speech from 'expo-speech';
 import { db } from '../config/firebaseConfig';
@@ -34,7 +35,14 @@ export default function Cours() {
       try {
         // CACHE D'ABORD : lecture hors-ligne instantanée
         const cache = await getCours(id);
-        if (cache) setCoursData(cache);
+        if (cache) {
+          setCoursData(cache);
+          // 📍 "Reprendre où j'en étais" : on mémorise le dernier chapitre ouvert
+          await AsyncStorage.setItem(
+            'lex_dernier_chapitre',
+            JSON.stringify({ id, titre: cache.titre || id }),
+          );
+        }
         // FIREBASE ensuite : mise à jour + remplissage du cache
         try {
           const docRef = doc(db, "cours", id);
