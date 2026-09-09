@@ -1,12 +1,14 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Share, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Speech from 'expo-speech';
 import { db } from '../config/firebaseConfig';
 import { getCours, saveCours } from '../services/cacheHorsLigne';
 import { genererSectionsCours, sectionsEnTexte } from '../services/enrichirCours';
 import { plafondTexteAudio } from '../services/economieDonnees';
+import { construireFiche, ficheEnTexte } from '../services/fichesSynthese';
+import { dechiffrer } from '../services/chiffrement';
 
 const formatText = (text: string) => {
   if (!text) return "";
@@ -235,9 +237,28 @@ export default function Cours() {
         {coursData?.cahier && (
           <View style={styles.cardCahier}>
             <Text style={styles.cardTitleCahier}>🧺 Mon cahier</Text>
-            <Text style={styles.cahierText}>{formatText(coursData.cahier)}</Text>
+            <Text style={styles.cahierText}>{formatText(dechiffrer(coursData.cahier))}</Text>
           </View>
         )}
+
+        {/* 📌 Bouton « Générer ma fiche » (amélioration 4) : résumé révisable, partageable */}
+        <TouchableOpacity
+          style={styles.boutonFiche}
+          onPress={async () => {
+            try {
+              const fiche = construireFiche(
+                (coursData?.titre as string) || id,
+                (coursData?.matiere as string) || '',
+                (coursData?.theorie as string) || sectionsEnTexte(genererSectionsCours((coursData?.titre as string) || id, coursData?.matiere, '')),
+              );
+              await Share.share({ message: ficheEnTexte(fiche) });
+            } catch {
+              // partage annulé par l'élève : rien à faire
+            }
+          }}
+        >
+          <Text style={styles.boutonFicheTxt}>📌 Générer ma fiche de synthèse</Text>
+        </TouchableOpacity>
 
         {/* 📘 Compléments pédagogiques locaux (×3 du cours) : toujours présents,
             même si Firebase ne fournit qu'un court texte. Générés hors-ligne. */}
@@ -323,6 +344,8 @@ const styles = StyleSheet.create({
   cardCahier: { backgroundColor: '#0E2A1D', borderRadius: 14, padding: 20, marginBottom: 20, borderLeftWidth: 3, borderLeftColor: '#10B981' },
   cardTitleCahier: { color: '#10B981', fontSize: 17, fontWeight: 'bold', marginBottom: 8 },
   cahierText: { color: '#D1FAE5', fontSize: 14, lineHeight: 22 },
+  boutonFiche: { backgroundColor: '#FBBF24', borderRadius: 12, padding: 14, marginTop: 14, marginBottom: 8 },
+  boutonFicheTxt: { color: '#0F172A', fontWeight: '800', textAlign: 'center', fontSize: 14 },
   purpleHint: { color: '#A78BFA', fontSize: 12, marginBottom: 16 },
   enrichCard: { backgroundColor: '#241D3A', borderRadius: 10, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: '#4C39A6' },
   enrichCardTitle: { color: '#D6CCFF', fontSize: 14, fontWeight: 'bold', marginBottom: 8 },

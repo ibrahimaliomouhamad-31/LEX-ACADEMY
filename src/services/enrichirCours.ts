@@ -11,10 +11,13 @@
  *   4. Erreurs fréquentes à éviter (pièges)
  *   5. Points clés à retenir
  *   6. Questions d'auto-évaluation
+ *   7. Schéma annoté (si le chapitre s'y prête)
  *
  * Le contenu est adapté au thème détecté (mathématiques, analyse, géométrie,
  * trigonométrie, physique, chimie, SVT, probabilités, ...) pour rester pertinent.
  */
+
+import { schemaPourChapitre } from './schemas';
 
 export interface SectionCours {
   emoji: string;
@@ -456,6 +459,12 @@ export function genererSectionsCours(titre: string, matiere?: string, contenu?: 
   sections.push({ emoji: '📌', titre: 'Points clés à retenir', lignes: g.cles });
 
   sections.push({ emoji: '✅', titre: 'Questions d\'auto-évaluation', lignes: g.autoEval });
+
+  // 📐 Schéma annoté si le chapitre s'y prête (amélioration 26)
+  const schema = schemaPourChapitre(titre);
+  if (schema) {
+    sections.push({ emoji: '📐', titre: `Schéma : ${schema.titre}`, lignes: [schema.art, '', `➡️ ${schema.legende}`] });
+  }
 
   // On permute légèrement l'ordre des exemples pour varier (déterminisme local)
   if (rng < 0.5) sections[2].lignes = [...sections[2].lignes].reverse();

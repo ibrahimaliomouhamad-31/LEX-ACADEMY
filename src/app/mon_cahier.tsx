@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { getCours, saveCours } from '../services/cacheHorsLigne';
+import { chiffrer, dechiffrer } from '../services/chiffrement';
 import { extraireMicroNotions } from '../services/microNotions';
 
 /**
@@ -27,8 +28,8 @@ export default function MonCahier() {
       const c = await getCours(chapitreId);
       if (c) {
         setTitreChapitre(c.titre || 'Chapitre');
-        if (c.cahier) setContenu(c.cahier);
-        setNbNotions(extraireMicroNotions(c.cahier || '').length);
+        if (c.cahier) setContenu(dechiffrer(c.cahier) || c.cahier);
+        setNbNotions(extraireMicroNotions(dechiffrer(c.cahier || '') || c.cahier || '').length);
       }
     })();
   }, [chapitreId]);
@@ -48,7 +49,7 @@ export default function MonCahier() {
       classe: '',
       matiere: '',
     };
-    cours.cahier = contenu;
+    cours.cahier = chiffrer(contenu);
     // Le cahier sert de contenu de secours si le cours Firebase est absent.
     if (!cours.theorie && !cours.methode_content) cours.theorie = contenu;
     await saveCours(cours);

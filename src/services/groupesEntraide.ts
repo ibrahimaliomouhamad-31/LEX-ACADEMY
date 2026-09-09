@@ -62,3 +62,23 @@ export async function envoyerMessage(matiere: string, auteur: string, texte: str
   await AsyncStorage.setItem(`${CLE}:${matiere}`, JSON.stringify(msgs.slice(-200)));
   return { ok: true };
 }
+
+// 💙 RÉACTIONS (amélioration 10) : un cœur par message, togglable par l'élève.
+const CLE_REACTIONS = '@lex/reactionsGroupes';
+
+/** Toggle le cœur de l'élève local sur un message. Retourne le nouveau total. */
+export async function reagirMessage(matiere: string, idMessage: string): Promise<number> {
+  const brut = await AsyncStorage.getItem(`${CLE_REACTIONS}:${matiere}`);
+  const etat: Record<string, { n: number; moi: boolean }> = brut ? JSON.parse(brut) : {};
+  const e = etat[idMessage] || { n: 0, moi: false };
+  e.moi = !e.moi;
+  e.n = Math.max(0, e.n + (e.moi ? 1 : -1));
+  if (e.n === 0 && !e.moi) delete etat[idMessage]; else etat[idMessage] = e;
+  await AsyncStorage.setItem(`${CLE_REACTIONS}:${matiere}`, JSON.stringify(etat));
+  return e.n;
+}
+
+export async function getReactions(matiere: string): Promise<Record<string, { n: number; moi: boolean }>> {
+  const brut = await AsyncStorage.getItem(`${CLE_REACTIONS}:${matiere}`);
+  return brut ? (JSON.parse(brut) as Record<string, { n: number; moi: boolean }>) : {};
+}

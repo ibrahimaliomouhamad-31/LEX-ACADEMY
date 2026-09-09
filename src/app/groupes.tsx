@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { GROUPES_DISPONIBLES, envoyerMessage, getMessages, type MessageGroupe } from '../services/groupesEntraide';
+import { GROUPES_DISPONIBLES, envoyerMessage, getMessages, getReactions, reagirMessage, type MessageGroupe } from '../services/groupesEntraide';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function GroupesEntraide() {
@@ -10,6 +10,17 @@ export default function GroupesEntraide() {
   const [messages, setMessages] = useState<MessageGroupe[]>([]);
   const [texte, setTexte] = useState('');
   const [pseudo, setPseudo] = useState('');
+  const [reactions, setReactions] = useState<Record<string, { n: number; moi: boolean }>>({});
+
+  useEffect(() => {
+    if (groupeActif) getReactions(groupeActif).then(setReactions);
+  }, [groupeActif]);
+
+  const reagir = async (id: string) => {
+    if (!groupeActif) return;
+    await reagirMessage(groupeActif, id);
+    setReactions(await getReactions(groupeActif));
+  };
 
   useEffect(() => {
     AsyncStorage.getItem('@lex/pseudo').then((p) => setPseudo(p || 'Élève LEX'));
@@ -58,6 +69,11 @@ export default function GroupesEntraide() {
                 <View key={m.id} style={styles.msg}>
                   <Text style={styles.auteur}>{m.auteur}</Text>
                   <Text style={styles.texte}>{m.texte}</Text>
+                  <TouchableOpacity onPress={() => reagir(m.id)} style={{ marginTop: 6, alignSelf: 'flex-start' }}>
+                    <Text style={{ fontSize: 13, color: reactions[m.id]?.moi ? '#F472B6' : '#64748B' }}>
+                      💙 {reactions[m.id]?.n || 0}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               ))}
             </ScrollView>

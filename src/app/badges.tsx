@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getUserItem } from '../services/userStorage';
+import { BADGES_MATIERE, getBadgesMatieresObtenus, reussitesParMatiere } from '../services/badgesMatiere';
 
 interface BadgeSecret {
   id: string; titre: string; emoji: string; description: string;
@@ -38,11 +39,27 @@ export default function Badges() {
   const [badges, setBadges] = useState<BadgeSecret[]>(BADGES_SECRETS);
   const [citation, setCitation] = useState(CITATIONS[0]);
   const [stats, setStats] = useState({ debloques: 0, total: BADGES_SECRETS.length });
+  const [badgesMatiere, setBadgesMatiere] = useState<{ id: string; obtenu: boolean; progression: number }[]>([]);
 
   useEffect(() => {
     chargerBadges();
+    chargerBadgesMatiere();
     setCitation(CITATIONS[Math.floor(Math.random() * CITATIONS.length)]);
   }, []);
+
+  const chargerBadgesMatiere = async () => {
+    try {
+      const obtenus = await getBadgesMatieresObtenus();
+      const liste = await Promise.all(
+        BADGES_MATIERE.map(async (b) => ({
+          id: b.id,
+          obtenu: obtenus.includes(b.id),
+          progression: Math.min(100, Math.round((await reussitesParMatiere(b.matiere)) / b.seuil * 100)),
+        })),
+      );
+      setBadgesMatiere(liste);
+    } catch {}
+  };
 
   const chargerBadges = async () => {
     try {
@@ -110,6 +127,26 @@ export default function Badges() {
             {!badge.debloque && (<Text style={styles.conditionText}>Condition: {badge.condition}</Text>)}
           </View>
         ))}
+
+        <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Badges par Matiere</Text>
+        {BADGES_MATIERE.map((b) => {
+          const etat = badgesMatiere.find((e) => e.id === b.id);
+          const obtenu = etat?.obtenu ?? false;
+          return (
+            <View key={b.id} style={[styles.carteBadge, obtenu && styles.carteBadgeDebloque]}>
+              <View style={styles.badgeHeader}>
+                <Text style={[styles.badgeEmoji, !obtenu && styles.badgeVerrouille]}>{obtenu ? b.emoji : '🔒'}</Text>
+                <View style={styles.badgeInfo}>
+                  <Text style={[styles.badgeTitre, !obtenu && styles.texteVerrouille]}>{b.titre}</Text>
+                  <Text style={[styles.badgeDescription, !obtenu && styles.texteVerrouille]}>{b.condition} · {b.matiere}</Text>
+                </View>
+              </View>
+              <View style={{ height: 6, backgroundColor: '#0B1120', borderRadius: 3, marginTop: 6 }}>
+                <View style={{ height: 6, borderRadius: 3, width: `${etat?.progression ?? 0}%`, backgroundColor: obtenu ? '#10B981' : '#FBBF24' }} />
+              </View>
+            </View>
+          );
+        })}
         <View style={{ height: 30 }} />
       </ScrollView>
     </View>

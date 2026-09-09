@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getUserItem } from '../services/userStorage';
+import { alertesStagnation, type AlerteStagnation } from '../services/stagnation';
 
 interface StatsDetaillees {
   exosResolus: number; exosCorrects: number; tauxReussite: number;
@@ -20,11 +21,13 @@ export default function Statistiques() {
     joursActifs: 0, xpTotal: 0, niveau: 1,
   });
   const [activiteHebdo, setActiviteHebdo] = useState<ActiviteJour[]>([]);
+  const [alertes, setAlertes] = useState<AlerteStagnation[]>([]);
 
   useEffect(() => { chargerStats(); }, []);
 
   const chargerStats = async () => {
     try {
+      setAlertes(await alertesStagnation());
       const [resolus, corrects, serie, xp] = await Promise.all([
         getUserItem('exos_resolus'), getUserItem('exos_corrects'),
         getUserItem('serie_max'), getUserItem('xp_total'),
@@ -63,6 +66,17 @@ export default function Statistiques() {
         <Text style={styles.title}>Statistiques</Text>
       </View>
       <ScrollView contentContainerStyle={{ padding: 20 }}>
+        {/* ⚠️ Alertes de stagnation (amélioration 9) */}
+        {alertes.length > 0 && (
+          <View style={{ backgroundColor: '#7C2D12', borderRadius: 12, padding: 14, marginBottom: 16 }}>
+            <Text style={{ color: '#FDBA74', fontWeight: '800', marginBottom: 6 }}>⚠️ À ne pas négliger</Text>
+            {alertes.map((a) => (
+              <Text key={a.matiere} style={{ color: '#FED7AA', fontSize: 13, marginTop: 2 }}>
+                {a.jours === -1 ? `❌ ${a.matiere} : jamais travaillée` : `🐢 ${a.matiere} : ${a.jours} jours sans révision`}
+              </Text>
+            ))}
+          </View>
+        )}
         <View style={styles.carteNiveau}>
           <Text style={styles.niveauEmoji}>⭐</Text>
           <Text style={styles.niveauText}>Niveau {stats.niveau}</Text>

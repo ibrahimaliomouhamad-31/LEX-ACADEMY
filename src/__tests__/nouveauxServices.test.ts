@@ -12,7 +12,7 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 import { messageAutorise, GROUPES_DISPONIBLES } from '../services/groupesEntraide';
 import { modererFiche } from '../services/moderationFiches';
 import { compresserTexte, planifierPrechargement } from '../services/prechargement';
-import { streakAuthentique, scellerStreak, signalerAltération } from '../services/integrite';
+import { streakAuthentique, scellerStreak, signalerAlteration } from '../services/integrite';
 
 describe('Groupes d\'entraide', () => {
   it('bloque le spam, les majuscules et les liens', () => {
@@ -51,7 +51,7 @@ describe('Préchargement intelligent', () => {
 
 describe('Intégrité du streak', () => {
   it('valide une valeur authentique et rejette une valeur falsifiée', async () => {
-    await signalerAltération();
+    await signalerAlteration();
     await scellerStreak(5, '2026-09-09');
     expect(await streakAuthentique(5, '2026-09-09')).toBe(true);
     expect(await streakAuthentique(999, '2026-09-09')).toBe(false);

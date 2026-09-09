@@ -136,6 +136,9 @@ export default function Exercices() {
         resolus.push(exoId);
         await AsyncStorage.setItem('lex_exos_resolus', JSON.stringify(resolus));
       }
+      // 📊 Trace l'activité par matière pour les alertes de stagnation (amélioration 9)
+      const { enregistrerActivite } = await import('../services/stagnation');
+      await enregistrerActivite((exoData?.matiere as string) || 'Mathématiques');
     } catch (error) {
       console.error('Erreur sauvegarde exo résolu : ', error);
     }
