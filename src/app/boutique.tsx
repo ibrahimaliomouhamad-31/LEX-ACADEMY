@@ -1,9 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { depenserCredits, getCredits } from '../services/statsSuivi';
 import { couleurTheme, getTheme, setTheme, type Theme } from '../services/parametres';
+import { ajouterStreakFreezes, activerBoosterDoubleXp, lireStreakFreezes } from '../services/xpLocal';
 
 // 50 — BOUTIQUE : les crédits se gagnent en résolvant des exercices
 // (+5 par bonne réponse) et s'échangent contre des thèmes, titres et emojis.
@@ -14,7 +15,7 @@ interface Article {
   titre: string;
   description: string;
   prix: number;
-  type: 'theme' | 'titre' | 'avatar';
+  type: 'theme' | 'titre' | 'avatar' | 'boost';
   valeur: string;
 }
 
@@ -26,6 +27,10 @@ const CATALOGUE: Article[] = [
   { id: 'titre_gardien', emoji: '🛡️', titre: 'Titre : Gardien du LEX', description: 'Ton titre s\'affiche dans ton profil', prix: 500, type: 'titre', valeur: '🛡️ Gardien du LEX' },
   { id: 'titre_strategie', emoji: '♟️', titre: 'Titre : Stratège du BAC', description: 'Pour les cerveaux tactiques', prix: 800, type: 'titre', valeur: '♟️ Stratège du BAC' },
   { id: 'titre_legende', emoji: '👑', titre: 'Titre : Légende de Tessaoua', description: 'Le titre ultime, très cher', prix: 2500, type: 'titre', valeur: '👑 Légende de Tessaoua' },
+  // ❄️ Streak Freeze : protège ta série 1 jour (achat multiple, max 5)
+  { id: 'boost_freeze', emoji: '❄️', titre: 'Streak Freeze', description: 'Ta série survit si tu rates UN jour. Indispensable quand le wifi coupe !', prix: 150, type: 'boost', valeur: 'freeze' },
+  // ⚡ Double XP 24h : chaque exercice réussi rapporte 2× plus
+  { id: 'boost_x2', emoji: '⚡', titre: 'Double XP 24h', description: 'Tous tes XP sont doublés pendant 24 heures. Parfait avant les compositions !', prix: 300, type: 'boost', valeur: 'x2' },
 ];
 
 const CLE_ACHATS = 'lex_boutique_achats';
@@ -53,6 +58,22 @@ export default function Boutique() {
   }, []);
 
   const acheter = async (article: Article) => {
+    // ⚡ BOOSTS CONSOMMABLES : pas de "possession", on applique l'effet
+    // immédiatement (Streak Freeze / Double XP 24h), 100% hors-ligne.
+    if (article.type === 'boost') {
+      const ok = await depenserCredits(article.prix);
+      if (!ok) return;
+      if (article.valeur === 'freeze') {
+        await ajouterStreakFreezes(1);
+        Alert.alert('❄️ Streak Freeze acheté !', 'Ta série est protégée pour un jour manqué. Tu en possèdes ' + (await lireStreakFreezes()) + '.');
+      } else if (article.valeur === 'x2') {
+        await activerBoosterDoubleXp();
+        Alert.alert('⚡ Double XP actif !', 'Pendant 24 heures, chaque exercice réussi te rapporte 2× plus d\'XP. À toi de jouer !');
+      }
+      setCredits(await getCredits());
+      return;
+    }
+
     if (achats.includes(article.id)) {
       // Déjà possédé : on l'active
       if (article.type === 'theme') {

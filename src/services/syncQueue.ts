@@ -1,16 +1,33 @@
 /**
  * ✅ SYNC QUEUE - OFFLINE-FIRST
- * Garantit AUCUNE perte de données même 7+ jours sans connexion
+ * Garantit AUCUNE perte de données même 7+ jours sans connexion.
+ *
+ * 🔄 CORRECTIONS MAJEURES (audit offline) :
+ *  1. `isOnline` n'était jamais alimenté (listener réseau inexistant) et
+ *     valait `true` par défaut → flush raté hors-ligne toutes les 15 s.
+ *  2. Pire : chaque échec réseau incrémentait `retries` (max 5 ≈ 75 s) puis
+ *     l'action était abandonnée → PERTES DE DONNÉES dès ~1 min hors-ligne.
+ *     Désormais : une erreur RÉSEAU n'incrémente plus le compteur — l'action
+ *     attend le retour du wifi, indéfiniment. Seules les erreurs MÉTIER
+ *     (conflit de données, document invalide) consomment des retries.
+ *  3. Race d'initialisation du constructeur async corrigée (promesse `pret`).
+ *  4. Support des deltas `increment()` Firestore pour les compteurs (XP),
+ *     résolus au moment du flush et non à l'empilement.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
 import { getCurrentUserId } from './auth';
+import { estEnLigneSync, surChangementConnexion, verifierConnexion } from '../utils/reseau';
+import { estErreurReseau } from '../utils/erreurs';
 
 const SYNC_QUEUE_KEY = 'lex_sync_queue';
 const LAST_SYNC_KEY = 'lex_last_sync_timestamp';
 const SYNC_CONFLICTS_KEY = 'lex_sync_conflicts';
+
+/** Valeurs qu'on résout au moment du flush (compteurs atomiques). */
+export type ValeurDynamique = { __increment: number };
 
 interface SyncAction {
   id: string;
@@ -33,26 +50,59 @@ interface SyncConflict {
   timestamp: number;
 }
 
+/** Les erreurs réseau doivent attendre le wifi, pas abandonner.
+ *  🔄 Déplacé dans utils/erreurs.ts (source unique, testable unitairement).
+ */
+export { estErreurReseau } from '../utils/erreurs';
+
+/** Remplace les deltas {__increment: n} par de vrais FieldValue au flush. */
+function resoudreDeltas(data: Record<string, any>): Record<string, any> {
+  const resultat: Record<string, any> = {};
+  for (const [cle, valeur] of Object.entries(data)) {
+    if (valeur && typeof valeur === 'object' && '__increment' in (valeur as object)) {
+      resultat[cle] = increment(Number((valeur as ValeurDynamique).__increment));
+    } else {
+      resultat[cle] = valeur;
+    }
+  }
+  return resultat;
+}
+
+
 export class SyncQueue {
   private queue: SyncAction[] = [];
   private isSyncing = false;
   private isOnline = true;
-  private syncInterval: NodeJS.Timeout | null = null;
+  private syncInterval: ReturnType<typeof setInterval> | null = null;
+  private pret: Promise<void>;
 
   constructor() {
-    this.init();
+    this.pret = this.init();
+  }
+
+  /** Attend que la file soit chargée (utilisé avant un flush immédiat). */
+  async quandPret(): Promise<void> {
+    await this.pret;
   }
 
   private async init(): Promise<void> {
     await this.loadQueue();
     this.setupNetworkListener();
+    // État réseau réel dès le démarrage (au lieu du défaut optimiste).
+    verifierConnexion().then((enLigne) => {
+      this.isOnline = enLigne;
+      if (enLigne && this.queue.length > 0) this.flush();
+    });
   }
 
   private async loadQueue(): Promise<void> {
     try {
       const stored = await AsyncStorage.getItem(SYNC_QUEUE_KEY);
-      this.queue = stored ? JSON.parse(stored) : [];
-      console.log(`[SyncQueue] ${this.queue.length} actions en attente`);
+      const parse = stored ? JSON.parse(stored) : [];
+      this.queue = Array.isArray(parse) ? parse : [];
+      if (this.queue.length > 0) {
+        console.log(`[SyncQueue] ${this.queue.length} actions en attente`);
+      }
     } catch (error) {
       console.error('[SyncQueue] Erreur chargement:', error);
       this.queue = [];
@@ -68,11 +118,19 @@ export class SyncQueue {
   }
 
   private setupNetworkListener(): void {
+    // 🔄 VRAI branchement réseau (avant : faux intervalle qui faisait
+    // échouer le flush hors-ligne toutes les 15 s).
+    surChangementConnexion((enLigne) => {
+      this.setOnlineStatus(enLigne);
+    });
+
+    // Filet de sécurité : toutes les 60 s, et uniquement si on SAIT qu'on
+    // est en ligne (aucune tentative inutile hors-ligne).
     this.syncInterval = setInterval(() => {
-      if (this.isOnline && !this.isSyncing && this.queue.length > 0) {
+      if (estEnLigneSync() && this.isOnline && !this.isSyncing && this.queue.length > 0) {
         this.flush();
       }
-    }, 15000);
+    }, 60000);
   }
 
   async add(
@@ -81,6 +139,14 @@ export class SyncQueue {
     docId: string,
     data: Record<string, any>
   ): Promise<string> {
+    await this.pret;
+
+    if (!docId || docId === 'null' || docId === 'undefined') {
+      // La donnée n'est JAMAIS jetée : identifiant de rattrapage.
+      console.error('[SyncQueue] docId invalide, action sauvegardée en orphelin :', collection);
+      docId = `orphan_${Date.now()}`;
+    }
+
     const action: SyncAction = {
       id: `${Date.now()}-${Math.random().toString(36)}`,
       type,
@@ -92,9 +158,30 @@ export class SyncQueue {
       maxRetries: 5,
     };
 
+    // Déduplication : fusionne avec une action pendants du même doc/type
+    // (les deltas s'additionnent, les autres champs : le dernier gagne).
+    const existante = this.queue.find(
+      (a) => a.collection === action.collection && a.docId === action.docId && a.type === action.type
+    );
+    if (existante && action.type !== 'delete') {
+      for (const [cle, valeur] of Object.entries(action.data)) {
+        const avant = existante.data[cle];
+        if (
+          avant && typeof avant === 'object' && '__increment' in avant &&
+          valeur && typeof valeur === 'object' && '__increment' in valeur
+        ) {
+          (avant as ValeurDynamique).__increment += (valeur as ValeurDynamique).__increment;
+        } else {
+          existante.data[cle] = valeur;
+        }
+      }
+      existante.timestamp = action.timestamp;
+      await this.saveQueue();
+      return existante.id;
+    }
+
     this.queue.push(action);
     await this.saveQueue();
-    console.log(`[SyncQueue] ✏️ ${type.toUpperCase()}: ${collection}/${docId}`);
 
     if (this.isOnline && !this.isSyncing) {
       this.flush();
@@ -104,6 +191,7 @@ export class SyncQueue {
   }
 
   async flush(): Promise<{ synced: number; failed: number }> {
+    await this.pret;
     if (this.isSyncing || this.queue.length === 0) {
       return { synced: 0, failed: 0 };
     }
@@ -118,16 +206,21 @@ export class SyncQueue {
         await this.syncAction(action);
         toRemove.push(action.id);
         synced++;
-        console.log(`[SyncQueue] ✅ ${action.type.toUpperCase()}`);
       } catch (error) {
-        action.retries++;
-        action.lastError = String(error);
-
-        if (action.retries >= action.maxRetries) {
-          console.error(`[SyncQueue] ❌ Max retries`);
-          toRemove.push(action.id);
+        if (estErreurReseau(error)) {
+          // 🔄 RÉSEAU : pas un échec définitif. L'action RESTE en file
+          // jusqu'au retour du wifi (4 jours si besoin). Jamais de perte.
+          action.lastError = String(error);
           failed++;
-          await this.recordConflict(action, error);
+        } else {
+          action.retries++;
+          action.lastError = String(error);
+
+          if (action.retries >= action.maxRetries) {
+            await this.recordConflict(action, error);
+            toRemove.push(action.id);
+          }
+          failed++;
         }
       }
     }
@@ -159,22 +252,32 @@ export class SyncQueue {
         });
         break;
 
-      case 'update':
+      case 'update': {
+        // Conflit horaire : on FUSIONNE plutôt que d'abandonner — l'élève
+        // vient de refaire l'action, ses champs priment sur le serveur.
         const existing = await getDoc(docRef);
         if (existing.exists()) {
-          const remote = existing.data();
+          const remote = existing.data() || {};
           const remoteTime = new Date(remote.updatedAt || remote.syncedAt || 0).getTime();
           if (remoteTime > action.timestamp) {
-            throw new Error(`Conflit: données serveur plus récentes`);
+            await updateDoc(docRef, {
+              ...remote,
+              ...resoudreDeltas(action.data),
+              userId,
+              updatedAt: new Date(action.timestamp).toISOString(),
+              syncedAt: new Date().toISOString(),
+            });
+            return;
           }
         }
         await updateDoc(docRef, {
-          ...action.data,
+          ...resoudreDeltas(action.data),
           userId,
           updatedAt: new Date(action.timestamp).toISOString(),
           syncedAt: new Date().toISOString(),
         });
         break;
+      }
 
       case 'delete':
         await updateDoc(docRef, {
@@ -200,8 +303,9 @@ export class SyncQueue {
         timestamp: Date.now(),
       };
       conflicts.push(conflict);
-      await AsyncStorage.setItem(SYNC_CONFLICTS_KEY, JSON.stringify(conflicts));
-      console.error('[SyncQueue] 🔴 Conflit enregistré');
+      // Garde-fou mémoire : max 100 conflits conservés.
+      await AsyncStorage.setItem(SYNC_CONFLICTS_KEY, JSON.stringify(conflicts.slice(-100)));
+      console.error('[SyncQueue] 🔴 Conflit enregistré :', error);
     } catch (e) {
       console.error('[SyncQueue] Erreur conflit:', e);
     }
@@ -214,6 +318,7 @@ export class SyncQueue {
     conflicts: number;
     isOnline: boolean;
   }> {
+    await this.pret;
     const lastSync = await AsyncStorage.getItem(LAST_SYNC_KEY);
     const conflicts = JSON.parse(
       (await AsyncStorage.getItem(SYNC_CONFLICTS_KEY)) || '[]'
@@ -223,7 +328,7 @@ export class SyncQueue {
       synced: this.queue.length === 0,
       lastSync: lastSync ? new Date(parseInt(lastSync)).toISOString() : undefined,
       conflicts: conflicts.length,
-      isOnline: this.isOnline,
+      isOnline: this.isOnline && estEnLigneSync(),
     };
   }
 
@@ -244,3 +349,22 @@ export class SyncQueue {
 }
 
 export const syncQueue = new SyncQueue();
+
+/**
+ * Pousse des compteurs vers un doc avec increment() atomique.
+ * Exemple : pousserCompteur('utilisateurs', uid, { xp: 50 })
+ * L'action part dans la file : envoyée immédiatement si en ligne,
+ * au retour du wifi sinon.
+ */
+export async function pousserCompteur(
+  collection: string,
+  docId: string,
+  compteurs: Record<string, number>
+): Promise<void> {
+  const data: Record<string, ValeurDynamique> = {};
+  for (const [cle, valeur] of Object.entries(compteurs)) {
+    data[cle] = { __increment: valeur };
+  }
+  await syncQueue.add('update', collection, docId, data as unknown as Record<string, any>);
+}
+

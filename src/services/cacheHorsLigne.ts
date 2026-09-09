@@ -39,6 +39,7 @@ export async function getExercices(chapitre_id: string): Promise<Exercice[] | nu
     if (json === null) {
       return null;
     }
+    await noterAcces(chapitre_id); // suivi LRU
     return JSON.parse(json) as Exercice[];
   } catch (error) {
     console.error(`[cacheHorsLigne] Erreur getExercices(${chapitre_id}):`, error);
@@ -72,6 +73,83 @@ export async function getExoById(id: string): Promise<Exercice | null> {
   } catch (error) {
     console.error(`[cacheHorsLigne] Erreur getExoById(${id}):`, error);
     return null;
+  }
+}
+
+// ---------- 📦 QUOTA DE CACHE + LRU (gestion de l'espace) ----------
+
+const CLE_META = 'lex_cache_meta'; // { [chapitreId]: timestamp dernier accès }
+const QUOTA_CACHE_OCTETS = 40 * 1024 * 1024; // ~40 Mo
+
+/** Note le dernier accès d'un chapitre (pour l'éviction LRU). */
+async function noterAcces(chapitreId: string): Promise<void> {
+  try {
+    const brut = await AsyncStorage.getItem(CLE_META);
+    const meta = brut ? JSON.parse(brut) : {};
+    meta[chapitreId] = Date.now();
+    await AsyncStorage.setItem(CLE_META, JSON.stringify(meta));
+  } catch {
+    // ignore
+  }
+}
+
+/** Taille en octets de chaque chapitre en cache. */
+export async function tailleParChapitre(): Promise<{ id: string; octets: number }[]> {
+  try {
+    const allKeys = await AsyncStorage.getAllKeys();
+    const cacheKeys = allKeys.filter((k) => k.startsWith(CACHE_PREFIX));
+    const entries = await AsyncStorage.multiGet(cacheKeys);
+    return entries.map(([key, json]) => ({
+      id: key.slice(CACHE_PREFIX.length),
+      octets: (json?.length ?? 0) + key.length,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 🧹 Applique le quota : supprime les chapitres les PLUS ANCIENNEMENT
+ * consultés jusqu'à repasser sous le plafond. Les chapitres jamais
+ * rouverts depuis longtemps partent en premier — l'élève ne perd jamais
+ * ce qu'il utilise réellement.
+ * Retourne le nombre de chapitres supprimés.
+ */
+export async function appliquerQuotaCache(
+  quotaOctets: number = QUOTA_CACHE_OCTETS
+): Promise<number> {
+  try {
+    let supprimes = 0;
+    let total = await getCacheSize();
+    if (total <= quotaOctets) return 0;
+
+    const brut = await AsyncStorage.getItem(CLE_META);
+    const meta: { [id: string]: number } = brut ? JSON.parse(brut) : {};
+    const tailles = await tailleParChapitre();
+
+    // Du plus ancien accès au plus récent (jamais accédés = timestamp 0).
+    tailles.sort((a, b) => (meta[a.id] || 0) - (meta[b.id] || 0));
+
+    for (const chap of tailles) {
+      if (total <= quotaOctets) break;
+      await AsyncStorage.removeItem(CACHE_PREFIX + chap.id);
+      total -= chap.octets;
+      supprimes++;
+    }
+
+    return supprimes;
+  } catch (error) {
+    console.error('[cacheHorsLigne] Erreur appliquerQuotaCache:', error);
+    return 0;
+  }
+}
+
+/** Supprime un chapitre précis (gestion manuelle). */
+export async function supprimerChapitre(chapitreId: string): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(CACHE_PREFIX + chapitreId);
+  } catch (error) {
+    console.error(`[cacheHorsLigne] Erreur supprimerChapitre(${chapitreId}):`, error);
   }
 }
 

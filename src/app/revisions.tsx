@@ -11,9 +11,11 @@ import {
   View,
 } from 'react-native';
 import { estJuste } from '../services/outilsReponse';
-import { getRevisionsDuJour, planifierRevision, retirerRevision } from '../services/revisions';
+import { getRevisionsDuJour, planifierRevision, retirerRevision, marquerRevisionFaite, revisionsFaitesAujourdhui } from '../services/revisions';
 import { enregistrerTentative } from '../services/statsSuivi';
 import type { Exercice } from '../services/cacheHorsLigne';
+
+const PLAFOND_JOUR = 20;
 
 export default function Revisions() {
   const router = useRouter();
@@ -24,11 +26,13 @@ export default function Revisions() {
   const [feedback, setFeedback] = useState('');
   const [isCorrect, setIsCorrect] = useState(false);
   const [fait, setFait] = useState(0);
+  const [faitAujourdhui, setFaitAujourdhui] = useState(0);
 
   useEffect(() => {
     (async () => {
       const revs = await getRevisionsDuJour();
       setRevisions(revs);
+      setFaitAujourdhui(await revisionsFaitesAujourdhui());
       setLoading(false);
     })();
   }, []);
@@ -43,6 +47,10 @@ export default function Revisions() {
     try {
       await enregistrerTentative(exo, juste);
       await planifierRevision(exo, juste);
+      if (juste) {
+        await marquerRevisionFaite(); // 🧠 plafond quotidien
+        setFaitAujourdhui((n) => n + 1);
+      }
     } catch {
       // ignore
     }
@@ -90,6 +98,7 @@ export default function Revisions() {
         </TouchableOpacity>
         <Text style={styles.subject}>MÉMOIRE À LONG TERME</Text>
         <Text style={styles.title}>🧠 Révisions du jour</Text>
+          <Text style={styles.compteur}>Progression : {faitAujourdhui}/{PLAFOND_JOUR} aujourd'hui</Text>
       </View>
 
       {revisions.length === 0 ? (
@@ -97,8 +106,7 @@ export default function Revisions() {
           <Text style={styles.videEmoji}>🎉</Text>
           <Text style={styles.videTitre}>Rien à réviser aujourd'hui !</Text>
           <Text style={styles.videTexte}>
-            Chaque exercice raté revient automatiquement 1 jour, 3 jours, 7 jours puis 21 jours plus tard.
-            Continue à t'entraîner : les notions fragiles reviendront ici.
+            Chaque exercice raté revient automatiquement 1 jour, 3 jours, 7 jours puis 35 jours plus tard. Continue à t'entraîner : les notions fragiles reviendront ici.
           </Text>
           <TouchableOpacity style={styles.btnAller} onPress={() => router.push('/classes_exos')}>
             <Text style={styles.btnAllerText}>✍️ Aller aux exercices</Text>

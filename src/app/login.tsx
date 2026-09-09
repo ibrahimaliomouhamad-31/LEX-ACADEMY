@@ -1,11 +1,42 @@
 import { connecter } from '../services/authFirebase';
-import { sha256 } from 'js-sha256';
+import { hacherMotDePasse } from '../services/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { addDoc, collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc } from 'firebase/firestore';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { db } from '../config/firebaseConfig';
+import { estEnLigne } from '../utils/reseau';
+
+// 🔄 OFFLINE-FIRST : les identifiants (nom + hash du mot de passe) sont
+// conservés localement après CHAQUE connexion réussie en ligne. Sans
+// internet, l'élève peut quand même se connecter à son compte sur CE
+// téléphone : XP, révisions, badges et progression restent 100% actifs.
+const CLE_COMPTES_LOCAUX = 'lex_comptes_locaux';
+
+interface CompteLocal {
+  hash: string;
+  uid: string;
+}
+
+async function lireComptesLocaux(): Promise<Record<string, CompteLocal>> {
+  try {
+    const brut = await AsyncStorage.getItem(CLE_COMPTES_LOCAUX);
+    return brut ? (JSON.parse(brut) as Record<string, CompteLocal>) : {};
+  } catch {
+    return {};
+  }
+}
+
+async function sauvegarderCompteLocal(nom: string, hash: string, uid: string): Promise<void> {
+  try {
+    const comptes = await lireComptesLocaux();
+    comptes[nom.trim().toLowerCase()] = { hash, uid };
+    await AsyncStorage.setItem(CLE_COMPTES_LOCAUX, JSON.stringify(comptes));
+  } catch {
+    // ignore : jamais bloquant
+  }
+}
 
 function BoutonOublie({ nom }: { nom: string }) {
   return (
@@ -37,36 +68,72 @@ export default function Login() {
     }
     setLoading(true);
 
+    const nomNettoye = nom.trim();
+    const cleLocale = nomNettoye.toLowerCase();
+
+    // 🔐 Salage déterministe par compte : même formule qu'à l'inscription.
+    // Deux élèves avec le même mot de passe → hachés différents.
+    const hashSaisi = hacherMotDePasse(nomNettoye, password);
+
     try {
+      // 🔄 CONNEXION HORS-LIGNE : si le réseau est coupé mais que l'élève
+      // s'est déjà connecté au moins une fois sur ce téléphone, on ouvre
+      // sa session localement. Avant : "Problème de connexion à internet"
+      // et l'app était inutilisable 4 jours, même avec un compte valide.
+      const enLigne = await estEnLigne().catch(() => true);
+      if (!enLigne) {
+        const comptes = await lireComptesLocaux();
+        const compte = comptes[cleLocale];
+        if (compte && compte.hash === hashSaisi) {
+          await AsyncStorage.setItem('lex_user_nom', nomNettoye);
+          await AsyncStorage.setItem('lex_user_id', compte.uid);
+          Alert.alert(
+            "Bienvenue !",
+            `Connecté hors-ligne en tant que ${nomNettoye}.\nTa progression se synchronisera au retour du wifi.`
+          );
+          router.push('/');
+          return;
+        }
+        Alert.alert(
+          "Mode hors-ligne",
+          "Pas de connexion et aucun compte enregistré sur ce téléphone.\n\n👉 Tu peux quand même réviser sans compte, ou connecte-toi une première fois avec le wifi du LEX."
+        );
+        return;
+      }
+
       // 76 — Authentification Firebase Auth (vraie identité)
-      const uid = await connecter(nom.trim(), sha256(password.trim()));
+      const uid = await connecter(nomNettoye, hashSaisi);
       if (uid) {
         const docSnap = await getDoc(doc(db, "utilisateurs", uid));
-        await AsyncStorage.setItem('lex_user_nom', docSnap.exists() ? (docSnap.data().nom || nom.trim()) : nom.trim());
+        await AsyncStorage.setItem('lex_user_nom', docSnap.exists() ? (docSnap.data().nom || nomNettoye) : nomNettoye);
         await AsyncStorage.setItem('lex_user_id', uid);
-        Alert.alert("Bienvenue !", `Connecté en tant que ${nom.trim()}.`);
+        // Mémoire des identifiants pour les prochaines connexions hors-ligne
+        await sauvegarderCompteLocal(nomNettoye, hashSaisi, uid);
+        Alert.alert("Bienvenue !", `Connecté en tant que ${nomNettoye}.`);
         router.push('/');
         return;
       }
-      // Repli ancienne méthode (comptes pas encore migrés vers Auth)
-      const q = query(collection(db, "utilisateurs"), where("nom", "==", nom.trim()), where("mot_de_passe", "==", sha256(password.trim())));
-      const querySnapshot = await getDocs(q);
-
-      if (!querySnapshot.empty) {
-        // L'élève existe et le mot de passe est bon !
-        const userDoc = querySnapshot.docs[0];
-        // On sauvegarde son nom et son ID dans la mémoire du téléphone
-        await AsyncStorage.setItem('lex_user_nom', userDoc.data().nom);
-        await AsyncStorage.setItem('lex_user_id', userDoc.id);
-        
-        Alert.alert("Bienvenue !", `Connecté en tant que ${userDoc.data().nom}.`);
-        router.push('/');
-      } else {
-        Alert.alert("Erreur", "Nom ou mot de passe incorrect.");
-      }
+      // Faute d'identifiant Firebase Auth : mot de passe ou nom incorrect.
+      Alert.alert("Erreur", "Nom ou mot de passe incorrect.");
     } catch (error) {
       console.error("Erreur login : ", error);
-      Alert.alert("Erreur", "Problème de connexion à internet.");
+      // 🔄 Dernier recours : compte local ? (le réseau a pu lâcher en route)
+      const comptes = await lireComptesLocaux();
+      const compte = comptes[cleLocale];
+      if (compte && compte.hash === hashSaisi) {
+        await AsyncStorage.setItem('lex_user_nom', nomNettoye);
+        await AsyncStorage.setItem('lex_user_id', compte.uid);
+        Alert.alert(
+          "Bienvenue !",
+          `Connecté hors-ligne en tant que ${nomNettoye}.\nTa progression se synchronisera au retour du wifi.`
+        );
+        router.push('/');
+        return;
+      }
+      Alert.alert(
+        "Connexion impossible",
+        "Vérifie ta connexion internet. Astuce : si tu t'es déjà connecté avec le wifi du LEX, tu peux te reconnecter même sans internet."
+      );
     } finally {
       setLoading(false);
     }

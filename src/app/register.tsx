@@ -1,11 +1,10 @@
 import { creerCompte } from '../services/authFirebase';
+import { hacherMotDePasse } from '../services/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { addDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { db } from '../config/firebaseConfig';
-import { sha256 } from 'js-sha256';
 import { doc, setDoc } from 'firebase/firestore';
 
 export default function Register() {
@@ -32,36 +31,40 @@ export default function Register() {
     setLoading(true);
 
     try {
-      // 1. On vérifie si le nom n'est pas déjà pris
-      const q = query(collection(db, "utilisateurs"), where("nom", "==", nom.trim()));
-      const querySnapshot = await getDocs(q);
-
-      if (!querySnapshot.empty) {
-        setErreur("Ce nom d'utilisateur est déjà pris. Choisis-en un autre.");
-        setLoading(false);
-        return;
-      }
-
-      // 2. Compte Firebase Auth (vraie identité) puis le profil Firestore
-      const mdpHashe = sha256(password.trim());
+      // 🔐 Compte Firebase Auth (vraie identité). Le nom d'utilisateur est
+      // UNIQUE par construction (email synthétique nom@lex.academy) : un
+      // doublon est donc détecté nativement par Firebase Auth
+      // (auth/email-already-in-use). Plus besoin de lire publiquement la
+      // collection `utilisateurs` (verrouillée pour la sécurité).
+      // 🔐 Salage déterministe par compte (même formule qu'à la connexion).
+      const mdpHashe = hacherMotDePasse(nom.trim(), password);
       const uid = await creerCompte(nom.trim(), mdpHashe);
+
+      // Profil : UNIQUEMENT les champs publics.
+      // 🔒 Le mot de passe ne vit QUE dans Firebase Auth, jamais dans
+      // Firestore (les règles de sécurité l'interdisent formellement).
       await setDoc(doc(db, "utilisateurs", uid), {
         nom: nom.trim(),
         classe: classe.trim(),
-        mot_de_passe: mdpHashe,
         xp: 0
       });
 
-      // 3. On le connecte automatiquement (on sauvegarde dans la mémoire du téléphone)
+      // 3. Connexion automatique (mémoire locale + session)
       await AsyncStorage.setItem('lex_user_nom', nom.trim());
       await AsyncStorage.setItem('lex_user_id', uid);
 
       Alert.alert("Bienvenue au LEX !", "Ton compte a été créé avec succès. Tu as 0 XP. Va faire des exercices pour grimper dans le classement !");
       router.push('/');
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erreur inscription : ", error);
-      setErreur("Une erreur est survenue. Vérifie ta connexion internet.");
+      if (error?.code === 'auth/email-already-in-use') {
+        setErreur("Ce nom d'utilisateur est déjà pris. Choisis-en un autre.");
+      } else if (error?.code && String(error.code).startsWith('auth/')) {
+        setErreur("Compte impossible à créer : vérifie ton mot de passe (8 caractères minimum) puis réessaie.");
+      } else {
+        setErreur("Une erreur est survenue. Vérifie ta connexion internet.");
+      }
     } finally {
       setLoading(false);
     }

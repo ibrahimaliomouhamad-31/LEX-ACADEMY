@@ -43,7 +43,7 @@ export default function Profil() {
           }
         }
 
-        const q = query(collection(db, "utilisateurs"), orderBy("xp", "desc"));
+        const q = query(collection(db, "classement_public"), orderBy("xp", "desc"));
         const querySnapshot = await getDocs(q);
         
         const elevesData: any[] = [];

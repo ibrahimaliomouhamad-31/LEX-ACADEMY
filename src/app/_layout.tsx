@@ -1,12 +1,50 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import React from 'react';
 import { AppState, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getDortoirActive, getTaillePolice, multiplicateurPolice, setDortoirActive } from '../services/parametres';
+// 🔄 OFFLINE-FIRST : le hook réseau démarre l'écoute système de la connexion
+// pour toute l'app. Au retour du wifi, il déclenche la synchronisation de
+// TOUTES les files (XP, streak, progression, défis, signalements).
+// Avant, personne ne montait ce hook : la sync ne se déclenchait jamais.
+import { useNetworkStatus } from '../utils/networkListener';
+import { initAppCheck } from '../services/appCheck';
+import { signalerCrash } from '../services/crashLog';
+
+// 🚨 ERROR BOUNDARY GLOBAL (expo-router) : plus aucun écran ne peut faire
+// planter toute l'app. Le crash est journalisé localement + envoyé au retour
+// du wifi, et l'élève voit un écran doux avec bouton Réessayer.
+export function ErrorBoundary({ error, retry }: { error: Error; retry: () => void }) {
+  signalerCrash(error);
+
+  return (
+    <View style={{ flex: 1, backgroundColor: '#0F172A', alignItems: 'center', justifyContent: 'center', padding: 30 }}>
+      <Text style={{ fontSize: 50, marginBottom: 12 }}>🛠️</Text>
+      <Text style={{ color: '#F8FAFC', fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 }}>
+        Oups, un petit bug !
+      </Text>
+      <Text style={{ color: '#94A3B8', fontSize: 14, textAlign: 'center', lineHeight: 21, marginBottom: 25 }}>
+        Ce n'est pas ta faute. Tes XP et ta progression sont en sécurité. Réessaie, ou redémarre l'application.
+      </Text>
+      <TouchableOpacity
+        onPress={retry}
+        style={{ backgroundColor: '#FBBF24', paddingHorizontal: 30, paddingVertical: 14, borderRadius: 12 }}
+      >
+        <Text style={{ color: '#0F172A', fontWeight: 'bold', fontSize: 15 }}>🔄 Réessayer</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
 
 export default function Layout() {
   const [pret, setPret] = useState(false);
   const [dortoir, setDortoir] = useState(false);
+  useNetworkStatus();
+
+  // 🛡️ App Check : protège Firebase des abus (une seule fois pour l'app).
+  useEffect(() => {
+    initAppCheck();
+  }, []);
 
   // Accessibilité : multiplie la taille de police de tous les Texte de l'app
   // selon le réglage choisi dans ⚙️ Paramètres.
