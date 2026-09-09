@@ -2,13 +2,23 @@ import { useRouter } from 'expo-router';
 import { collection, getDocs, orderBy, query, limit } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db } from '../config/firebaseConfig';
 import { liguePourXp } from '../services/motivation';
+import { lireXpTotal } from '../services/xpLocal';
 
 export default function Classement() {
   const router = useRouter();
   const [eleves, setEleves] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [monXp, setMonXp] = useState(0);
+  const [pseudo, setPseudo] = useState('');
+
+  useEffect(() => {
+    // 📍 Repli local : XP + pseudo de l'élève courant (visibles hors-ligne)
+    lireXpTotal().then(setMonXp).catch(() => {});
+    AsyncStorage.getItem('@lex/pseudo').then((p) => setPseudo(p || 'Toi')).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const fetchClassement = async () => {
@@ -64,13 +74,29 @@ export default function Classement() {
       <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
       
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.push('/')}>
+        <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.backBtn}>‹ Retour au menu</Text>
         </TouchableOpacity>
         <Text style={styles.title}>🏆 CLASSEMENT DU LEX</Text>
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* 📍 Repli 100% hors-ligne : ta carte locale (XP + ligue) quand le
+            classement du LEX n'est pas joignable (cas principal au Niger). */}
+        {eleves.length === 0 && (
+          <View style={[styles.rankCard, { borderLeftColor: '#10B981' }]}>
+            <Text style={styles.rankNumber}>—</Text>
+            <View style={styles.info}>
+              <Text style={styles.rankAvatar}>🎓</Text>
+              <Text style={styles.name}>{pseudo}</Text>
+              <Text style={styles.class}>Classement du LEX indisponible hors-ligne 📶</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={styles.xp}>{monXp} XP</Text>
+              <Text style={styles.ligue}>{liguePourXp(monXp).emoji} {liguePourXp(monXp).nom}</Text>
+            </View>
+          </View>
+        )}
         {eleves.map((eleve, index) => (
           <View key={index} style={styles.rankCard}>
             <Text style={styles.rankNumber}>{index + 1}</Text>
