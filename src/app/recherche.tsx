@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { rechercher, type ResultatRecherche } from '../services/rechercheGlobale';
+import { FORMULES } from '../services/formulaire';
 
 export default function Recherche() {
   const router = useRouter();
@@ -59,7 +60,7 @@ export default function Recherche() {
         {resultats && texte.trim().length >= 2 ? (
           <Text style={styles.compteur}>{total} résultat(s) — exercices 📝, formules 📐, cours 📘, olympiades 🏅</Text>
         ) : (
-          <Text style={styles.compteur}>Cherche dans tes exercices téléchargés, les 118 formules, tes cours et les olympiades.</Text>
+          <Text style={styles.compteur}>Cherche dans tes exercices téléchargés, les {FORMULES.length} formules, tes cours et les olympiades.</Text>
         )}
       </View>
 
