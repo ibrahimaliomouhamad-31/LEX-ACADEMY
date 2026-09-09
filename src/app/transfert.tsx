@@ -49,6 +49,14 @@ export default function Transfert() {
       for (const [cle, valeur] of paires) donnees[cle] = valeur;
       const codeGenere = versBase64(JSON.stringify(donnees));
       setCode(codeGenere);
+      // ⚠️ WhatsApp coupe les messages très longs : si le cache est gros,
+      // l'élève doit d'abord vider ses téléchargements (Paramètres).
+      if (codeGenere.length > 1500000) {
+        Alert.alert(
+          'Code très volumineux',
+          "Ton cache contient beaucoup de cours/exercices : le code risque d'être coupé par WhatsApp. Pour une sauvegarde fiable, vide d'abord tes téléchargements dans ⚙️ Paramètres, puis régénère le code."
+        );
+      }
     } catch (erreur) {
       Alert.alert('Erreur', 'Impossible de générer le code de sauvegarde.');
     } finally {
@@ -84,6 +92,12 @@ export default function Transfert() {
               const donnees = JSON.parse(depuisBase64(texte)) as { [cle: string]: string | null };
               const paires = Object.entries(donnees).filter(([, v]) => v !== null) as [string, string][];
               if (paires.length === 0) throw new Error('vide');
+              // 🧹 REMPLACEMENT complet (promis par l'alerte) : on supprime
+              // d'abord les clés lex_ locales, sinon des données résiduelles
+              // (exos résolus, stats) polluent la restauration et créent des
+              // incohérences XP / anti-farm.
+              const locales = (await AsyncStorage.getAllKeys()).filter((k) => k.startsWith('lex_'));
+              if (locales.length > 0) await AsyncStorage.multiRemove(locales);
               await AsyncStorage.multiSet(paires);
               Alert.alert('✅ Restauré !', `${paires.length} éléments récupérés. Redémarre l'application pour tout voir.`);
               setCodeEntree('');
