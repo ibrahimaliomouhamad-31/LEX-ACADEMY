@@ -667,20 +667,42 @@ const SUJETS: Sujet[] = [
   },
 ];
 
-const POOL_DEFAUT: GenFonction[] = [systemeDeuxEquations, inequationSimple,
-  eqPremierDegre,
-  eqSecondDegre,
-  pgcdExo,
-  puissanceExo,
-  pourcentageExo,
-  suiteArithmetique,
-  suiteGeometrique,
-  deriveePolynome,
-  pythagore,
-  probabiliteDe,
-  calculMental,
-  vitesseExo,
-  loiOhm,
+// POOL COMPLET : couvre TOUTES les notions du programme BAC C/D (>13 notions)
+const POOL_DEFAUT: GenFonction[] = [
+  // Algèbre (6 notions)
+  eqPremierDegre,        // Équations du 1er degré
+  eqSecondDegre,         // Équations du 2de degré
+  systemeDeuxEquations,  // Systèmes d'équations
+  inequationSimple,      // Inéquations
+  pgcdExo,               // Divisibilité et PGCD
+  puissanceExo,          // Puissances et exposants
+
+  // Analyse (4 notions)
+  suiteArithmetique,     // Suites arithmétiques
+  suiteGeometrique,      // Suites géométriques
+  deriveePolynome,       // Dérivées
+  racineCarreeEq,        // Racines carrées
+
+  // Géométrie (2 notions)
+  pythagore,             // Théorème de Pythagore
+  airePerimetre,         // Aires et périmètres
+
+  // Probabilités & Dénombrement (2 notions)
+  probabiliteDe,         // Probabilités (dés)
+  arrangementCombinaison,// Arrangements et combinaisons
+
+  // Physique (3 notions)
+  vitesseExo,            // Vitesse et mouvement
+  loiOhm,                // Loi d'Ohm (électricité)
+  energieCinetique,      // Énergie cinétique
+
+  // Chimie (2 notions)
+  concentrationExo,      // Concentrations
+  masseVolumique,        // Masse volumique
+
+  // Calcul & Applications (2 notions)
+  calculMental,          // Calcul rapide
+  pourcentageExo,        // Pourcentages
 ];
 
 function normaliserCle(s: string): string {

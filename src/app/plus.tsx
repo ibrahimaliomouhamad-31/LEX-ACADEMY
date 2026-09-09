@@ -16,7 +16,7 @@ const ROUTES_VERROUILLEES_EXAMEN = ['/formulaire', '/calculatrice', '/flashcards
 
 const REVISER: Fonctionnalite[] = [
   { emoji: '📚', titre: 'Annales BAC', titreEn: 'Past BAC exams', description: 'Vrais sujets du BAC à télécharger', descriptionEn: 'Real BAC papers to download', route: '/annales', couleur: '#B91C1C' },
-  { emoji: '📝', titre: 'Devoirs', titreEn: 'Homework', description: 'Les devoirs donnés par tes professeurs', descriptionEn: 'Assignments from your teachers', route: '/devoirs', couleur: '#F59E0B' },
+  { emoji: '🎯', titre: 'Mes Objectifs', titreEn: 'My Goals', description: 'Fixe-toi tes propres buts de révision', descriptionEn: 'Set your own revision goals', route: '/devoirs', couleur: '#F59E0B' },
   { emoji: '📝', titre: 'BAC Blanc', titreEn: 'Mock exam', description: 'Épreuves chronométrées, note sur 20 et corrigé', descriptionEn: 'Timed exams, graded /20 with answers', route: '/bac_blanc', couleur: '#EF4444' },
   { emoji: '🧪', titre: 'Test de positionnement', titreEn: 'Placement test', description: '20 questions pour situer ton niveau exact', descriptionEn: '20 questions to find your exact level', route: '/positionnement', couleur: '#06B6D4' },
   { emoji: '🃏', titre: 'Flashcards', titreEn: 'Flashcards', description: 'Cartes de révision générées depuis tes cours', descriptionEn: 'Revision cards made from your lessons', route: '/flashcards', couleur: '#8B5CF6' },
