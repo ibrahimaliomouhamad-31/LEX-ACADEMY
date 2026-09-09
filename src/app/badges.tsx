@@ -1,104 +1,115 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { doc, getDoc } from 'firebase/firestore';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { FlatList, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { db } from '../config/firebaseConfig';
-import { chargerContexte, evaluerBadges, liguePourXp, quetesDeLaSemaine, type ContexteBadges, type Quete } from '../services/motivation';
+import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { getUserItem } from '../services/userStorage';
+
+interface BadgeSecret {
+  id: string; titre: string; emoji: string; description: string;
+  condition: string; debloque: boolean; rarete: 'commun' | 'rare' | 'epique' | 'legendaire';
+}
+
+const BADGES_SECRETS: BadgeSecret[] = [
+  { id: 'premier_pas', titre: 'Premier Pas', emoji: '👣', description: 'Résoudre ton premier exercice', condition: '1 exercice résolu', debloque: false, rarete: 'commun' },
+  { id: 'serie_5', titre: 'En Feu', emoji: '🔥', description: '5 bonnes réponses consécutives', condition: 'Série de 5', debloque: false, rarete: 'commun' },
+  { id: 'serie_10', titre: 'Inarrêtable', emoji: '⚡', description: '10 bonnes réponses consécutives', condition: 'Série de 10', debloque: false, rarete: 'rare' },
+  { id: 'matinal', titre: 'Lève-tôt', emoji: '🌅', description: 'Réviser avant 7h du matin', condition: 'Exercice avant 7h', debloque: false, rarete: 'rare' },
+  { id: 'nocturne', titre: 'Veilleur', emoji: '🌙', description: 'Réviser après 22h', condition: 'Exercice après 22h', debloque: false, rarete: 'rare' },
+  { id: 'cent_exos', titre: 'Centurion', emoji: '💯', description: 'Résoudre 100 exercices', condition: '100 exercices', debloque: false, rarete: 'epique' },
+  { id: 'bac_blanc_15', titre: 'Aspiring BAC', emoji: '🎯', description: 'Avoir 15/20 à un BAC blanc', condition: 'BAC blanc >= 15', debloque: false, rarete: 'epique' },
+  { id: 'zero_erreur', titre: 'Perfection', emoji: '💎', description: '20 exercices sans erreur', condition: '20/20', debloque: false, rarete: 'legendaire' },
+  { id: 'tessaoua_champion', titre: 'Champion de Tessaoua', emoji: '🏆', description: 'Top 1 du classement', condition: 'Rang #1', debloque: false, rarete: 'legendaire' },
+  { id: 'semaine_complete', titre: 'Assidu', emoji: '📅', description: 'Réviser 7 jours de suite', condition: 'Streak de 7', debloque: false, rarete: 'epique' },
+];
+
+const CITATIONS = [
+  { texte: "Le succès est la somme de petits efforts répétés jour après jour.", auteur: "Robert Collier" },
+  { texte: "L'éducation est l'arme la plus puissante pour changer le monde.", auteur: "Nelson Mandela" },
+  { texte: "Le seul moyen de faire du bon travail est d'aimer ce que vous faites.", auteur: "Steve Jobs" },
+  { texte: "La connaissance est le commencement de l'action.", auteur: "Proverbe africain" },
+  { texte: "Chaque expert était un jour un débutant.", auteur: "Helen Hayes" },
+  { texte: "L'avenir appartient à ceux qui croient en la beauté de leurs rêves.", auteur: "Eleanor Roosevelt" },
+  { texte: "Le travail est la clé de la réussite.", auteur: "Proverbe touareg" },
+  { texte: "Celui qui déplace une montagne commence par déplacer de petites pierres.", auteur: "Confucius" },
+];
 
 export default function Badges() {
   const router = useRouter();
-
-  const [ctx, setCtx] = useState<ContexteBadges | null>(null);
-  const [quetes, setQuetes] = useState<Quete[]>([]);
-  const [xp, setXp] = useState<number | null>(null);
+  const [badges, setBadges] = useState<BadgeSecret[]>(BADGES_SECRETS);
+  const [citation, setCitation] = useState(CITATIONS[0]);
+  const [stats, setStats] = useState({ debloques: 0, total: BADGES_SECRETS.length });
 
   useEffect(() => {
-    (async () => {
-      setQuetes(quetesDeLaSemaine());
-      setCtx(await chargerContexte());
-      // XP depuis Firestore si connecté (sinon masqué)
-      try {
-        const id = await AsyncStorage.getItem('lex_user_id');
-        if (id) {
-          const snap = await getDoc(doc(db, 'utilisateurs', id));
-          if (snap.exists()) setXp(snap.data().xp || 0);
-        }
-      } catch {
-        // hors-ligne : pas de XP affiché
-      }
-    })();
+    chargerBadges();
+    setCitation(CITATIONS[Math.floor(Math.random() * CITATIONS.length)]);
   }, []);
 
-  if (!ctx) return <View style={styles.container} />;
+  const chargerBadges = async () => {
+    try {
+      const data = await getUserItem('lex_badges_debloques');
+      if (data) {
+        const debloques = JSON.parse(data) as string[];
+        const misAJour = BADGES_SECRETS.map(b => ({ ...b, debloque: debloques.includes(b.id) }));
+        setBadges(misAJour);
+        setStats({ debloques: debloques.length, total: BADGES_SECRETS.length });
+      }
+    } catch {}
+  };
 
-  const badges = evaluerBadges(ctx);
-  const debloques = badges.filter((b) => b.debloque).length;
-  const ligue = xp !== null ? liguePourXp(xp) : null;
+  const couleurRarete = (rarete: string): string => {
+    switch (rarete) {
+      case 'legendaire': return '#FBBF24';
+      case 'epique': return '#8B5CF6';
+      case 'rare': return '#3B82F6';
+      default: return '#6B7280';
+    }
+  };
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+      <StatusBar barStyle="light-content" backgroundColor="#0B1120" />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backBtn}>‹ Retour</Text>
+          <Text style={styles.backBtn}>Retour</Text>
         </TouchableOpacity>
-        <Text style={styles.subject}>MOTIVATION</Text>
-        <Text style={styles.title}>🏅 Badges & Quêtes</Text>
+        <Text style={styles.subject}>GAMIFICATION</Text>
+        <Text style={styles.title}>Badges & Succes</Text>
       </View>
-
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20 }}>
-        {/* Ligue */}
-        {ligue && (
-          <View style={styles.carteLigue}>
-            <Text style={styles.ligueEmoji}>{ligue.emoji}</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.ligueNom}>Ligue {ligue.nom}</Text>
-              <Text style={styles.ligueDetail}>
-                {ligue.prochainPalier !== null
-                  ? `${xp} XP — prochain palier : ${ligue.prochainPalier} XP`
-                  : `${xp} XP — sommet absolu atteint !`}
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* Quêtes de la semaine */}
-        <Text style={styles.sectionTitre}>🎯 Quêtes de la semaine</Text>
-        {quetes.map((q) => {
-          const progres = Math.min(q.mesurer(ctx), q.objectif);
-          const finie = progres >= q.objectif;
-          return (
-            <View key={q.id} style={styles.carteQuete}>
-              <Text style={styles.queteEmoji}>{finie ? '✅' : q.emoji}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.queteTitre}>{q.titre}</Text>
-                <View style={styles.barreFond}>
-                  <View style={[styles.barre, { width: `${Math.round((progres / q.objectif) * 100)}%` }]} />
-                </View>
-                <Text style={styles.queteProgres}>{progres} / {q.objectif}</Text>
+      <View style={styles.citationBox}>
+        <Text style={styles.citationText}>"{citation.texte}"</Text>
+        <Text style={styles.citationAuteur}>- {citation.auteur}</Text>
+      </View>
+      <View style={styles.barreStats}>
+        <View style={styles.statBox}>
+          <Text style={styles.statValeur}>{stats.debloques}</Text>
+          <Text style={styles.statLabel}>Debloques</Text>
+        </View>
+        <View style={styles.statBox}>
+          <Text style={[styles.statValeur, { color: '#FBBF24' }]}>{stats.total}</Text>
+          <Text style={styles.statLabel}>Total</Text>
+        </View>
+        <View style={styles.statBox}>
+          <Text style={[styles.statValeur, { color: '#10B981' }]}>{Math.round((stats.debloques / stats.total) * 100)}%</Text>
+          <Text style={styles.statLabel}>Progression</Text>
+        </View>
+      </View>
+      <ScrollView contentContainerStyle={{ padding: 20 }}>
+        <Text style={styles.sectionTitle}>Badges Secrets</Text>
+        {badges.map((badge) => (
+          <View key={badge.id} style={[styles.carteBadge, badge.debloque && styles.carteBadgeDebloque]}>
+            <View style={styles.badgeHeader}>
+              <Text style={[styles.badgeEmoji, !badge.debloque && styles.badgeVerrouille]}>{badge.debloque ? badge.emoji : '🔒'}</Text>
+              <View style={styles.badgeInfo}>
+                <Text style={[styles.badgeTitre, !badge.debloque && styles.texteVerrouille]}>{badge.titre}</Text>
+                <Text style={[styles.badgeDescription, !badge.debloque && styles.texteVerrouille]}>{badge.description}</Text>
+              </View>
+              <View style={[styles.rareteBadge, { backgroundColor: couleurRarete(badge.rarete) }]}>
+                <Text style={styles.rareteText}>{badge.rarete}</Text>
               </View>
             </View>
-          );
-        })}
-
-        {/* Badges */}
-        <Text style={styles.sectionTitre}>🎖️ Badges ({debloques}/{badges.length} débloqués)</Text>
-        <FlatList
-          data={badges}
-          numColumns={2}
-          scrollEnabled={false}
-          keyExtractor={(item) => item.badge.id}
-          columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: 12 }}
-          renderItem={({ item }) => (
-            <View style={[styles.carteBadge, item.debloque ? styles.badgeOk : styles.badgeKo]}>
-              <Text style={styles.badgeEmoji}>{item.badge.emoji}</Text>
-              <Text style={styles.badgeTitre}>{item.badge.titre}</Text>
-              <Text style={styles.badgeDesc}>{item.badge.description}</Text>
-              <Text style={styles.badgeProgres}>{item.progres}/{item.badge.objectif}</Text>
-            </View>
-          )}
-        />
+            {!badge.debloque && (<Text style={styles.conditionText}>Condition: {badge.condition}</Text>)}
+          </View>
+        ))}
         <View style={{ height: 30 }} />
       </ScrollView>
     </View>
@@ -106,30 +117,29 @@ export default function Badges() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0F172A' },
-  header: { padding: 20, borderBottomWidth: 1, borderBottomColor: '#1E293B', marginBottom: 10 },
-  backBtn: { color: '#FBBF24', fontSize: 14, marginBottom: 10 },
+  container: { flex: 1, backgroundColor: '#0B1120' },
+  header: { padding: 20, paddingTop: 50, borderBottomWidth: 1, borderBottomColor: '#1E293B', marginBottom: 10, backgroundColor: '#0F172A' },
+  backBtn: { color: '#FBBF24', fontSize: 14, marginBottom: 10, fontWeight: '600' },
   subject: { color: '#94A3B8', fontSize: 11, fontWeight: 'bold', letterSpacing: 1, textTransform: 'uppercase' },
-  title: { color: '#F8FAFC', fontSize: 22, fontWeight: 'bold', marginTop: 5 },
-
-  carteLigue: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E293B', borderRadius: 12, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#FBBF24' },
-  ligueEmoji: { fontSize: 40, marginRight: 15 },
-  ligueNom: { color: '#FBBF24', fontSize: 18, fontWeight: 'bold' },
-  ligueDetail: { color: '#94A3B8', fontSize: 13, marginTop: 4 },
-
-  sectionTitre: { color: '#F8FAFC', fontSize: 16, fontWeight: 'bold', marginBottom: 12 },
-  carteQuete: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E293B', borderRadius: 12, padding: 15, marginBottom: 10 },
-  queteEmoji: { fontSize: 24, marginRight: 15 },
-  queteTitre: { color: '#F8FAFC', fontSize: 14, fontWeight: 'bold', marginBottom: 6 },
-  barreFond: { height: 6, backgroundColor: '#0F172A', borderRadius: 3, overflow: 'hidden' },
-  barre: { height: 6, backgroundColor: '#FBBF24', borderRadius: 3 },
-  queteProgres: { color: '#64748B', fontSize: 11, marginTop: 4 },
-
-  carteBadge: { width: '48.5%', backgroundColor: '#1E293B', borderRadius: 12, padding: 15, alignItems: 'center' },
-  badgeOk: { borderWidth: 1.5, borderColor: '#10B981' },
-  badgeKo: { opacity: 0.45 },
-  badgeEmoji: { fontSize: 34, marginBottom: 8 },
-  badgeTitre: { color: '#F8FAFC', fontSize: 14, fontWeight: 'bold', textAlign: 'center' },
-  badgeDesc: { color: '#94A3B8', fontSize: 11, textAlign: 'center', marginTop: 4, lineHeight: 15 },
-  badgeProgres: { color: '#FBBF24', fontSize: 12, fontWeight: 'bold', marginTop: 6 },
+  title: { color: '#F9FAFB', fontSize: 22, fontWeight: 'bold', marginTop: 5 },
+  citationBox: { backgroundColor: '#111827', borderRadius: 14, padding: 20, marginHorizontal: 20, marginBottom: 15, borderWidth: 1, borderColor: '#374151' },
+  citationText: { color: '#E5E7EB', fontSize: 15, fontStyle: 'italic', lineHeight: 22, marginBottom: 8 },
+  citationAuteur: { color: '#9CA3AF', fontSize: 13, textAlign: 'right' },
+  barreStats: { flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 15 },
+  statBox: { flex: 1, backgroundColor: '#111827', borderRadius: 14, padding: 14, marginHorizontal: 5, alignItems: 'center', borderWidth: 1, borderColor: '#1F2937' },
+  statValeur: { color: '#FBBF24', fontSize: 24, fontWeight: 'bold' },
+  statLabel: { color: '#9CA3AF', fontSize: 11, marginTop: 4 },
+  sectionTitle: { color: '#FBBF24', fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
+  carteBadge: { backgroundColor: '#111827', borderRadius: 14, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#374151', opacity: 0.6 },
+  carteBadgeDebloque: { opacity: 1, borderColor: '#FBBF24' },
+  badgeHeader: { flexDirection: 'row', alignItems: 'center' },
+  badgeEmoji: { fontSize: 40, marginRight: 12 },
+  badgeVerrouille: { opacity: 0.3 },
+  badgeInfo: { flex: 1 },
+  badgeTitre: { color: '#F9FAFB', fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
+  badgeDescription: { color: '#9CA3AF', fontSize: 13 },
+  texteVerrouille: { color: '#6B7280' },
+  rareteBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
+  rareteText: { color: '#FFFFFF', fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' },
+  conditionText: { color: '#6B7280', fontSize: 12, marginTop: 8, fontStyle: 'italic' },
 });
