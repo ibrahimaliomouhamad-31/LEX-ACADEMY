@@ -29,6 +29,8 @@ const DUREES = [
   { label: '30 min', secondes: 30 * 60 },
   { label: '1 h', secondes: 60 * 60 },
   { label: '2 h', secondes: 2 * 60 * 60 },
+  { label: '3 h (PC/SVT : temps réel BAC)', secondes: 3 * 60 * 60 },
+  { label: '4 h (Maths : temps réel BAC)', secondes: 4 * 60 * 60 },
 ];
 const NOMBRES = [10, 20, 40];
 
