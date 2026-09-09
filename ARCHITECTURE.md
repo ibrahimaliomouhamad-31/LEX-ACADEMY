@@ -55,5 +55,20 @@ mais chaque fichier appartient à un domaine fonctionnel clair.
 
 ## ✅ Gates de validation
 - `npx tsc --noEmit` = 0 erreur
-- `npx jest --ci` = 27/27 verts
+- `npx jest --ci` = 35/35 verts
 - Toute route dans `plus.tsx` doit pointer vers un fichier existant.
+
+---
+
+## 🔁 Journal des audits par morceau (6 cycles complets)
+
+| Cycle | Morceau(x) | Corrections |
+|---|---|---|
+| A | 1 📖 | 12 schémas ASCII, formulaire branché sur service CEA (~1300 formules), glossaire intelligent (définitions + flou), favoris ⭐ chapitres, « Reprendre où j'en étais », loader pièges, +2 tests |
+| B | 2 🏋️ | Plafond audio énoncé, audit 23 routes / 0 orpheline |
+| C | 3 📊 + 4 🎮 | Classement : repli hors-ligne (carte locale XP + ligue), retour `back()` |
+| D | 5 👥 + 6 ⚙️ | Transfert : restauration = remplacement complet (anti-incohérence XP/anti-farm), alerte code volumineux WhatsApp |
+| E | 7 🔐 + 8 🧰 | Compteur formules dynamique recherche, audit sécurité (IA proxy sans clé client, auth à sel SHA-256), +3 tests chiffrement/stagnation |
+| F | Tous | Revérification transversale : 23 routes / 0 orpheline, logs maîtrisés (2 console.log diagnostiques syncQueue), 1 TODO mineur (admin_roles) |
+
+**Défauts corrigés au total : ~20** (bugs d'affichage, données en dur, incohérences offline, pile de navigation, restauration incomplète).
