@@ -1,31 +1,37 @@
 /**
- * 🎮 SYSTÈME DE RÉVISION GAMIFIÉ
- * Pour élèves intelligents mais fainéants :
- * - Streaks (motivation continue)
- * - Bonusses (récompenses immédiates)
- * - Challenges quotidiens (défi dopamine)
- * - Progression visible (bars, badges)
+ * 🎮 SYSTÈME DE RÉVISION GAMIFIÉ — local-first
+ *
+ * 🔄 CE FICHIER NE COMPILAIT PAS (audit) :
+ *  - `private async function` est une syntaxe INVALIDE au niveau module
+ *    (TS1131/TS1128) → tout le module était du code mort, aucun XP/streak
+ *    gamifié ne fonctionnait.
+ *  - La clé `1000XP:` de l'interface était un littéral numérique invalide.
+ *  - 🐛 LOGIQUE PÉDAGOGIQUE INVERSÉE : le bloc d'attribution d'XP était
+ *    exécuté quand `session.reussi` était FAUX (sur un échec !) — l'élève
+ *    gagnait de l'XP en se trompant et rien en réussissant. Corrigé.
+ *  - L'XP gamifié vit désormais dans xpLocal (local-first) : instantané
+ *    hors-ligne, poussé au cloud via increment() au retour du wifi.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getCurrentUserId } from './auth';
 import { setUserItem, getUserItem } from './userStorage';
+import { gagnerXp, lireXpTotal } from './xpLocal';
 import { syncQueue } from './syncQueue';
 
-const STATS_KEY = 'lex_stats_gamifiees';
+const STATS_KEY = 'stats_gamifiees';
 
 interface RevisionStats {
   xpTotal: number;
   streak: number;
   dernierJour: string; // YYYY-MM-DD
-  revisionsFaites: number; // Aujourd'hui
+  revisionsFaites: number; // aujourd'hui
   badges: string[];
   milestones: {
     premierExercice: boolean;
     premier100XP: boolean;
     streak7jours: boolean;
     streak30jours: boolean;
-    1000XP: boolean;
+    xp1000: boolean;
   };
 }
 
@@ -37,15 +43,18 @@ interface RevisionSession {
   bonus: string[]; // ex: ['streak', 'rapide', 'matin']
 }
 
-const XP_BASE = 10; // Par exercice
+const XP_BASE = 10; // Par exercice réussi
 const XP_BONUS_STREAK = 5; // Bonus si streak actif
 const XP_BONUS_RAPIDE = 5; // Si résolu en < 30s
 const AUJOURD_HUI = (): string => new Date().toISOString().split('T')[0];
 
-export async function initRevisionStats(): Promise<RevisionStats> {
-  const userId = await getCurrentUserId();
-  if (!userId) throw new Error('Pas de session');
+function hier(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().split('T')[0];
+}
 
+export async function initRevisionStats(): Promise<RevisionStats> {
   let stats = await getRevisionStats();
   if (!stats) {
     stats = {
@@ -59,7 +68,7 @@ export async function initRevisionStats(): Promise<RevisionStats> {
         premier100XP: false,
         streak7jours: false,
         streak30jours: false,
-        1000XP: false,
+        xp1000: false,
       },
     };
     await saveRevisionStats(stats);
@@ -77,16 +86,25 @@ export async function getRevisionStats(): Promise<RevisionStats | null> {
   }
 }
 
-private async function saveRevisionStats(stats: RevisionStats): Promise<void> {
+async function getUserCourant(): Promise<string | null> {
+  try {
+    const { getCurrentUserId } = await import('./userStorage');
+    return await getCurrentUserId();
+  } catch {
+    return null;
+  }
+}
+
+// 🔄 était `private async function` (syntaxe invalide) → fonction module simple
+async function saveRevisionStats(stats: RevisionStats): Promise<void> {
   try {
     await setUserItem(STATS_KEY, JSON.stringify(stats));
-    // Sync vers Firestore
-    const userId = await getCurrentUserId();
+    // Sync cloud via la file offline-first (partira au retour du wifi).
+    const userId = await getUserCourant();
     if (userId) {
       await syncQueue.add('update', 'utilisateurs', userId, {
-        xp: stats.xpTotal,
-        streak: stats.streak,
-        badges: stats.badges,
+        xpGamifie: stats.xpTotal,
+        streakGamifie: stats.streak,
       });
     }
   } catch (e) {
@@ -98,23 +116,26 @@ private async function saveRevisionStats(stats: RevisionStats): Promise<void> {
 export async function enregistrerRevision(
   session: RevisionSession
 ): Promise<{ xpGagne: number; bonus: string[]; newStreak: number }> {
-  let stats = await initRevisionStats();
+  const stats = await initRevisionStats();
   const aujourd_hui = AUJOURD_HUI();
   let xpGagne = 0;
   const bonus: string[] = [];
 
-  if (!session.reussi) {
-    // Réussi : accréditer XP
+  // 🔄 BUG PÉDAGOGIQUE CORRIGÉ : on récompense la RÉUSSITE (reussi === true),
+  // pas l'échec. Un essai raté ne rapporte rien mais reste encourageant.
+  if (session.reussi) {
     xpGagne = XP_BASE;
     stats.revisionsFaites++;
 
-    // 🔥 BONUS STREAK : révisé hier et aujourd'hui
-    if (stats.dernierJour === new Date(Date.now() - 86400000).toISOString().split('T')[0]) {
-      stats.streak++;
-      xpGagne += XP_BONUS_STREAK;
-      bonus.push('streak');
+    // 🔥 BONUS STREAK : révisé hier ET aujourd'hui
+    if (stats.dernierJour === hier()) {
+      stats.streak = stats.dernierJour === aujourd_hui ? stats.streak : stats.streak + 1;
+      if (stats.streak > 1) {
+        xpGagne += XP_BONUS_STREAK;
+        bonus.push('streak');
+      }
     } else if (stats.dernierJour !== aujourd_hui) {
-      // Cassé le streak
+      // Série cassée ou premier jour : on repart de 1 (l'élève est revenu !)
       stats.streak = 1;
     }
 
@@ -145,29 +166,39 @@ export async function enregistrerRevision(
     }
     if (stats.streak >= 7 && !stats.milestones.streak7jours) {
       stats.milestones.streak7jours = true;
-      stats.badges.push('🔥 7 jours de suite!');
+      stats.badges.push('🔥 7 jours de suite !');
     }
     if (stats.streak >= 30 && !stats.milestones.streak30jours) {
       stats.milestones.streak30jours = true;
-      stats.badges.push('💪 30 jours de suite!!!');
+      stats.badges.push('💪 30 jours de suite !!!');
     }
-    if (stats.xpTotal >= 1000 && !stats.milestones['1000XP']) {
-      stats.milestones['1000XP'] = true;
-      stats.badges.push('👑 1000 XP - Maître!');
+    if (stats.xpTotal >= 1000 && !stats.milestones.xp1000) {
+      stats.milestones.xp1000 = true;
+      stats.badges.push('👑 1000 XP - Maître !');
     }
+
+    // L'XP part dans le compteur local-first (visible instantanément,
+    // synchronisé au cloud au retour du réseau).
+    await gagnerXp(xpGagne);
   }
 
   await saveRevisionStats(stats);
 
-  // Envoyer en queue de sync
-  await syncQueue.add('create', 'revisions_log', `${await getCurrentUserId()}_${Date.now()}`, {
-    exoId: session.exoId,
-    dureeS: session.dureeS,
-    reussi: session.reussi,
-    xpGagne,
-    bonus,
-    timestamp: new Date().toISOString(),
-  });
+  // Journal de révision dans la file offline-first (docId null-safe).
+  const userId = await getUserCourant();
+  await syncQueue.add(
+    'create',
+    'revisions_log',
+    `${userId || 'anonyme'}_${session.exoId}_${Date.now()}`,
+    {
+      exoId: session.exoId,
+      dureeS: session.dureeS,
+      reussi: session.reussi,
+      xpGagne,
+      bonus,
+      timestamp: new Date().toISOString(),
+    }
+  );
 
   return { xpGagne, bonus, newStreak: stats.streak };
 }
@@ -175,50 +206,54 @@ export async function enregistrerRevision(
 // ✅ OBTENIR PROGRESSION DU JOUR
 export async function getProgressionDuJour(): Promise<{
   revisionsFaites: number;
-  xpAujourd_hui: number;
+  xpAujourdHui: number;
   objectif: number;
   pourcentage: number;
 }> {
   const stats = await initRevisionStats();
   const aujourd_hui = AUJOURD_HUI();
-  const xpAujourd_hui =
+  // Estimation honnête du XP du jour à partir des révisions faites.
+  const xpAujourdHui =
     stats.dernierJour === aujourd_hui
-      ? stats.xpTotal - (await getXpHier())
+      ? Math.min(stats.revisionsFaites * (XP_BASE + XP_BONUS_RAPIDE), await lireXpTotal())
       : 0;
 
   return {
     revisionsFaites: stats.revisionsFaites,
-    xpAujourd_hui,
+    xpAujourdHui,
     objectif: 100, // 100 XP par jour
-    pourcentage: Math.min(100, Math.round((xpAujourd_hui / 100) * 100)),
+    pourcentage: Math.min(100, Math.round((xpAujourdHui / 100) * 100)),
   };
 }
 
-private async function getXpHier(): Promise<number> {
-  // TODO: Récupérer XP d'hier depuis historique
-  return 0;
-}
-
-// ✅ ENCOURAGEMENTS DYNAMIQUES
+// ✅ ENCOURAGEMENTS DYNAMIQUES (100% hors-ligne)
 export function getEncouragement(stats: { streak: number; xpTotal: number }): string {
   if (stats.streak === 0) {
-    return '🔥 Commence ta série maintenant!';
+    return '🔥 Commence ta série maintenant !';
   } else if (stats.streak < 3) {
-    return `🔥 Bonne série! Encore ${3 - stats.streak} jour(s) pour déverrouiller un badge`;
+    return `🔥 Bonne série ! Encore ${3 - stats.streak} jour(s) pour déverrouiller un badge`;
   } else if (stats.streak < 7) {
-    return `🔥🔥 ${stats.streak} jours! Fonce vers 7!`;
+    return `🔥🔥 ${stats.streak} jours ! Fonce vers 7 !`;
   } else if (stats.streak < 30) {
-    return `🔥🔥🔥 ${stats.streak} jours incroyable! Vise 30!`;
+    return `🔥🔥🔥 ${stats.streak} jours incroyable ! Vise 30 !`;
   } else {
-    return `👑 INCROYABLE! ${stats.streak} jours - Tu es une LÉGENDE!`;
+    return `👑 INCROYABLE ! ${stats.streak} jours - Tu es une LÉGENDE !`;
   }
 }
 
-// ✅ CLASSEMENT GLOBAL
+// ✅ CLASSEMENT LOCAL (fonctionne sans réseau)
 export async function getRankingPosition(
   userId: string,
   allStats: { userId: string; xp: number }[]
 ): Promise<number> {
-  const sorted = allStats.sort((a, b) => b.xp - a.xp);
+  const sorted = [...allStats].sort((a, b) => b.xp - a.xp);
   return sorted.findIndex((s) => s.userId === userId) + 1;
 }
+
+// ✅ Nombre de badges gamifiés débloqués (pour le profil)
+export async function compterBadges(): Promise<number> {
+  const stats = await getRevisionStats();
+  return stats?.badges.length ?? 0;
+}
+
+export type { RevisionStats, RevisionSession };

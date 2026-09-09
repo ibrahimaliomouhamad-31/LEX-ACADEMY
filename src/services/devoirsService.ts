@@ -3,7 +3,7 @@
 // - chaque élève rend UNE petite fiche de résultat (1 écriture par élève)
 // - le prof lit les résultats d'UN devoir à la fois (≤ ~40 lectures par classe)
 
-import { addDoc, collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
 
 export interface Devoir {
@@ -28,10 +28,28 @@ export interface ReponseDevoir {
   dateISO: string;
 }
 
-const CODE_PROF_DEFAUT = 'LEXPROF2026'; // modifiable via Firestore doc config/code_prof
+const CODE_PROF_DEFAUT = 'LEXPROF2026';
 
+/**
+ * Vérifie le code prof.
+ * 🔒 Le code officiel vit dans Firestore (config/code_prof) et peut être
+ * changé par l'admin sans nouvelle version de l'app. Le code par défaut
+ * n'est qu'un filet de sécurité si le doc n'existe pas encore.
+ */
 export async function verifierCodeProf(code: string): Promise<boolean> {
-  return code.trim().toUpperCase() === CODE_PROF_DEFAUT;
+  const saisie = code.trim().toUpperCase();
+  if (saisie.length < 4) return false;
+
+  try {
+    const snap = await getDoc(doc(db, 'config', 'code_prof'));
+    if (snap.exists()) {
+      const officiel = String(snap.data().valeur || '').trim().toUpperCase();
+      if (officiel) return saisie === officiel;
+    }
+  } catch {
+    // hors-ligne ou doc absent : on compare avec le code par défaut
+  }
+  return saisie === CODE_PROF_DEFAUT;
 }
 
 export async function creerDevoir(d: Omit<Devoir, 'id' | 'dateCreation'>): Promise<string> {

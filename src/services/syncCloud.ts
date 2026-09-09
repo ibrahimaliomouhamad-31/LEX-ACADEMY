@@ -95,6 +95,10 @@ async function collecterLocal(): Promise<SnapshotProgression> {
 }
 
 // Envoie la progression locale vers Firestore.
+// 🔄 ANTI-ÉCRASEMENT : avant, ce push écrasait TOUT le doc cloud avec le
+// snapshot local — un élève qui rejouait sur un second appareil pouvait
+// écraser sa progression du premier. Désormais les exercices résolus sont
+// FUSIONNÉS (union) avec le cloud avant l'écriture.
 export async function pousserProgression(): Promise<boolean> {
   try {
     const userId = await getCurrentUserId();
@@ -103,9 +107,33 @@ export async function pousserProgression(): Promise<boolean> {
 
     const snapshot = await collecterLocal();
 
+    // Fusion avec le cloud existant pour ne rien perdre.
+    try {
+      const snap = await getDoc(doc(db, 'progression', userId));
+
+      if (snap.exists()) {
+        const cloud = snap.data() as Partial<SnapshotProgression>;
+
+        const cloudResolus = Array.isArray(cloud.resolus) ? cloud.resolus : [];
+        const union = Array.from(new Set([...cloudResolus, ...snapshot.resolus]));
+
+        if (union.length > snapshot.resolus.length) {
+          snapshot.resolus = union;
+        }
+
+        // Un champ cloud non-null ne doit pas être écrasé par un local null.
+        if (snapshot.stats === null && cloud.stats) snapshot.stats = cloud.stats;
+        if (snapshot.infiniStats === null && cloud.infiniStats) snapshot.infiniStats = cloud.infiniStats;
+        if (snapshot.srs === null && cloud.srs) snapshot.srs = cloud.srs;
+      }
+    } catch {
+      // hors-ligne : on pousse quand même, Firestore gardera en attente
+      // grâce au cache persistant, ou la sync rattrapera plus tard.
+    }
+
     await setDoc(
       doc(db, 'progression', userId),
-     snapshot as unknown as Record<string, unknown>
+      snapshot as unknown as Record<string, unknown>
     );
 
     return true;

@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../config/firebaseConfig';
 import { getExercices, saveExercices } from '../services/cacheHorsLigne';
+import { getStats } from '../services/statsSuivi';
+import { prioriserExercices } from '../services/selectionAdaptive';
 
 const FILTRES = [
   { label: 'Tous', valeur: 0 },
@@ -43,7 +45,13 @@ export default function ListeExercices() {
         if (chapitreId) {
           const cache = await getExercices(chapitreId);
           if (cache && cache.length > 0) {
-            const tries = [...cache].sort((a, b) => (a.id > b.id ? 1 : -1));
+            // 🎯 SÉLECTION ADAPTATIVE : les exercices où l'élève est dans sa
+            // zone proximale (40–70 % de réussite) passent en premier —
+            // le juste milieu entre ennui et découragement.
+            const stats = await getStats().catch(() => null);
+            const tries = stats
+              ? prioriserExercices(cache, stats)
+              : [...cache].sort((a, b) => (a.id > b.id ? 1 : -1));
             setExercices(tries);
             setLoading(false);
             depuisCache = true;
@@ -61,8 +69,10 @@ export default function ListeExercices() {
           querySnapshot.forEach((doc) => {
             exosData.push({ id: doc.id, ...doc.data() });
           });
-          exosData.sort((a, b) => (a.id > b.id ? 1 : -1));
-          setExercices(exosData);
+          // 🎯 SÉLECTION ADAPTATIVE aussi pour les données fraîches.
+          const stats = await getStats().catch(() => null);
+          const tries = stats ? prioriserExercices(exosData, stats) : exosData;
+          setExercices(tries);
           setHorsLigne(false);
           // Sauvegarde dans le cache pour la prochaine fois hors-ligne
           if (chapitreId && exosData.length > 0) {

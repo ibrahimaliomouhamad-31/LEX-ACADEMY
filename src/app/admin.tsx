@@ -14,6 +14,9 @@ import {
 } from 'react-native';
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, limit, orderBy, query } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
+import { syncQueue } from '../services/syncQueue';
+import { lireXpNonSync } from '../services/xpLocal';
+import { derniersCrashs } from '../services/crashLog';
 
 // ADMINISTRATION — le créateur de l'app est le "proviseur" : le PREMIER nom
 // enregistré dans la collection 'admins' devient admin à vie. Il peut ensuite
@@ -40,6 +43,11 @@ export default function Admin() {
   const [statsClasses, setStatsClasses] = useState<{ classe: string; joueurs: number; defis: number; points: number }[]>([]);
   const [signalements, setSignalements] = useState<{ exoId: string; raison: string; dateISO: string }[]>([]);
   const [triches, setTriches] = useState<{ ref: string; nom: string; score: number; suspect: boolean }[]>([]);
+
+  // 🩺 Santé de la synchronisation (état local de l'appareil)
+  const [pendingSync, setPendingSync] = useState(0);
+  const [xpNonSync, setXpNonSync] = useState(0);
+  const [crashs, setCrashs] = useState<{ message: string; dateISO: string }[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -122,6 +130,19 @@ export default function Admin() {
         sig.push({ exoId: donnees.exoId || '?', raison: donnees.raison || '?', dateISO: (donnees.dateISO || '').slice(0, 10) });
       });
       setSignalements(sig.reverse());
+
+      // 🩺 Santé de la sync : éléments en attente, XP non poussés, crashs.
+      try {
+        const stats = await syncQueue.getStats();
+        setPendingSync(stats.pending);
+      } catch { /* ignore */ }
+      try {
+        setXpNonSync(await lireXpNonSync());
+      } catch { /* ignore */ }
+      try {
+        const liste = await derniersCrashs();
+        setCrashs(liste.slice(-5).reverse());
+      } catch { /* ignore */ }
     } catch {
       // dashboard indisponible
     }
@@ -233,6 +254,29 @@ export default function Admin() {
         {/* Demandes d'aide (mots de passe oubliés) : visibles dans la console
             Firestore, collection "demandes_aide" — réinitialise le mot de passe
             de l'élève via la console (Auth > Users > Reset password). */}
+
+        {/* 🩺 Santé de la synchronisation */}
+        <Text style={styles.section}>🩺 Santé de la synchronisation (cet appareil)</Text>
+        <View style={styles.ligneClasse}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.nomClasse}>
+              {pendingSync === 0 && xpNonSync === 0 ? '☁️ Tout est synchronisé' : `⏳ ${pendingSync} action(s) en attente · ${xpNonSync} XP non poussés`}
+            </Text>
+            <Text style={styles.detailClasse}>
+              {pendingSync > 0 || xpNonSync > 0
+                ? 'Partira automatiquement au retour du wifi — aucune donnée perdue.'
+                : 'La file de synchronisation est vide.'}
+            </Text>
+          </View>
+        </View>
+        {crashs.length > 0 && (
+          <View>
+            <Text style={styles.detailClasse}>Derniers crashs signalés :</Text>
+            {crashs.map((c, i) => (
+              <Text key={i} style={styles.signExo}>⚠️ {c.dateISO.slice(0, 16)} — {c.message}</Text>
+            ))}
+          </View>
+        )}
 
         {/* Triche */}
         <Text style={styles.section}>🚨 Scores suspects ({triches.length})</Text>

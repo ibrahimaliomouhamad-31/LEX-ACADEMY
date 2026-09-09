@@ -4,6 +4,7 @@
  * Remplace le système custom faible par une auth sécurisée
  */
 
+import { sha256 } from 'js-sha256';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   signInWithEmailAndPassword,
@@ -14,6 +15,46 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebaseConfig';
+
+/**
+ * 🔐 SALAGE DÉTERMINISTE PAR COMPTE (sans lecture pré-auth requise).
+ *
+ * Contrainte offline-first + règles Firestore :
+ * - le sel vit dans /donnees_privees (lecture réservée au propriétaire
+ *   CONNECTÉ), donc illisible AVANT connexion ;
+ * - Firebase Auth ne permet pas de lire quoi que ce soit avant sign-in.
+ *
+ * Solution : sel = dérivé du nom normalisé (unique par construction via
+ * l'email synthétique nom@lex.academy). Deux élèves avec le même mot de
+ * passe mais un nom différent → hachés différents → fini l'attaque par
+ * dictionnaire partagé. ⚠️ Jamais de singleton/global.
+ */
+export const selPourCompte = (nom: string): string => {
+  return sha256(`lex-academy::sel::${nom.trim().toLowerCase()}`);
+};
+
+export const genererSel = (): string => {
+  const array = new Uint8Array(16);
+  crypto.getRandomValues(array);
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+};
+
+/**
+ * Hache un mot de passe avec un sel.
+ * Double SHA-256 + concaténation du sel = robustesse renforcée.
+ * (js-sha256 retourne directement une string hexadécimale, pas d'objet.)
+ */
+export const hacherAvecSel = (mdp: string, sel: string): string => {
+  return sha256(sha256(mdp.trim()) + sel);
+};
+
+/**
+ * Hachage complet côté client : salage déterministe + double SHA-256.
+ * Utilisé par inscription ET connexion (même formule → même résultat).
+ */
+export const hacherMotDePasse = (nom: string, mdp: string): string => {
+  return hacherAvecSel(mdp, selPourCompte(nom));
+};
 
 const USER_SESSION_KEY = 'lex_user_session';
 const SESSION_EXPIRY_KEY = 'lex_session_expiry';
@@ -40,21 +81,32 @@ export async function registerUser(
       return { success: false, error: 'Email/password/nom invalides' };
     }
 
-    // Créer utilisateur Firebase Auth
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    // 🔐 Salage déterministe par compte (même formule qu'à la connexion).
+    // register.tsx/authFirebase : hacherMotDePasse(nom, mdp) → mdpHache.
+    const mdpHache = hacherAvecSel(password, selPourCompte(nom));
+
+    // Créer utilisateur Firebase Auth avec le mot de passe haché
+    const userCredential = await createUserWithEmailAndPassword(auth, email, mdpHache);
     const user = userCredential.user;
 
-    // Créer profil dans Firestore
+    // Créer profil dans Firestore — SEULEMENT les champs publics.
+    // 🔒 Les données sensibles (email, code de transfert, sel) vivent dans le
+    // document privé /donnees_privees (lecture réservée au propriétaire).
     await setDoc(doc(db, 'utilisateurs', user.uid), {
       uid: user.uid,
-      email,
       nom,
       classe,
       xp: 0,
       streak: 0,
+      avatar: '🎓',
       dateCreation: new Date().toISOString(),
-      codeTransfert: generateTransferCode(), // Sauvegarde de compte
       derniere_connexion: new Date().toISOString().split('T')[0],
+    });
+    await setDoc(doc(db, 'donnees_privees', user.uid), {
+      email,
+      codeTransfert: generateTransferCode(), // Sauvegarde de compte
+      // 🔐 Le sel déterministe est recalculable (selPourCompte) : on ne stocke
+      // plus de sel aléatoire pré-auth-illisible. Aucun mot de passe ici.
     });
 
     // Créer progression vide
@@ -170,28 +222,56 @@ export async function getSessionValide(): Promise<UserSession | null> {
 }
 
 // ✅ OBTENIR UID ACTUEL
+// 🔄 DÉLÉGATION : source unique d'identité = userStorage.getCurrentUserId()
+// (lit `lex_user_id` écrit par le vrai flux de login, fallback session,
+// fallback invité). Avant, cette fonction lisait `lex_user_session`, une
+// clé JAMAIS écrite par le flux réel → la file de synchronisation jetait
+// "Pas de session" à chaque flush et rien ne se synchronisait jamais.
 export async function getCurrentUserId(): Promise<string | null> {
-  const session = await getSessionValide();
-  return session?.uid || null;
+  const { getCurrentUserId: getIdOfficiel } = await import('./userStorage');
+  try {
+    return await getIdOfficiel();
+  } catch {
+    return null;
+  }
 }
 
 // ✅ ACTUALISER SESSION (au lancement de l'app)
+// 🔄 BLINDÉ : avant, si getDoc() échouait (hors-ligne), la promesse ne se
+// résolvait JAMAIS → l'app pouvait rester bloquée sur un écran d'attente.
+// Désormais tout échec → session locale conservée (résolution garantie).
 export async function refreshSession(): Promise<UserSession | null> {
   return new Promise((resolve) => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      unsubscribe();
+    // Garde-fou : on résout au plus tard après 8 s quoi qu'il arrive.
+    const timeout = setTimeout(() => resolve(getSessionValide()), 8000);
 
-      if (user) {
-        const userDoc = await getDoc(doc(db, 'utilisateurs', user.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          await saveSession(user.uid, user.email!, data.nom, data.classe);
-          resolve(await getSessionValide());
+    try {
+      const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        unsubscribe();
+        clearTimeout(timeout);
+
+        if (user) {
+          try {
+            const userDoc = await getDoc(doc(db, 'utilisateurs', user.uid));
+            if (userDoc.exists()) {
+              const data = userDoc.data();
+              await saveSession(user.uid, user.email!, data.nom, data.classe);
+            }
+            // Hors-ligne ou profil absent : la session locale existante
+            // reste valide (offline-first, jamais de déconnexion forcée).
+            resolve(await getSessionValide());
+          } catch {
+            clearTimeout(timeout);
+            resolve(await getSessionValide());
+          }
+        } else {
+          resolve(null);
         }
-      } else {
-        resolve(null);
-      }
-    });
+      });
+    } catch {
+      clearTimeout(timeout);
+      resolve(getSessionValide());
+    }
   });
 }
 

@@ -1,14 +1,18 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { Alert, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../config/firebaseConfig';
 import { compterRevisionsDuJour } from '../services/revisions';
-import { restaurerProgressionSiVide, pousserProgression } from '../services/syncCloud';
-import { viderFileSignalements } from '../services/signalementService';
-import { viderFileGlobale } from '../services/objectifs';
+import { restaurerProgressionSiVide } from '../services/syncCloud';
+import { toutSynchroniser } from '../services/syncOrchestrator';
+import { validerStreakDuJour, lireXpTotal, fusionnerXpCloud } from '../services/xpLocal';
+import { telechargerChapitresAuto } from '../services/telechargementAuto';
+import { planifierRappelsDuJour } from '../services/notifications';
+import { appliquerQuotaCache } from '../services/cacheHorsLigne';
 import { verifierMAJ } from '../services/majOTA';
+import BadgeSync from '../components/badgeSync';
 
 // 65 — ANTI-ADDICTION BIENVEILLANT : après 2h cumulées dans la journée,
 // l'app suggère une pause (le cerveau retient mieux avec des repos).
@@ -57,17 +61,8 @@ function joursAvantProchaineCompo(): number {
 }
 
 // Fonction pour obtenir la date du jour au format "YYYY-MM-DD"
-const getTodayDate = () => {
-  const today = new Date();
-  return today.toISOString().split('T')[0];
-};
-
-// Fonction pour obtenir la date d'hier
-const getYesterdayDate = () => {
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  return yesterday.toISOString().split('T')[0];
-};
+// 🔄 Anciennes helpers du streak cloud (getTodayDate/getYesterdayDate)
+// retirées : le streak est maintenant géré localement par xpLocal.
 
 export default function Index() {
   const router = useRouter();
@@ -84,40 +79,37 @@ export default function Index() {
     try {
       const id = await AsyncStorage.getItem('lex_user_id');
       const nom = await AsyncStorage.getItem('lex_user_nom');
-      
+
       if (nom && id) {
         setUserNom(nom);
-        const userRef = doc(db, "utilisateurs", id);
-        const userSnap = await getDoc(userRef);
-        
-        if (userSnap.exists()) {
-          const data = userSnap.data();
-          setUserXp(data.xp);
-          
-          // --- LOGIQUE DU STREAK ---
-          const today = getTodayDate();
-          const yesterday = getYesterdayDate();
-          const derniereConnexion = data.derniere_connexion;
-          let nouveauStreak = data.streak || 0;
 
-          if (derniereConnexion === today) {
-            // Déjà connecté aujourd'hui, on ne touche à rien
-            nouveauStreak = data.streak || 0;
-          } else if (derniereConnexion === yesterday) {
-            // Connecté hier : la série continue !
-            nouveauStreak = (data.streak || 0) + 1;
-            await updateDoc(userRef, { streak: nouveauStreak, derniere_connexion: today });
-          } else {
-            // Connecté il y a plus d'un jour : la série est cassée
-            nouveauStreak = 1;
-            await updateDoc(userRef, { streak: 1, derniere_connexion: today });
+        // 🔄 LOCAL-FIRST : le streak est calculé depuis AsyncStorage.
+        // Avant, il ne vivait QUE dans Firestore : hors-ligne (cas principal
+        // des élèves), getDoc/updateDoc échouaient → série jamais affichée
+        // et jamais incrémentée. Désormais l'élève voit sa série monter
+        // chaque jour, même après 4 jours sans wifi.
+        const streakLocal = await validerStreakDuJour();
+        setUserStreak(streakLocal);
+
+        // XP affichés : le meilleur du local et du cloud (si accessible).
+        const xpLocal = await lireXpTotal();
+        setUserXp(xpLocal);
+
+        try {
+          const userRef = doc(db, 'utilisateurs', id);
+          const userSnap = await getDoc(userRef);
+
+          if (userSnap.exists()) {
+            const data = userSnap.data();
+            const xpCloud = await fusionnerXpCloud(Number(data?.xp) || 0);
+            setUserXp(Math.max(xpCloud, xpLocal));
           }
-          
-          setUserStreak(nouveauStreak);
+        } catch {
+          // hors-ligne : les valeurs locales ci-dessus suffisent
         }
       }
     } catch (error) {
-      console.error("Erreur lecture profil : ", error);
+      console.error('Erreur lecture profil : ', error);
     }
   };
 
@@ -157,15 +149,26 @@ export default function Index() {
       } catch {
         // ignore
       }
-      // Sync cloud : restaure la progression sur un nouveau téléphone,
-      // puis sauvegarde régulièrement au passage du wifi.
-      const restaure = await restaurerProgressionSiVide().catch(() => false);
-      if (!restaure) await pousserProgression().catch(() => undefined);
-      // Envoie les signalements et autres éléments mis en file hors-ligne
-      await viderFileSignalements().catch(() => undefined);
-      await viderFileGlobale().catch(() => undefined);
+      // 🔄 SYNC CENTRALISÉE : restaure la progression sur un nouveau
+      // téléphone, puis vide TOUTES les files d'attente (XP non sync,
+      // streak, défis du jour, signalements, devoirs). Avant, chaque file
+      // avait sa logique et certaines (défis) n'étaient jamais vidées.
+      // ⚠️ toutSynchroniser() doit TOUJOURS tourner : même après une
+      // restauration, les files locales (XP, défis…) doivent partir.
+      await restaurerProgressionSiVide().catch(() => false);
+      await toutSynchroniser().catch(() => undefined);
       // 67 — Vérifie une mise à jour OTA au lancement (no-op en dev)
       await verifierMAJ();
+
+      // 📥 Pré-téléchargement automatique (1×/jour) : l'élève garde ses
+      // chapitres à jour sans y penser → toujours prêt pour l'hors-ligne.
+      await telechargerChapitresAuto().catch(() => undefined);
+
+      // 🧹 Quota de cache : évite de remplir le téléphone.
+      await appliquerQuotaCache().catch(() => 0);
+
+      // 🔔 Rappels contextuels (défi non fait, série en danger).
+      await planifierRappelsDuJour().catch(() => undefined);
     })();
   }, []);
 
@@ -208,6 +211,10 @@ export default function Index() {
           </TouchableOpacity>
         </View>
       )}
+
+      {/* ☁️ Indicateur de synchronisation : l'élève sait TOUJOURS où en est
+          sa sauvegarde (confiance psychologique dès qu'il est hors-ligne) */}
+      <BadgeSync />
 
       <Text style={styles.emoji}>🎓</Text>
       <Text style={styles.title}>LEX ACADEMY</Text>

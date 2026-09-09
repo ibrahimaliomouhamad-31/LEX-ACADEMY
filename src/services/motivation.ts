@@ -3,6 +3,8 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { getUserItem } from './userStorage';
+
 export interface ContexteBadges {
   exosResolus: number; // exercices officiels résolus
   infiniTotal: number; // exercices générés résolus
@@ -22,26 +24,48 @@ export async function chargerContexte(): Promise<ContexteBadges> {
     bacsBlancs: 0,
   };
   try {
-    const resolus = await AsyncStorage.getItem('lex_exos_resolus');
-    if (resolus) ctx.exosResolus = (JSON.parse(resolus) as string[]).length;
+    // 🔄 BUG CORRIGÉ : ce service lisait les ANCIENNES clés globales
+    // ('lex_exos_resolus', etc.) alors que les données sont stockées par
+    // utilisateur depuis la migration (lex_user_<UID>_...). Résultat :
+    // badges et quêtes affichaient 0 pour les élèves migrés. On lit les
+    // clés utilisateur, avec repli sur l'ancienne clé globale.
+    const [resolus, infini, qcm, fc, bb] = await Promise.all([
+      getUserItem('exos_resolus'),
+      getUserItem('infini_stats'),
+      getUserItem('qcm_meilleur'),
+      getUserItem('flashcards_scores'),
+      getUserItem('bac_blanc_scores'),
+    ]);
 
-    const infini = await AsyncStorage.getItem('lex_infini_stats');
-    if (infini) {
-      const s = JSON.parse(infini) as { [k: string]: number };
-      ctx.infiniTotal = Object.values(s).reduce((a, b) => a + b, 0);
+    const resolusBrut = resolus ?? (await AsyncStorage.getItem('lex_exos_resolus'));
+    if (resolusBrut) {
+      const liste = JSON.parse(resolusBrut);
+      ctx.exosResolus = Array.isArray(liste) ? liste.length : 0;
     }
 
-    const qcm = await AsyncStorage.getItem('lex_qcm_meilleur');
-    if (qcm) ctx.qcmRecord = parseInt(qcm, 10) || 0;
+    const infiniBrut = infini ?? (await AsyncStorage.getItem('lex_infini_stats'));
+    if (infiniBrut) {
+      const s = JSON.parse(infiniBrut) as { [k: string]: number };
+      ctx.infiniTotal = Object.values(s).reduce((a, b) => a + Number(b || 0), 0);
+    }
+
+    const qcmBrut = qcm ?? (await AsyncStorage.getItem('lex_qcm_meilleur'));
+    if (qcmBrut) ctx.qcmRecord = parseInt(qcmBrut, 10) || 0;
 
     const cles = await AsyncStorage.getAllKeys();
     ctx.chapitresTelecharges = cles.filter((k) => k.startsWith('lex_cache_')).length;
 
-    const fc = await AsyncStorage.getItem('lex_flashcards_scores');
-    if (fc) ctx.flashcardsRevues = Object.keys(JSON.parse(fc)).length;
+    const fcBrut = fc ?? (await AsyncStorage.getItem('lex_flashcards_scores'));
+    if (fcBrut) {
+      const obj = JSON.parse(fcBrut);
+      ctx.flashcardsRevues = obj && typeof obj === 'object' ? Object.keys(obj).length : 0;
+    }
 
-    const bb = await AsyncStorage.getItem('lex_bac_blanc_scores');
-    if (bb) ctx.bacsBlancs = (JSON.parse(bb) as unknown[]).length;
+    const bbBrut = bb ?? (await AsyncStorage.getItem('lex_bac_blanc_scores'));
+    if (bbBrut) {
+      const arr = JSON.parse(bbBrut);
+      ctx.bacsBlancs = Array.isArray(arr) ? arr.length : 0;
+    }
   } catch {
     // valeurs par défaut
   }

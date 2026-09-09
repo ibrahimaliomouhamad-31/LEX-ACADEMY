@@ -2,73 +2,164 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ✅ CONTENU PÉDAGOGIQUE : Lecture libre, écriture admin
-    match /cours/{doc=**} { 
-      allow read: if true; 
+    // ============ CONTENU PÉDAGOGIQUE ============
+    // Lecture libre (cache offline), écriture admin uniquement.
+    match /cours/{doc=**} {
+      allow read: if true;
       allow write: if isAdmin();
     }
-    match /exercices/{doc=**} { 
-      allow read: if true; 
+    match /exercices/{doc=**} {
+      allow read: if true;
       allow write: if isAdmin();
     }
-    match /annales/{doc=**} { 
-      allow read: if true; 
+    match /annales/{doc=**} {
+      allow read: if true;
       allow write: if isAdmin();
     }
 
-    // ✅ PROFILS UTILISATEURS
+    // ============ PROFILS ============
+    // 🔒 SÉCURITÉ (durcie) : autrefois `read: if true` exposait email/hash/code
+    // de transfert à tout élève (écran classement). Le classement lit
+    // désormais `classement_public` (champs sûrs, agrégés par Cloud Function).
+    // La lecture du profil complet est donc réservée au propriétaire + admin.
     match /utilisateurs/{userId} {
-      allow read: if true; // Classement public OK
-      allow write: if isUserOrAdmin(userId);
+      allow read: if estSoiMeme(userId) || isAdmin();
+      allow create, update: if estSoiMeme(userId) && donneesUtilisateurPropres();
+      allow delete: if isAdmin();
     }
 
-    // ✅ PROGRESSION PERSONNELLE
+    // ============ DONNÉES PRIVÉES (hash mdp, secrets) ============
+    // Lisible/inscriptible UNIQUEMENT par le propriétaire (et l'admin).
+    match /donnees_privees/{userId} {
+      allow read, write: if estSoiMeme(userId) || isAdmin();
+    }
+
+    // ============ PROGRESSION PERSONNELLE ============
     match /progression/{userId} {
-      allow read: if isUserOrAdmin(userId);
-      allow write: if isUserOrAdmin(userId);
+      allow read, write: if estSoiMeme(userId) || isAdmin();
     }
 
-    // ✅ RÉVISIONS PERSONNELLES
+    // ============ RÉVISIONS PERSONNELLES ============
     match /revisions/{docId} {
-      allow read: if isUserOrAdmin(resource.data.userId);
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isUserOrAdmin(resource.data.userId);
+      allow read, update, delete: if estSoiMeme(resource.data.userId);
+      allow create: if estSoiMeme(request.resource.data.userId);
     }
 
-    // ✅ DÉFIS QUOTIDIENS
+    // ============ JOURNAL DE RÉVISIONS GAMIFIÉ ============
+    match /revisions_log/{docId} {
+      allow create: if estSoiMeme(request.resource.data.userId)
+        && request.resource.data.xpGagne is number
+        && request.resource.data.xpGagne >= 0 && request.resource.data.xpGagne <= 50;
+      allow read: if estSoiMeme(resource.data.userId) || isAdmin();
+    }
+
+    // ============ DÉFIS QUOTIDIENS ============
+    // Le défi comporte 3 questions : score 0..3, temps plausible (> 5 s).
+    // 1 écriture max par élève/jour (docId = date_uid, créé une fois).
     match /defi_jour/{docId} {
       allow read: if true;
-      allow create: if isAuth();
-      allow update, delete: if isUserOrAdmin(resource.data.userId);
+      allow create: if estSoiMeme(request.resource.data.userId)
+        && request.resource.data.score is number
+        && request.resource.data.score >= 0
+        && request.resource.data.score <= 3
+        && request.resource.data.tempsS is number
+        && request.resource.data.tempsS >= 5
+        && request.resource.data.nom is string
+        && request.resource.data.nom.size() <= 60;
+      allow update, delete: if isAdmin();
     }
 
-    // ✅ JOURNAL D'AUDIT (admin)
+    // ============ SIGNALEMENTS (élève → admin) ============
+    match /signalements/{docId} {
+      allow create: if request.resource.data.exoId is string
+        && request.resource.data.exoId.size() <= 120
+        && request.resource.data.raison is string
+        && request.resource.data.raison.size() <= 60;
+      allow read: if isAdmin();
+    }
+
+    // ============ DEVOIRS (espace prof) ============
+    match /devoirs/{docId} {
+      allow read: if true; // les élèves de la classe doivent les voir (cache offline)
+      allow write: if isAdmin();
+    }
+    match /devoir_reponses/{docId} {
+      allow create: if request.resource.data.score is number
+        && request.resource.data.total is number
+        && request.resource.data.score >= 0
+        && request.resource.data.total > 0
+        && request.resource.data.score <= request.resource.data.total;
+      allow read: if isAdmin() || estSoiMeme(resource.data.userId);
+    }
+
+    // ============ DEMANDES D'AIDE (mot de passe oublié) ============
+    match /demandes_aide/{docId} {
+      allow create: if request.resource.data.nom is string
+        && request.resource.data.nom.size() <= 60;
+      allow read: if isAdmin();
+    }
+
+    // ============ CRASH LOGS (rapports de plantage) ============
+    match /crash_logs/{docId} {
+      allow create: if request.resource.data.message is string
+        && request.resource.data.message.size() <= 500;
+      allow read: if isAdmin();
+    }
+
+    // ============ CLASSEMENT PUBLIC (données sûres, agrégées) ============
+    // Une Cloud Function remplit cette collection à partir de `utilisateurs` :
+    // nom, classe, xp, xp_semaine, avatar UNIQUEMENT — jamais email/hash/
+    // code. Lecture libre pour le classement, écriture par les fonctions admin.
+    match /classement_public/{userId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============ CONFIG APP (code prof, etc.) ============
+    match /config/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============ JOURNAL D'AUDIT (admin seul) ============
     match /journal_audit/{docId} {
       allow read, write: if isAdmin();
     }
 
-    // ✅ RÔLES UTILISATEURS (admin panel)
+    // ============ RÔLES ============
     match /roles/{userId} {
-      allow read: if isAdmin() || request.auth.uid == userId;
+      allow read: if isAdmin() || estSoiMeme(userId);
       allow write: if isAdmin();
     }
 
-    // ✅ HELPER FUNCTIONS
-    function isAuth() {
+    // ============ ADMINS (liste du proviseur) ============
+    match /admins/{docId} {
+      allow read: if true; // l'app vérifie l'appartenance
+      allow write: if isAdmin();
+    }
+
+    // ============ HELPERS ============
+    function estSoiMeme(userId) {
+      return estAuth() && request.auth.uid == userId;
+    }
+    function estAuth() {
       return request.auth != null;
     }
-
-    function isUserOrAdmin(userId) {
-      return isAuth() && (request.auth.uid == userId || isAdmin());
+    function donneesUtilisateurPropres() {
+      // Interdit d'écrire les champs sensibles dans le profil public.
+      return !('mot_de_passe' in request.resource.data)
+        && !('email' in request.resource.data)
+        && !('codeTransfert' in request.resource.data);
     }
-
     function isAdmin() {
-      return isAuth() && get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.isAdmin == true;
+      return estAuth()
+        && exists(/databases/$(database)/documents/roles/$(request.auth.uid))
+        && get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.isAdmin == true;
     }
 
     // Défaut : deny all
-    match /{document=**} { 
-      allow read, write: if false; 
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

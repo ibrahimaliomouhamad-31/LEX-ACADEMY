@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Speech from 'expo-speech';
 import { db } from '../config/firebaseConfig';
 import { getCours, saveCours } from '../services/cacheHorsLigne';
 
@@ -49,6 +50,30 @@ export default function Cours() {
     fetchCours();
   }, [id]);
 
+  // 🎧 LECTURE AUDIO DU COURS (expo-speech, 100% hors-ligne) : l'élève peut
+  // réviser en marchant, économiser sa batterie, ou compenser la fatigue
+  // de lecture. Utile aussi pour les lecteurs débutants.
+  const ecouterCours = () => {
+    if (!coursData) return;
+    Speech.stop();
+    const texte = [
+      coursData.titre ? `Chapitre : ${coursData.titre}.` : '',
+      coursData.theorie || coursData.activite || '',
+      coursData.methode_content || '',
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .replace(/\\n/g, ' ');
+    if (!texte.trim()) {
+      return;
+    }
+    Speech.speak(texte.slice(0, 3500), { language: 'fr', rate: 0.95 });
+  };
+
+  const arreterAudio = () => {
+    Speech.stop();
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -87,8 +112,24 @@ export default function Cours() {
         <TouchableOpacity onPress={() => router.push('/chapitres')}>
           <Text style={styles.backBtn}>‹ Retour aux chapitres</Text>
         </TouchableOpacity>
-        <Text style={styles.subject}>MATHÉMATIQUES - 1ÈRE C</Text>
-        <Text style={styles.chapterTitle}>{coursData?.titre}</Text>
+        <View style={styles.rowHeader}>
+          <View style={{ flex: 1 }}>
+            {/* 🔄 En-tête dynamique (avant : "MATHÉMATIQUES - 1ÈRE C" en dur,
+                faux pour tous les chapitres d'autres matières/classes) */}
+            <Text style={styles.subject}>
+              {(coursData?.matiere || 'Cours').toUpperCase()}
+              {coursData?.classe ? ` - ${String(coursData.classe).toUpperCase()}` : ''}
+            </Text>
+            <Text style={styles.chapterTitle}>{coursData?.titre}</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.audioBtn}
+            onPress={ecouterCours}
+            onLongPress={arreterAudio}
+          >
+            <Text style={styles.audioBtnText}>🎧</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -182,6 +223,9 @@ const styles = StyleSheet.create({
   loadingText: { color: '#FBBF24', marginTop: 15, fontSize: 16, textAlign: 'center' },
   header: { padding: 20, borderBottomWidth: 1, borderBottomColor: '#1E293B', marginBottom: 10 },
   backBtn: { color: '#FBBF24', fontSize: 14, marginBottom: 10 },
+  rowHeader: { flexDirection: 'row', alignItems: 'center' },
+  audioBtn: { backgroundColor: '#1E293B', borderWidth: 1, borderColor: '#8B5CF6', borderRadius: 20, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  audioBtnText: { fontSize: 20 },
   subject: { color: '#94A3B8', fontSize: 11, fontWeight: 'bold', letterSpacing: 1, textTransform: 'uppercase' },
   chapterTitle: { color: '#F8FAFC', fontSize: 20, fontWeight: 'bold', marginTop: 5 },
   scrollView: { paddingHorizontal: 20 },

@@ -22,6 +22,7 @@ import {
   type Theme,
 } from '../services/parametres';
 import { appliquerRappel } from '../services/optionsApp';
+import { getNotifsExtras, setNotifsExtras } from '../services/notifications';
 
 export default function Parametres() {
   const router = useRouter();
@@ -31,6 +32,7 @@ export default function Parametres() {
   const [rappel, setRappel] = useState(false);
   const [heureRappel, setH] = useState(20);
   const [examen, setExamen] = useState(false);
+  const [notifsExtras, setNotifsExtrasState] = useState(false);
   const [theme, setThemeState] = useState<Theme>('jaune');
 
   useEffect(() => {
@@ -41,6 +43,7 @@ export default function Parametres() {
       setRappel(await getRappelActif());
       setH(await getHeureRappel());
       setExamen(await getExamenActif());
+      setNotifsExtrasState(await getNotifsExtras());
       setThemeState(await getTheme());
     })();
   }, []);
@@ -137,6 +140,17 @@ export default function Parametres() {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* 🔔 Rappels intelligents : défi non fait + série en danger (hors-ligne) */}
+        <Ligne
+          titre="🔔 Rappels intelligents"
+          sousTitre="Te prévient si le Défi du jour n'est pas fait (19h) ou si ta série est en danger (20h)"
+          actif={notifsExtras}
+          onToggle={async (v) => {
+            setNotifsExtrasState(v);
+            await setNotifsExtras(v);
+          }}
+        />
         <View style={{ height: 30 }} />
       </ScrollView>
     </View>

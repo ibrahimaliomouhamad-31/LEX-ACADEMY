@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Speech from 'expo-speech';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { getExoById } from '../services/cacheHorsLigne';
@@ -9,6 +9,10 @@ import { estJuste, normaliser, versNombre } from '../services/outilsReponse';
 import { planifierRevision } from '../services/revisions';
 import { signalerExercice } from '../services/signalementService';
 import { enregistrerTentative } from '../services/statsSuivi';
+import { gagnerXp, validerStreakDuJour } from '../services/xpLocal';
+import { pousserCompteur } from '../services/syncQueue';
+import { classifierErreur } from '../utils/erreurs';
+import Confettis from '../components/confettis';
 import { db } from '../config/firebaseConfig';
 
 export { estJuste, normaliser, versNombre };
@@ -23,7 +27,7 @@ const BRAVOS = [
 const ENCOURAGEMENTS = [
   "❌ Pas encore... mais chaque erreur t'approche de la réussite. Vérifie les signes !",
   "❌ Presque ! Relis l'énoncé une deuxième fois — l'astuce s'y cache souvent.",
-  "❌ Raté. Normal : c'est comme ça qu'on apprend. Demande un indice à Z.AI !",
+  "❌ Raté. Normal : c'est comme ça qu'on apprend. Demande un indice !",
   "❌ Pas ça. Respire, prends ton temps, et attaque l'exercice étape par étape.",
 ];
 const alea = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
@@ -61,6 +65,10 @@ export default function Exercices() {
   const [feedback, setFeedback] = useState('');
   const [isCorrect, setIsCorrect] = useState(false);
   const [dejaResolu, setDejaResolu] = useState(false);
+  // 🧠 Pédagogie : le 1er indice n'est révélé qu'après UNE tentative —
+  // le "productive struggle" vaut mieux que lire l'indice tout de suite.
+  const [tentativeFaite, setTentativeFaite] = useState(false);
+  const [confettis, setConfettis] = useState(false);
   
   useEffect(() => {
     const fetchExo = async () => {
@@ -70,6 +78,8 @@ export default function Exercices() {
         setIndiceActuel(0);
         setFeedback('');
         setIsCorrect(false);
+        setTentativeFaite(false);
+        setConfettis(false);
 
         // 1) CACHE D'ABORD : instantané, marche sans internet
         let dataCache: any = null;
@@ -149,40 +159,50 @@ export default function Exercices() {
 
       // Déjà résolu avant (sur ce téléphone) : pas de XP à regagner
       if (dejaResolu) {
-        setFeedback('✅ BRAVO ! Tu avais déjà validé cet exercice (et déjà gagné tes 50 XP). Enchaîne sur un autre !');
+        setFeedback('✅ BRAVO ! Tu avais déjà validé cet exercice (et déjà gagné tes XP). Enchaîne sur un autre !');
         return;
       }
 
       const xpGagnes = xpPourDifficulte(exoData.difficulte);
-        setFeedback(alea(BRAVOS).replace('{XP}', String(xpGagnes)));
+
+      // 🔄 LOCAL-FIRST : l'exercice est marqué résolu ET les XP crédités
+      // LOCALEMENT AVANT tout accès réseau. Avant, l'XP ne passait QUE par
+      // Firestore : hors-ligne (cas principal des élèves du LEX), la
+      // récompense était perdue et l'exercice jamais marqué → l'élève
+      // pouvait retenter à l'infini sans jamais recevoir ses XP.
+      setFeedback(alea(BRAVOS).replace('{XP}', String(xpGagnes)));
+      setDejaResolu(true);
+      await marquerResolu();
+
+      // 🎉 Célébration à chaque première réussite (motivation instantanée).
+      setConfettis(true);
+      setTimeout(() => setConfettis(false), 2200);
 
       try {
+        // XP instantanés en local (AsyncStorage) → visibles partout, tout
+        // de suite, même après 4 jours sans wifi.
+        await gagnerXp(xpGagnes);
+        await validerStreakDuJour();
+
+        // Poussée cloud best-effort : en ligne → immédiate via increment()
+        // (atomique) ; hors-ligne → la file offline-first l'enverra au
+        // retour du wifi. Aucun crash possible dans les deux cas.
         const userId = await AsyncStorage.getItem('lex_user_id');
-
         if (userId) {
-          const userRef = doc(db, 'utilisateurs', userId);
-          const userSnap = await getDoc(userRef);
-
-          if (userSnap.exists()) {
-            const ancienXP = userSnap.data().xp || 0;
-            const nouveauXP = ancienXP + xpPourDifficulte(exoData.difficulte);
-            await updateDoc(userRef, { xp: nouveauXP });
-
-            setDejaResolu(true);
-            await marquerResolu();
-            setFeedback('✅ ' + xpPourDifficulte(exoData.difficulte) + ' XP ajoutés à ton profil. Regarde le classement !');
-          }
-        } else {
-          setFeedback('✅ BRAVO ! Mais tu dois être connecté pour gagner des XP.');
-          await marquerResolu();
+          await pousserCompteur('utilisateurs', userId, { xp: xpGagnes });
         }
-      } catch (error) {
-        console.error('Erreur enregistrement XP : ', error);
-        setFeedback('✅ BRAVO ! Tu es hors-ligne : tes 50 XP seront enregistrés quand tu referas cet exercice avec une connexion.');
+      } catch (erreurXp) {
+        // Les XP sont déjà crédités localement : l'élève ne perd JAMAIS sa
+        // récompense, la sync rattrapera plus tard.
+        console.error('XP cloud reporté (sera synchronisé plus tard) : ', erreurXp);
       }
     } else {
-      setFeedback(alea(ENCOURAGEMENTS));
+      // 🧠 FEEDBACK CIBLÉ : on qualifie l'erreur (signe oublié, unité
+      // manquante, presque...) au lieu d'un encouragement générique.
+      const diagnostic = classifierErreur(reponse, exoData.bonne_reponse);
+      setFeedback(diagnostic.message);
       setIsCorrect(false);
+      setTentativeFaite(true);
     }
   };
 
@@ -195,11 +215,19 @@ export default function Exercices() {
     }
   };
 
-  const demanderZAI = () => {
+  const demanderIndice = () => {
+    // 🧠 PÉDAGOGIE : pas d'indice avant au moins une tentative.
+    // Lutter contre la dépendance aux indices : le cerveau consolide en
+    // cherchant, pas en lisant la solution.
+    if (!tentativeFaite && indiceActuel === 0) {
+      setFeedback("💪 Essaie D'ABORD une réponse, même fausse ! Ton indice arrive juste après — c'est comme ça que ton cerveau retient le mieux.");
+      setIsCorrect(false);
+      return;
+    }
     if (indiceActuel < 3) {
       setIndiceActuel(indiceActuel + 1);
     } else {
-      setFeedback('Z.AI : Je t\'ai donné tous les indices ! Réfléchis bien à la dernière étape.');
+      setFeedback('💡 Je t\'ai donné tous les indices ! Réfléchis bien à la dernière étape.');
       setIsCorrect(false);
     }
   };
@@ -241,6 +269,7 @@ export default function Exercices() {
 
   return (
     <View style={styles.container}>
+      {confettis && <Confettis />}
       <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
 
       <View style={styles.header}>
@@ -289,7 +318,7 @@ export default function Exercices() {
         </View>
 
         <View style={styles.cardAI}>
-          <Text style={styles.cardTitleAI}>🤖 Z.AI - Assistant Pédagogique</Text>
+          <Text style={styles.cardTitleAI}>💡 Indice — Assistant Pédagogique</Text>
           <Text style={styles.aiIntro}>Bloqué ? Je ne te donnerai pas la réponse, mais je vais te guider étape par étape comme un vrai prof du LEX.</Text>
 
           {indiceActuel >= 1 && (
@@ -302,9 +331,9 @@ export default function Exercices() {
             <View style={styles.bubbleAI}><Text style={styles.bubbleText}>{exoData?.explication}</Text></View>
           )}
 
-          <TouchableOpacity style={styles.aiBtn} onPress={demanderZAI}>
+          <TouchableOpacity style={styles.aiBtn} onPress={demanderIndice}>
             <Text style={styles.aiBtnText}>
-              {indiceActuel === 0 ? 'Demander un indice à Z.AI' : indiceActuel < 3 ? "Demander l'indice suivant" : 'Voir tous les indices'}
+              {indiceActuel === 0 ? (tentativeFaite ? '💡 Demander un indice' : '💪 Essaie d\'abord, puis demande un indice') : indiceActuel < 3 ? "Demander l'indice suivant" : 'Voir tous les indices'}
             </Text>
           </TouchableOpacity>
         </View>

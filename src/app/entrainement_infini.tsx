@@ -273,7 +273,7 @@ export default function EntrainementInfini() {
         {/* Indices */}
         {exo && (
           <View style={styles.cardAI}>
-            <Text style={styles.cardTitleAI}>🤖 Z.AI - Indices</Text>
+            <Text style={styles.cardTitleAI}>💡 Indice — Assistant</Text>
             <View style={styles.bubbleAI}><Text style={styles.bubbleText}>💡 {exo.indice1}</Text></View>
             <View style={styles.bubbleAI}><Text style={styles.bubbleText}>💡 {exo.indice2}</Text></View>
             <View style={[styles.bubbleAI, styles.bubbleReponse]}>

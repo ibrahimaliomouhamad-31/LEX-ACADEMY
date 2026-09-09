@@ -1,46 +1,44 @@
 /**
- * 🌐 ÉCOUTE RÉSEAU
- * Détecte online/offline et sync automatiquement
+ * 🌐 ÉCOUTE RÉSEAU (hook React)
+ *
+ * 🔄 Avant : ce hook n'était monté NULLE PART dans l'app, et `expo-network`
+ * n'était même pas installé → le flag online de la file de sync restait à
+ * `true` pour toujours. Désormais il délègue tout au module `utils/reseau`
+ * (source unique) et il est monté dans app/_layout.tsx au démarrage.
  */
 
 import { useEffect, useState } from 'react';
-import * as Network from 'expo-network';
-import { syncQueue } from '../services/syncQueue';
+import {
+  demarrerEcouteReseau,
+  estEnLigneSync,
+  surChangementConnexion,
+  verifierConnexion,
+} from './reseau';
+import { toutSynchroniser } from '../services/syncOrchestrator';
 
 export function useNetworkStatus() {
-  const [isOnline, setIsOnline] = useState(true);
+  const [isOnline, setIsOnline] = useState<boolean>(estEnLigneSync());
 
   useEffect(() => {
     let mounted = true;
 
-    const checkNetwork = async () => {
-      try {
-        const state = await Network.getNetworkStateAsync();
-        if (mounted) {
-          const online = state.isConnected ?? true;
-          setIsOnline(online);
-          syncQueue.setOnlineStatus(online);
-        }
-      } catch (error) {
-        console.error('[network]:', error);
-      }
-    };
+    demarrerEcouteReseau();
+    verifierConnexion().then((online) => {
+      if (mounted) setIsOnline(online);
+    });
 
-    // Check initial
-    checkNetwork();
-
-    // Subscribe to changes
-    const subscription = Network.addNetworkStateListener(({ isConnected }) => {
-      if (mounted) {
-        const online = isConnected ?? true;
-        setIsOnline(online);
-        syncQueue.setOnlineStatus(online);
+    const desabonnement = surChangementConnexion((online) => {
+      if (mounted) setIsOnline(online);
+      // 🚀 Au retour du wifi : tout se synchronise (XP, streak, progression,
+      // défis, signalements). Tolérant aux pannes, ne throw jamais.
+      if (online) {
+        toutSynchroniser();
       }
     });
 
     return () => {
       mounted = false;
-      subscription();
+      desabonnement();
     };
   }, []);
 

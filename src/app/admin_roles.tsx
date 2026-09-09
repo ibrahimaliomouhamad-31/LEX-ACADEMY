@@ -11,13 +11,12 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  CheckBox,
   FlatList,
   TextInput,
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { getCurrentUserId, getSessionValide } from '../../services/auth';
+import { getCurrentUserId, getSessionValide } from '../services/auth';
 import {
   UserRole,
   UserPermissions,
@@ -26,9 +25,9 @@ import {
   revoquerRole,
   getPermissionsUtilisateur,
   peutEffectuerAction,
-} from '../../services/rolesPermissions';
-import { t } from '../../services/traductions';
-import { getLangue } from '../../services/parametres';
+} from '../services/rolesPermissions';
+import { t } from '../services/traductions';
+import { getLangue } from '../services/parametres';
 
 const ROLES_DISPONIBLES: { id: UserRole; label: string; icon: string; description: string }[] = [
   {

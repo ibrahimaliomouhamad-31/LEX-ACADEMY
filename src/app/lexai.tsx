@@ -2,6 +2,8 @@ import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { urlChat, headersIA } from '../services/configIA';
+import { chercher, memoriser } from '../services/qaCache';
+import { estEnLigne } from '../utils/reseau';
 
 // ⚠️ REMPLACE "TA_CLE_GROQ_ICI" par ta clé gratuite de Groq
 
@@ -48,12 +50,26 @@ export default function LexAI() {
       const aiResponse = data.choices?.[0]?.message?.content;
       if (aiResponse && aiResponse.trim() !== '') {
         setMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);
+        // 💾 Mémorise la paire Q/R : servira en mode dégradé hors-ligne.
+        await memoriser(userMessage.content, aiResponse);
       } else {
         throw new Error(data.error?.message || "Réponse vide de l'API");
       }
     } catch (error) {
       console.error("Erreur LEX.AI : ", error);
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Je ne peux pas répondre pour le moment. Vérifie ta connexion internet.' }]);
+      // 📴 MODE DÉGRADÉ HORS-LIGNE : rejoue une réponse similaire du cache
+      // plutôt que le message d'erreur générique. L'élève reste aidé,
+      // même 4 jours sans wifi.
+      const enLigne = await estEnLigne().catch(() => false);
+      const carte = await chercher(userMessage.content);
+      if (!enLigne && carte) {
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `⚡ Mode hors-ligne — voici une réponse à une question proche que j'avais mémorisée :\n\n${carte.reponse}`
+        }]);
+      } else {
+        setMessages(prev => [...prev, { role: 'assistant', content: 'Je ne peux pas répondre pour le moment. Vérifie ta connexion internet — ou pose une question proche de celles déjà mémorisées.' }]);
+      }
     } finally {
       setLoading(false);
     }
@@ -68,6 +84,7 @@ export default function LexAI() {
           <Text style={styles.backBtn}>‹ Retour</Text>
         </TouchableOpacity>
         <Text style={styles.title}>🤖 LEX.AI</Text>
+
       </View>
 
       <ScrollView 
