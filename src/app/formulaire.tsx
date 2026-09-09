@@ -1,420 +1,130 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { CATEGORIES, chercherFormules, type Formule } from '../services/formulaire';
+import { useState } from 'react';
+import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-const CLE_FAVORIS = 'lex_formulaire_favoris';
+interface Formule { titre: string; formule: string; description: string; exemple?: string; }
+interface CategorieFormules { id: string; nom: string; emoji: string; formules: Formule[]; }
 
-const FILTRE_FAVORIS = '\u2B50 Favoris';
-const FILTRE_TOUTES = 'Toutes';
-
-type ChoixMatiere = 'Toutes' | 'Math\u00E9matiques' | 'Physique-Chimie';
-
-const SEGMENTS: { cle: ChoixMatiere; libelle: string }[] = [
-  { cle: 'Toutes', libelle: 'Toutes' },
-  { cle: 'Math\u00E9matiques', libelle: '\u{1F4D0} Maths' },
-  { cle: 'Physique-Chimie', libelle: '\u2697\uFE0F PC' },
+const FORMULES_BAC_C: CategorieFormules[] = [
+  {
+    id: 'alg', nom: 'Algèbre', emoji: '🔢',
+    formules: [
+      { titre: 'Discriminant', formule: 'Δ = b² - 4ac', description: 'Pour ax² + bx + c = 0', exemple: 'x² - 5x + 6 = 0 → Δ = 1' },
+      { titre: 'Somme des racines', formule: 'x₁ + x₂ = -b/a', description: 'Relation coefficients-racines' },
+      { titre: 'Produit des racines', formule: 'x₁ × x₂ = c/a', description: 'Relation coefficients-racines' },
+      { titre: 'Forme canonique', formule: 'a(x - α)² + β', description: 'α = -b/2a, β = f(α)' },
+      { titre: 'Identités remarquables', formule: '(a±b)² = a² ± 2ab + b²', description: 'Développement' },
+    ],
+  },
+  {
+    id: 'ana', nom: 'Analyse', emoji: '📈',
+    formules: [
+      { titre: 'Dérivée (puissance)', formule: "(xⁿ)' = nxⁿ⁻¹", description: 'Règle de puissance' },
+      { titre: 'Dérivée (produit)', formule: "(uv)' = u'v + uv'", description: 'Règle du produit' },
+      { titre: 'Dérivée (quotient)', formule: "(u/v)' = (u'v - uv')/v²", description: 'Règle du quotient' },
+      { titre: 'Dérivée (ln)', formule: "(ln x)' = 1/x", description: 'Logarithme népérien' },
+      { titre: 'Dérivée (exp)', formule: "(eˣ)' = eˣ", description: 'Exponentielle' },
+      { titre: 'Suite arithmétique', formule: 'uₙ = u₀ + nr', description: 'raison r' },
+      { titre: 'Suite géométrique', formule: 'uₙ = u₀ × qⁿ', description: 'raison q' },
+    ],
+  },
+  {
+    id: 'geo', nom: 'Géométrie', emoji: '📐',
+    formules: [
+      { titre: 'Pythagore', formule: 'AB² + AC² = BC²', description: 'Triangle rectangle' },
+      { titre: 'Thalès', formule: 'AM/AB = AE/AC = ME/BC', description: 'Triangles semblables' },
+      { titre: 'Trigonométrie', formule: 'sin²x + cos²x = 1', description: 'Identité fondamentale' },
+      { titre: 'Tangente', formule: 'tan x = sin x / cos x', description: 'Définition' },
+      { titre: 'Aire triangle', formule: 'A = ½ × base × hauteur', description: 'Formule de base' },
+      { titre: 'Aire cercle', formule: 'A = πr²', description: 'Rayon r' },
+      { titre: 'Volume sphère', formule: 'V = (4/3)πr³', description: 'Rayon r' },
+    ],
+  },
+  {
+    id: 'prob', nom: 'Probabilités', emoji: '🎲',
+    formules: [
+      { titre: 'Probabilité', formule: 'P(A) = cas favorables / cas totaux', description: 'Définition' },
+      { titre: 'Arrangement', formule: 'A(n,p) = n!/(n-p)!', description: 'p éléments parmi n' },
+      { titre: 'Combinaison', formule: 'C(n,p) = n!/(p!(n-p)!)', description: 'p éléments parmi n' },
+      { titre: 'Binôme de Newton', formule: '(a+b)ⁿ = Σ C(n,k) aⁿ⁻ᵏbᵏ', description: 'Développement' },
+    ],
+  },
+  {
+    id: 'comp', nom: 'Nombres complexes', emoji: '🔮',
+    formules: [
+      { titre: 'Module', formule: '|z| = √(a² + b²)', description: 'z = a + bi' },
+      { titre: 'Conjugué', formule: 'z̄ = a - bi', description: 'z = a + bi' },
+      { titre: 'Forme exponentielle', formule: 'z = re^(iθ)', description: 'r = |z|, θ = arg(z)' },
+      { titre: "Formule d'Euler", formule: 'e^(iθ) = cos θ + i sin θ', description: 'Identité fondamentale' },
+    ],
+  },
 ];
-
-interface ProprietesCarte {
-  formule: Formule;
-  estFavori: boolean;
-  estOuverte: boolean;
-  onAppuiCarte: (id: string) => void;
-  onAppuiEtoile: (id: string) => void;
-}
-
-function CarteFormule({
-  formule: f,
-  estFavori,
-  estOuverte,
-  onAppuiCarte,
-  onAppuiEtoile,
-}: ProprietesCarte): React.JSX.Element {
-  return (
-    <TouchableOpacity
-      style={styles.carte}
-      activeOpacity={0.85}
-      onPress={() => onAppuiCarte(f.id)}
-    >
-      <View style={styles.carteHaut}>
-        <View style={styles.carteTextes}>
-          <Text style={styles.carteTitre}>{f.titre}</Text>
-          <Text style={styles.carteCategorie}>
-            {f.categorie} {'\u2022'} {f.niveau}
-          </Text>
-        </View>
-        <TouchableOpacity
-          style={styles.boutonEtoile}
-          onPress={() => onAppuiEtoile(f.id)}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Text style={estFavori ? styles.etoileActive : styles.etoileInactive}>
-            {estFavori ? '\u2B50' : '\u2606'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-      <Text style={styles.carteFormule}>{f.formule}</Text>
-      {estOuverte ? <Text style={styles.carteExplication}>{f.explication}</Text> : null}
-    </TouchableOpacity>
-  );
-}
 
 export default function Formulaire() {
   const router = useRouter();
-  const [recherche, setRecherche] = useState('');
-  const [matiere, setMatiere] = useState<ChoixMatiere>('Toutes');
-  const [categorie, setCategorie] = useState<string>(FILTRE_TOUTES);
-  const [favoris, setFavoris] = useState<string[]>([]);
-  const [idOuvert, setIdOuvert] = useState<string | null>(null);
-
-  // Chargement des favoris depuis le stockage local
-  useEffect(() => {
-    let actif = true;
-    AsyncStorage.getItem(CLE_FAVORIS)
-      .then((brut: string | null) => {
-        if (!actif || brut === null) return;
-        try {
-          const analyse: unknown = JSON.parse(brut);
-          if (Array.isArray(analyse)) {
-            setFavoris(analyse.filter((element): element is string => typeof element === 'string'));
-          }
-        } catch {
-          // Donn\u00E9es corrompues : on repart d'une liste vide
-        }
-      })
-      .catch(() => undefined);
-    return () => {
-      actif = false;
-    };
-  }, []);
-
-  const basculerFavori = useCallback(
-    (id: string): void => {
-      const nouveaux = favoris.includes(id)
-        ? favoris.filter((element) => element !== id)
-        : [...favoris, id];
-      setFavoris(nouveaux);
-      void AsyncStorage.setItem(CLE_FAVORIS, JSON.stringify(nouveaux)).catch(() => undefined);
-    },
-    [favoris],
-  );
-
-  const categoriesVisibles = useMemo<string[]>(() => {
-    const source =
-      matiere === 'Toutes'
-        ? CATEGORIES
-        : CATEGORIES.filter((groupe) => groupe.matiere === matiere);
-    const uniques: string[] = [];
-    for (const groupe of source) {
-      for (const cat of groupe.categories) {
-        if (!uniques.includes(cat)) uniques.push(cat);
-      }
-    }
-    return uniques;
-  }, [matiere]);
-
-  const resultats = useMemo<Formule[]>(() => {
-    let liste = chercherFormules(recherche);
-    if (matiere !== 'Toutes') {
-      liste = liste.filter((f) => f.matiere === matiere);
-    }
-    if (categorie === FILTRE_FAVORIS) {
-      liste = liste.filter((f) => favoris.includes(f.id));
-    } else if (categorie !== FILTRE_TOUTES) {
-      liste = liste.filter((f) => f.categorie === categorie);
-    }
-    return liste;
-  }, [recherche, matiere, categorie, favoris]);
-
-  const choisirMatiere = (choix: ChoixMatiere): void => {
-    setMatiere(choix);
-    setCategorie(FILTRE_TOUTES);
-  };
-
-  const appuiCarte = (id: string): void => {
-    setIdOuvert((courant) => (courant === id ? null : id));
-  };
+  const [categorieActive, setCategorieActive] = useState(FORMULES_BAC_C[0].id);
+  const categorie = FORMULES_BAC_C.find(c => c.id === categorieActive) || FORMULES_BAC_C[0];
 
   return (
-    <View style={styles.conteneur}>
-      <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
-
-      {/* En-t\u00EAte */}
-      <View style={styles.entete}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Text style={styles.boutonRetour}>{'\u2039'} Retour</Text>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#0B1120" />
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Text style={styles.backBtn}>‹ Retour</Text>
         </TouchableOpacity>
-        <Text style={styles.titre}>{'\u{1F4DA}'} Formulaire</Text>
-        <Text style={styles.sousTitre}>Toutes tes formules, même hors-ligne</Text>
+        <Text style={styles.subject}>BAC C/D</Text>
+        <Text style={styles.title}>📐 Fiches de Formules</Text>
       </View>
-
-      {/* Barre de recherche */}
-      <TextInput
-        style={styles.champRecherche}
-        placeholder="Rechercher une formule (ex : Pythagore, \u0394, ln)\u2026"
-        placeholderTextColor="#64748B"
-        value={recherche}
-        onChangeText={setRecherche}
-        autoCorrect={false}
-        returnKeyType="search"
-      />
-
-      {/* Segmented Maths / PC */}
-      <View style={styles.segmente}>
-        {SEGMENTS.map((segment) => (
-          <TouchableOpacity
-            key={segment.cle}
-            style={[styles.segment, matiere === segment.cle ? styles.segmentActif : null]}
-            onPress={() => choisirMatiere(segment.cle)}
-          >
-            <Text style={[styles.segmentTexte, matiere === segment.cle ? styles.segmentTexteActif : null]}>
-              {segment.libelle}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Chips de cat\u00E9gories */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.rangeeChips}
-        contentContainerStyle={styles.conteneurChips}
-      >
-        {[FILTRE_FAVORIS, FILTRE_TOUTES, ...categoriesVisibles].map((filtre) => (
-          <TouchableOpacity
-            key={filtre}
-            style={[styles.chip, categorie === filtre ? styles.chipActive : null]}
-            onPress={() => setCategorie(filtre === categorie ? FILTRE_TOUTES : filtre)}
-          >
-            <Text style={[styles.chipTexte, categorie === filtre ? styles.chipTexteActif : null]}>
-              {filtre}
-            </Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.onglets}>
+        {FORMULES_BAC_C.map((cat) => (
+          <TouchableOpacity key={cat.id} style={[styles.onglet, categorieActive === cat.id && styles.ongletActif]} onPress={() => setCategorieActive(cat.id)}>
+            <Text style={styles.ongletEmoji}>{cat.emoji}</Text>
+            <Text style={[styles.ongletText, categorieActive === cat.id && styles.ongletTextActif]}>{cat.nom}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
-
-      {/* Compteur */}
-      <View style={styles.rangeeBadge}>
-        <Text style={styles.badge}>
-          {resultats.length} formule{resultats.length > 1 ? 's' : ''}
-        </Text>
-      </View>
-
-      {/* R\u00E9sultats */}
-      <ScrollView
-        style={styles.liste}
-        contentContainerStyle={styles.conteneurListe}
-        keyboardShouldPersistTaps="handled"
-      >
-        {resultats.map((f) => (
-          <CarteFormule
-            key={f.id}
-            formule={f}
-            estFavori={favoris.includes(f.id)}
-            estOuverte={idOuvert === f.id}
-            onAppuiCarte={appuiCarte}
-            onAppuiEtoile={basculerFavori}
-          />
-        ))}
-        {resultats.length === 0 ? (
-          <View style={styles.vide}>
-            <Text style={styles.videTitre}>{'\u{1F50D}'} Aucune formule trouvée</Text>
-            <Text style={styles.videTexte}>
-              Essaie un autre mot-clé ou sélectionne « Toutes » dans les filtres.
-            </Text>
+      <ScrollView contentContainerStyle={{ padding: 20 }}>
+        <Text style={styles.categorieTitre}>{categorie.emoji} {categorie.nom}</Text>
+        {categorie.formules.map((formule, index) => (
+          <View key={index} style={styles.carteFormule}>
+            <Text style={styles.formuleTitre}>{formule.titre}</Text>
+            <View style={styles.formuleBox}>
+              <Text style={styles.formuleText}>{formule.formule}</Text>
+            </View>
+            <Text style={styles.formuleDescription}>{formule.description}</Text>
+            {formule.exemple && (
+              <View style={styles.exempleBox}>
+                <Text style={styles.exempleLabel}>Exemple :</Text>
+                <Text style={styles.exempleText}>{formule.exemple}</Text>
+              </View>
+            )}
           </View>
-        ) : null}
+        ))}
+        <View style={{ height: 30 }} />
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  conteneur: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-    paddingHorizontal: 16,
-    paddingTop: 64,
-  },
-  entete: {
-    marginBottom: 14,
-  },
-  boutonRetour: {
-    color: '#FBBF24',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 10,
-  },
-  titre: {
-    color: '#F8FAFC',
-    fontSize: 26,
-    fontWeight: '800',
-  },
-  sousTitre: {
-    color: '#94A3B8',
-    fontSize: 13,
-    marginTop: 4,
-  },
-  champRecherche: {
-    backgroundColor: '#1E293B',
-    borderWidth: 1,
-    borderColor: '#334155',
-    borderRadius: 12,
-    color: '#F8FAFC',
-    fontSize: 15,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 10,
-  },
-  segmente: {
-    flexDirection: 'row',
-    backgroundColor: '#1E293B',
-    borderRadius: 12,
-    padding: 3,
-    marginBottom: 10,
-  },
-  segment: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  segmentActif: {
-    backgroundColor: '#3B82F6',
-  },
-  segmentTexte: {
-    color: '#94A3B8',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  segmentTexteActif: {
-    color: '#F8FAFC',
-  },
-  rangeeChips: {
-    flexGrow: 0,
-    marginBottom: 10,
-  },
-  conteneurChips: {
-    gap: 8,
-    paddingRight: 8,
-  },
-  chip: {
-    backgroundColor: '#1E293B',
-    borderWidth: 1,
-    borderColor: '#334155',
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-  },
-  chipActive: {
-    backgroundColor: '#FBBF24',
-    borderColor: '#FBBF24',
-  },
-  chipTexte: {
-    color: '#94A3B8',
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  chipTexteActif: {
-    color: '#0F172A',
-    fontWeight: '700',
-  },
-  rangeeBadge: {
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  badge: {
-    backgroundColor: '#334155',
-    color: '#F8FAFC',
-    fontSize: 12,
-    fontWeight: '600',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    overflow: 'hidden',
-  },
-  liste: {
-    flex: 1,
-  },
-  conteneurListe: {
-    paddingBottom: 40,
-  },
-  carte: {
-    backgroundColor: '#1E293B',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#334155',
-    padding: 14,
-    marginBottom: 10,
-  },
-  carteHaut: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  carteTextes: {
-    flex: 1,
-    paddingRight: 8,
-  },
-  carteTitre: {
-    color: '#F8FAFC',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  carteCategorie: {
-    color: '#64748B',
-    fontSize: 12,
-    marginTop: 2,
-  },
-  boutonEtoile: {
-    padding: 4,
-  },
-  etoileActive: {
-    fontSize: 20,
-  },
-  etoileInactive: {
-    fontSize: 20,
-    color: '#64748B',
-  },
-  carteFormule: {
-    color: '#FBBF24',
-    fontSize: 19,
-    fontWeight: '700',
-    marginTop: 10,
-    lineHeight: 30,
-  },
-  carteExplication: {
-    color: '#94A3B8',
-    fontSize: 14,
-    lineHeight: 21,
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#334155',
-  },
-  vide: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  videTitre: {
-    color: '#F8FAFC',
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  videTexte: {
-    color: '#64748B',
-    fontSize: 13,
-    textAlign: 'center',
-  },
+  container: { flex: 1, backgroundColor: '#0B1120' },
+  header: { padding: 20, paddingTop: 50, borderBottomWidth: 1, borderBottomColor: '#1E293B', marginBottom: 10, backgroundColor: '#0F172A' },
+  backBtn: { color: '#FBBF24', fontSize: 14, marginBottom: 10, fontWeight: '600' },
+  subject: { color: '#94A3B8', fontSize: 11, fontWeight: 'bold', letterSpacing: 1, textTransform: 'uppercase' },
+  title: { color: '#F9FAFB', fontSize: 22, fontWeight: 'bold', marginTop: 5 },
+  onglets: { paddingHorizontal: 20, paddingVertical: 10, maxHeight: 70 },
+  onglet: { backgroundColor: '#1F2937', borderWidth: 1, borderColor: '#374151', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, marginRight: 10, alignItems: 'center', minWidth: 80 },
+  ongletActif: { backgroundColor: '#FBBF24', borderColor: '#FBBF24' },
+  ongletEmoji: { fontSize: 20, marginBottom: 4 },
+  ongletText: { color: '#D1D5DB', fontSize: 12, fontWeight: '500' },
+  ongletTextActif: { color: '#0F172A', fontWeight: 'bold' },
+  categorieTitre: { color: '#FBBF24', fontSize: 20, fontWeight: 'bold', marginBottom: 15 },
+  carteFormule: { backgroundColor: '#111827', borderRadius: 14, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#374151' },
+  formuleTitre: { color: '#F9FAFB', fontSize: 16, fontWeight: 'bold', marginBottom: 8 },
+  formuleBox: { backgroundColor: '#0F172A', borderRadius: 10, padding: 14, marginBottom: 8, borderLeftWidth: 3, borderLeftColor: '#3B82F6' },
+  formuleText: { color: '#93C5FD', fontSize: 16, fontWeight: 'bold', fontFamily: 'monospace' },
+  formuleDescription: { color: '#9CA3AF', fontSize: 13, marginBottom: 4 },
+  exempleBox: { backgroundColor: '#1F2937', borderRadius: 8, padding: 10, marginTop: 8 },
+  exempleLabel: { color: '#FBBF24', fontSize: 11, fontWeight: 'bold', marginBottom: 4 },
+  exempleText: { color: '#D1D5DB', fontSize: 12, fontFamily: 'monospace' },
 });
