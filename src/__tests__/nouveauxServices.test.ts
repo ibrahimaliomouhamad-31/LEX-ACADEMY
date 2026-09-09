@@ -14,6 +14,7 @@ import { modererFiche } from '../services/moderationFiches';
 import { compresserTexte, planifierPrechargement } from '../services/prechargement';
 import { streakAuthentique, scellerStreak, signalerAlteration } from '../services/integrite';
 import { genererSectionsCours } from "../services/enrichirCours";
+import { extraireMicroNotions, couvrirNotions } from "../services/microNotions";
 
 describe('Groupes d\'entraide', () => {
   it('bloque le spam, les majuscules et les liens', () => {
@@ -74,5 +75,30 @@ describe("Enrichissement des cours (morceau 1)", () => {
   it("ajoute un schema quand le titre du chapitre correspond", () => {
     const s2 = genererSectionsCours("Le theoreme de Pythagore", "Mathematiques", "x");
     expect(s2.some((sec) => sec.titre.toLowerCase().includes("sch"))).toBe(true);
+  });
+});
+
+describe("Micro-notions (morceau 1)", () => {
+  it("extrait les titres dun cahier colle (I. / 1. / Definition)", () => {
+    const cahier = [
+      "I. DEFINITION : la derivee est le taux de variation instantane",
+      "La derivee en a est la pente de la tangente en a",
+      "1. Propriete : la derivee dun produit suit la regle u v",
+      "II. METHODE : calculer la derivee etape par etape",
+      "III. EXEMPLES : la fonction carre donne 2x",
+    ].join("\n");
+    const n = extraireMicroNotions(cahier);
+    expect(n.length).toBeGreaterThanOrEqual(3);
+    expect(new Set(n.map((x) => x.id)).size).toBe(n.length);
+    expect(n.every((x) => x.maitrise === 0)).toBe(true);
+  });
+  it("couvre les notions avec des exercices par mots-cles", () => {
+    const notions = extraireMicroNotions("I. Derivee et tangente\nLa pente.\nII. Limites\nLa notion.");
+    const r = couvrirNotions(notions, [
+      { enonce: "Calcule la derivee de x2" },
+      { enonce: "Etudie la limite en 0" },
+    ]);
+    expect(r.length).toBe(notions.length);
+    expect(r[0].nbExercices).toBe(1);
   });
 });

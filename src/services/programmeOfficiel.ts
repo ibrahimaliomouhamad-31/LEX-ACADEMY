@@ -177,10 +177,37 @@ export const GLOSSAIRE_NIGER: TermeGlossaire[] = [
  * Utilisé pour proposer une fiche quand on cherche un mot.
  */
 export function chercherGlossaire(requete: string): TermeGlossaire[] {
-  const q = (requete || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  if (!q.trim()) return [];
-  return GLOSSAIRE_NIGER.filter((t) =>
-    t.terme.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q) ||
-    t.matiere.toLowerCase().includes(q)
-  );
+  const brut = (requete || '').trim().toLowerCase();
+  if (!brut) return [];
+  const sansAccents = (s: string): string => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const q = sansAccents(brut);
+  const mots = q.split(/\\s+/).filter((m) => m.length >= 2);
+  const score = (t: TermeGlossaire): number => {
+    const terme = sansAccents(t.terme);
+    const def = sansAccents(t.definition);
+    const mat = sansAccents(t.matiere);
+    let s = 0;
+    if (terme.includes(q)) s += 10;
+    if (terme.startsWith(q)) s += 5;
+    for (const m of mots) {
+      if (terme.includes(m)) s += 3;
+      if (def.includes(m)) s += 1;
+      if (mat.includes(m)) s += 1;
+    }
+    if (s === 0 && mots.length === 1 && q.length >= 4) {
+      let i = 0;
+      let ok = true;
+      for (const c of q) {
+        const j = terme.indexOf(c, i);
+        if (j === -1) { ok = false; break; }
+        i = j + 1;
+      }
+      if (ok) s += 0.5;
+    }
+    return s;
+  };
+  return GLOSSAIRE_NIGER.map((t) => ({ t, s: score(t) }))
+    .filter((x) => x.s > 0)
+    .sort((a, b) => b.s - a.s)
+    .map((x) => x.t);
 }

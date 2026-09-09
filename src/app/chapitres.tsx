@@ -2,22 +2,66 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db } from '../config/firebaseConfig';
 import { getAllCoursCache, saveCours } from '../services/cacheHorsLigne';
 
 export default function Chapitres() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const matiere = (params.matiere as string) || "Mathématiques";
-  const classe = (params.classe as string) || "Première C";
-  
+  const matiere = (params.matiere as string) || 'Mathématiques';
+  const classe = (params.classe as string) || 'Première C';
+
   const [chapitres, setChapitres] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [favoris, setFavoris] = useState<string[]>([]);
+
+  const basculerFavori = (id: string) => {
+    setFavoris((prev) => {
+      const suivant = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+      AsyncStorage.setItem('lex_favoris_chapitres', JSON.stringify(suivant)).catch(() => {});
+      return suivant;
+    });
+  };
+
+  const chapitresTries = [
+    ...chapitres.filter((c) => favoris.includes(c.id)),
+    ...chapitres.filter((c) => !favoris.includes(c.id)),
+  ];
+
+  const carteChapitre = (chapitre: any) => {
+    const index = chapitres.indexOf(chapitre);
+    const estFavori = favoris.includes(chapitre.id);
+    return (
+      <TouchableOpacity
+        key={chapitre.id}
+        style={styles.chapterCard}
+        onPress={() => router.push({ pathname: '/cours', params: { id: chapitre.id } })}
+      >
+        <View style={styles.chapterNumber}>
+          <Text style={styles.chapterNumberText}>{index + 1}</Text>
+        </View>
+        <Text style={styles.chapterTitle}>{chapitre.titre}</Text>
+        <TouchableOpacity
+          onPress={() => basculerFavori(chapitre.id)}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Text style={styles.favoriBtn}>{estFavori ? '⭐' : '☆'}</Text>
+        </TouchableOpacity>
+        <Text style={styles.arrow}>›</Text>
+      </TouchableOpacity>
+    );
+  };
 
   useEffect(() => {
     const fetchChapitres = async () => {
       if (!matiere || !classe) return;
       try {
+        // ⭐ Favoris de l'élève (lecture locale)
+        try {
+          const v = await AsyncStorage.getItem('lex_favoris_chapitres');
+          if (v) setFavoris(JSON.parse(v));
+        } catch {}
         // CACHE D'ABORD : sommaire lisible hors-ligne
         const caches = await getAllCoursCache();
         const horsLigne = caches.filter((c) => c.matiere === matiere && c.classe === classe);
@@ -27,7 +71,7 @@ export default function Chapitres() {
         }
         // FIREBASE ensuite : mise à jour + sauvegarde complète des cours
         try {
-          const q = query(collection(db, "cours"), where("matiere", "==", matiere), where("classe", "==", classe));
+          const q = query(collection(db, 'cours'), where('matiere', '==', matiere), where('classe', '==', classe));
           const querySnapshot = await getDocs(q);
           const chapitresData: any[] = [];
           for (const d of querySnapshot.docs) {
@@ -39,7 +83,7 @@ export default function Chapitres() {
           // hors-ligne : le cache suffit
         }
       } catch (error) {
-        console.error("Erreur : ", error);
+        console.error('Erreur : ', error);
       } finally {
         setLoading(false);
       }
@@ -72,19 +116,7 @@ export default function Chapitres() {
         {chapitres.length === 0 ? (
           <Text style={styles.emptyText}>Aucun chapitre disponible pour cette matière/classe pour le moment.</Text>
         ) : (
-          chapitres.map((chapitre, index) => (
-            <TouchableOpacity 
-              key={chapitre.id} 
-              style={styles.chapterCard} 
-              onPress={() => router.push({ pathname: '/cours', params: { id: chapitre.id } })}
-            >
-              <View style={styles.chapterNumber}>
-                <Text style={styles.chapterNumberText}>{index + 1}</Text>
-              </View>
-              <Text style={styles.chapterTitle}>{chapitre.titre}</Text>
-              <Text style={styles.arrow}>›</Text>
-            </TouchableOpacity>
-          ))
+          chapitresTries.map((chapitre) => carteChapitre(chapitre))
         )}
         <View style={{height: 30}} />
       </ScrollView>
@@ -125,5 +157,6 @@ const styles = StyleSheet.create({
   },
   chapterNumberText: { color: '#3B82F6', fontSize: 18, fontWeight: 'bold' },
   chapterTitle: { color: '#F8FAFC', fontSize: 16, fontWeight: 'bold', flex: 1 },
+  favoriBtn: { fontSize: 20, marginRight: 6 },
   arrow: { color: '#94A3B8', fontSize: 24, marginLeft: 10 }
 });
