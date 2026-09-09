@@ -1,13 +1,15 @@
-// DEVOIRS & ESPACE PROF — Firestore, optimisé pour 150+ élèves :
-// - un prof crée un devoir (une liste d'exercices d'un chapitre, niveau choisi)
-// - chaque élève rend UNE petite fiche de résultat (1 écriture par élève)
-// - le prof lit les résultats d'UN devoir à la fois (≤ ~40 lectures par classe)
+// OBJECTIFS PERSONNELS — Firestore, 100% élève :
+// - l'élève se fixe ses propres objectifs de révision
+// - chaque objectif = un chapitre + un nombre d'exercices + un niveau
+// - l'élève suit sa propre progression, sans aucun prof
 
-import { addDoc, collection, doc, getDoc, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
+import { addDoc, collection, getDocs, query, where, limit } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
 
-export interface Devoir {
+export interface ObjectifPersonnel {
   id: string;
+  eleveNom: string;
+  eleveId: string;
   titre: string;
   classe: string;
   matiere: string;
@@ -16,63 +18,67 @@ export interface Devoir {
   nbExercices: number;
   niveauGenerateur: number;
   dateLimite: string;
-  profNom: string;
   dateCreation: string;
+  complete: boolean;
+  scoreFinal?: number;
 }
 
-export interface ReponseDevoir {
-  devoirId: string;
+export interface ReponseObjectif {
+  objectifId: string;
   eleveNom: string;
+  eleveId: string;
   score: number;
   total: number;
   dateISO: string;
 }
 
-const CODE_PROF_DEFAUT = 'LEXPROF2026';
-
 /**
- * Vérifie le code prof.
- * 🔒 Le code officiel vit dans Firestore (config/code_prof) et peut être
- * changé par l'admin sans nouvelle version de l'app. Le code par défaut
- * n'est qu'un filet de sécurité si le doc n'existe pas encore.
+ * Crée un objectif personnel pour l'élève.
+ * L'élève se fixe lui-même ses buts de révision.
  */
-export async function verifierCodeProf(code: string): Promise<boolean> {
-  const saisie = code.trim().toUpperCase();
-  if (saisie.length < 4) return false;
-
-  try {
-    const snap = await getDoc(doc(db, 'config', 'code_prof'));
-    if (snap.exists()) {
-      const officiel = String(snap.data().valeur || '').trim().toUpperCase();
-      if (officiel) return saisie === officiel;
-    }
-  } catch {
-    // hors-ligne ou doc absent : on compare avec le code par défaut
-  }
-  return saisie === CODE_PROF_DEFAUT;
-}
-
-export async function creerDevoir(d: Omit<Devoir, 'id' | 'dateCreation'>): Promise<string> {
-  const ref = await addDoc(collection(db, 'devoirs'), {
+export async function creerObjectif(d: Omit<ObjectifPersonnel, 'id' | 'dateCreation' | 'complete'>): Promise<string> {
+  const ref = await addDoc(collection(db, 'objectifs_personnels'), {
     ...d,
     dateCreation: new Date().toISOString(),
+    complete: false,
   } as unknown as Record<string, unknown>);
   return ref.id;
 }
 
-export async function listeDevoirs(classe: string): Promise<Devoir[]> {
-  // Un seul where : pas d'index composite requis. Tri côté client.
-  const q = query(collection(db, 'devoirs'), where('classe', '==', classe), limit(20));
+/**
+ * Liste les objectifs personnels d'un élève.
+ */
+export async function listeObjectifs(eleveId: string): Promise<ObjectifPersonnel[]> {
+  const q = query(collection(db, 'objectifs_personnels'), where('eleveId', '==', eleveId), limit(50));
   const snap = await getDocs(q);
-  const resultat: Devoir[] = [];
-  snap.forEach((d) => resultat.push({ id: d.id, ...(d.data() as Omit<Devoir, 'id'>) }));
+  const resultat: ObjectifPersonnel[] = [];
+  snap.forEach((d) => resultat.push({ id: d.id, ...(d.data() as Omit<ObjectifPersonnel, 'id'>) }));
   resultat.sort((a, b) => (a.dateCreation < b.dateCreation ? 1 : -1));
   return resultat;
 }
 
-export async function rendreDevoir(r: Omit<ReponseDevoir, 'dateISO'>): Promise<boolean> {
+/**
+ * Marque un objectif comme complet avec le score final.
+ */
+export async function completerObjectif(objectifId: string, score: number, total: number): Promise<boolean> {
   try {
-    await addDoc(collection(db, 'devoir_reponses'), {
+    const { doc, updateDoc } = await import('firebase/firestore');
+    await updateDoc(doc(db, 'objectifs_personnels', objectifId), {
+      complete: true,
+      scoreFinal: Math.round((score / Math.max(total, 1)) * 100),
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Enregistre le résultat d'un objectif personnel (local + cloud).
+ */
+export async function enregistrerResultat(r: Omit<ReponseObjectif, 'dateISO'>): Promise<boolean> {
+  try {
+    await addDoc(collection(db, 'resultats_objectifs'), {
       ...r,
       dateISO: new Date().toISOString(),
     } as unknown as Record<string, unknown>);
@@ -82,11 +88,14 @@ export async function rendreDevoir(r: Omit<ReponseDevoir, 'dateISO'>): Promise<b
   }
 }
 
-export async function resultatsDevoir(devoirId: string): Promise<ReponseDevoir[]> {
-  const q = query(collection(db, 'devoir_reponses'), where('devoirId', '==', devoirId));
+/**
+ * Liste les résultats d'objectifs d'un élève.
+ */
+export async function listeResultats(eleveId: string): Promise<ReponseObjectif[]> {
+  const q = query(collection(db, 'resultats_objectifs'), where('eleveId', '==', eleveId), limit(100));
   const snap = await getDocs(q);
-  const resultat: ReponseDevoir[] = [];
-  snap.forEach((d) => resultat.push(d.data() as ReponseDevoir));
-  resultat.sort((a, b) => b.score - a.score);
+  const resultat: ReponseObjectif[] = [];
+  snap.forEach((d) => resultat.push(d.data() as ReponseObjectif));
+  resultat.sort((a, b) => (a.dateISO < b.dateISO ? 1 : -1));
   return resultat;
 }

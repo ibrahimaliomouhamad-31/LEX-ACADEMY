@@ -71,7 +71,7 @@ export default function EntrainementInfini() {
           }
         }
         const n = await chargerNotionsChapitre(chapitreId, cours as any, contenuFB);
-        setNotions(n.slice(0, 12)); // max 12 notions affichées
+        setNotions(n); // TOUTES les notions du chapitre (pas de limite)
       } catch {
         // ignore
       }
