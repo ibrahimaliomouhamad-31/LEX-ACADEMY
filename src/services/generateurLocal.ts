@@ -757,5 +757,30 @@ export function niveauLabel(niveau: number): string {
 
 export function generateurDisponible(matiere: string): boolean {
   const m = normaliserCle(matiere);
-  return m.includes('math') || m.includes('physique') || m.includes('chimie');
+  return m.includes('math') || m.includes('physique') || m.includes('mecanique');
+}
+
+// Génère un exercice ciblé sur une micro-notion spécifique.
+// C'est la fonction principale pour les exercices infinis par micro-notion.
+export function genererExercicePourNotion(
+  microNotion: { titre: string; motsCles: string[]; extrait: string },
+  niveau: number,
+  graine?: number
+): ExoGenere {
+  const n = Math.max(1, Math.min(100, Math.round(niveau)));
+  const rng = creerRng(graine);
+  
+  // Cherche le meilleur générateur basé sur les mots-clés de la micro-notion
+  const cleNormalisee = normaliserCle(microNotion.titre + ' ' + microNotion.motsCles.join(' '));
+  
+  for (const sujet of SUJETS) {
+    if (sujet.motsCles.some((mot) => cleNormalisee.includes(normaliserCle(mot)))) {
+      const gen = choix(rng, sujet.generateurs);
+      return gen(rng, n);
+    }
+  }
+  
+  // Fallback : utilise le pool par défaut avec les mots-clés de la notion
+  const gen = choix(rng, POOL_DEFAUT);
+  return gen(rng, n);
 }

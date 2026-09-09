@@ -13,14 +13,16 @@ import {
 } from 'react-native';
 import { db } from '../config/firebaseConfig';
 import {
-  generateurDisponible,
-  genererExercice,
+  genererExercicePourNotion,
   niveauLabel,
   type ExoGenere,
 } from '../services/generateurLocal';
 import { estJuste } from '../services/outilsReponse';
 import { chargerNotionsChapitre, type MicroNotion } from '../services/microNotions';
 import { getCours } from '../services/cacheHorsLigne';
+import { gagnerXp, validerStreakDuJour } from '../services/xpLocal';
+
+const CLE_MAITRISE = 'lex_maitrise_notions';
 
 const CLE_NIVEAUX = 'lex_infini_niveaux';
 const CLE_STATS = 'lex_infini_stats';
@@ -32,15 +34,16 @@ export default function EntrainementInfini() {
   const titre = (params.titre as string) || 'Chapitre';
   const matiere = (params.matiere as string) || '';
 
-  const [niveau, setNiveau] = useState(1);
+  const [notions, setNotions] = useState<MicroNotion[]>([]);
+  const [notionActuelle, setNotionActuelle] = useState<MicroNotion | null>(null);
   const [exo, setExo] = useState<ExoGenere | null>(null);
   const [reponse, setReponse] = useState('');
   const [feedback, setFeedback] = useState('');
   const [isCorrect, setIsCorrect] = useState(false);
-  const [serie, setSerie] = useState(0); // série en cours (réponses justes consécutives)
+  const [niveau, setNiveau] = useState(30);
+  const [serie, setSerie] = useState(0);
   const [totalResolus, setTotalResolus] = useState(0);
-  const [notions, setNotions] = useState<MicroNotion[]>([]);
-  const [notionChoisie, setNotionChoisie] = useState<string>(''); // '' = toutes
+  const [chargement, setChargement] = useState(true);
 
   const disponible = generateurDisponible(matiere);
 
