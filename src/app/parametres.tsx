@@ -23,6 +23,7 @@ import {
 } from '../services/parametres';
 import { appliquerRappel } from '../services/optionsApp';
 import { getNotifsExtras, setNotifsExtras } from '../services/notifications';
+import { getEconomieDonnees, setEconomieDonnees } from '../services/economieDonnees';
 
 export default function Parametres() {
   const router = useRouter();
@@ -34,6 +35,7 @@ export default function Parametres() {
   const [examen, setExamen] = useState(false);
   const [notifsExtras, setNotifsExtrasState] = useState(false);
   const [theme, setThemeState] = useState<Theme>('jaune');
+  const [economie, setEconomie] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -45,6 +47,7 @@ export default function Parametres() {
       setExamen(await getExamenActif());
       setNotifsExtrasState(await getNotifsExtras());
       setThemeState(await getTheme());
+      setEconomie(await getEconomieDonnees());
     })();
   }, []);
 
@@ -150,6 +153,12 @@ export default function Parametres() {
             setNotifsExtrasState(v);
             await setNotifsExtras(v);
           }}
+        />
+        <Ligne
+          titre="📡 Mode économie de données"
+          sousTitre="Allège les contenus et le téléchargement auto : idéal avec un forfait 3G/4G limité (Niger)"
+          actif={economie}
+          onToggle={async (v) => { setEconomie(v); await setEconomieDonnees(v); }}
         />
         <View style={{ height: 30 }} />
       </ScrollView>

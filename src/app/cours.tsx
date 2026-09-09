@@ -5,6 +5,8 @@ import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOp
 import Speech from 'expo-speech';
 import { db } from '../config/firebaseConfig';
 import { getCours, saveCours } from '../services/cacheHorsLigne';
+import { genererSectionsCours, sectionsEnTexte } from '../services/enrichirCours';
+import { plafondTexteAudio } from '../services/economieDonnees';
 
 const formatText = (text: string) => {
   if (!text) return "";
@@ -22,6 +24,8 @@ export default function Cours() {
   const [showMethod, setShowMethod] = useState(false);
   const [showDemo, setShowDemo] = useState(false);
   const [showCorrection, setShowCorrection] = useState(false);
+  // Sections pédagogiques générées localement (longueur × ~3)
+  const [sectionsOuvertes, setSectionsOuvertes] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     const fetchCours = async () => {
@@ -53,13 +57,15 @@ export default function Cours() {
   // 🎧 LECTURE AUDIO DU COURS (expo-speech, 100% hors-ligne) : l'élève peut
   // réviser en marchant, économiser sa batterie, ou compenser la fatigue
   // de lecture. Utile aussi pour les lecteurs débutants.
-  const ecouterCours = () => {
+  const ecouterCours = async () => {
     if (!coursData) return;
     Speech.stop();
+    const plafond = await plafondTexteAudio();
     const texte = [
       coursData.titre ? `Chapitre : ${coursData.titre}.` : '',
       coursData.theorie || coursData.activite || '',
       coursData.methode_content || '',
+      sectionsEnTexte(sectionsCours),
     ]
       .filter(Boolean)
       .join(' ')
@@ -67,7 +73,7 @@ export default function Cours() {
     if (!texte.trim()) {
       return;
     }
-    Speech.speak(texte.slice(0, 3500), { language: 'fr', rate: 0.95 });
+    Speech.speak(texte.slice(0, plafond), { language: 'fr', rate: 0.95 });
   };
 
   const arreterAudio = () => {
@@ -103,6 +109,12 @@ export default function Cours() {
 
   // On vérifie si le cours est rédigé (s'il a au moins une théorie ou une activité)
   const isRédige = coursData.theorie || coursData.activite || coursData.methode_content;
+
+  // Sections pédagogiques complémentaires générées LOCALEMENT (×3) pour rendre
+  // le cours plus complet et plus efficace, même hors-ligne.
+  const sectionsCours = coursData
+    ? genererSectionsCours(coursData.titre || '', coursData.matiere, String(coursData.theorie || ''))
+    : [];
 
   return (
     <View style={styles.container}>
@@ -212,6 +224,30 @@ export default function Cours() {
           </View>
         )}
 
+        {/* 📘 Compléments pédagogiques locaux (×3 du cours) : toujours présents,
+            même si Firebase ne fournit qu'un court texte. Générés hors-ligne. */}
+        {sectionsCours.length > 0 && (
+          <View style={styles.cardPurple}>
+            <Text style={styles.cardTitlePurple}>📚 5. Pour aller plus loin</Text>
+            <Text style={styles.purpleHint}>Compléments générés localement pour bien comprendre et réviser ce chapitre.</Text>
+            {sectionsCours.map((section, idx) => (
+              <View key={idx} style={styles.enrichCard}>
+                <Text style={styles.enrichCardTitle}>{section.emoji} {section.titre}</Text>
+                <TouchableOpacity style={styles.enrichToggle} onPress={() => {
+                  const copie = { ...sectionsOuvertes };
+                  copie[idx] = !copie[idx];
+                  setSectionsOuvertes(copie);
+                }}>
+                  <Text style={styles.enrichToggleText}>{sectionsOuvertes[idx] ? '🔼 Masquer' : `🔽 Afficher (${section.lignes.length})`}</Text>
+                </TouchableOpacity>
+                {sectionsOuvertes[idx] && section.lignes.map((ligne, li) => (
+                  <Text key={li} style={styles.enrichText}>{formatText(ligne)}</Text>
+                ))}
+              </View>
+            ))}
+          </View>
+        )}
+
         <View style={{height: 30}} />
       </ScrollView>
     </View>
@@ -263,4 +299,14 @@ const styles = StyleSheet.create({
   expandBtnGold: { marginTop: 10, backgroundColor: '#7F1D1D', padding: 12, borderRadius: 8, alignItems: 'center' },
   hiddenContentGold: { marginTop: 15, backgroundColor: '#0F172A', padding: 15, borderRadius: 8, borderWidth: 1, borderColor: '#FBBF24' },
   correctionText: { color: '#F8FAFC', fontSize: 14, lineHeight: 24 },
+
+  // Carte Violette (Compléments locaux ×3)
+  cardPurple: { backgroundColor: '#1B1630', borderRadius: 14, padding: 20, marginBottom: 20, borderLeftWidth: 3, borderLeftColor: '#8B5CF6' },
+  cardTitlePurple: { color: '#8B5CF6', fontSize: 17, fontWeight: 'bold', marginBottom: 8 },
+  purpleHint: { color: '#A78BFA', fontSize: 12, marginBottom: 16 },
+  enrichCard: { backgroundColor: '#241D3A', borderRadius: 10, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: '#4C39A6' },
+  enrichCardTitle: { color: '#D6CCFF', fontSize: 14, fontWeight: 'bold', marginBottom: 8 },
+  enrichToggle: { marginTop: 2, backgroundColor: '#4C39A6', padding: 10, borderRadius: 8, alignItems: 'center' },
+  enrichToggleText: { color: '#D8CCFF', fontSize: 12, fontWeight: 'bold' },
+  enrichText: { color: '#E5DEF6', fontSize: 14, lineHeight: 22, marginBottom: 6 },
 });

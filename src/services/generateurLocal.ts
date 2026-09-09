@@ -549,6 +549,73 @@ function energieCinetique(rng: () => number, n: number): ExoGenere {
     explication: `Ec = ½ × ${m} × ${v * v} = ${Ec} J.`,
   };
 }
+// ⚗️ CHIMIE : quantité de matière et dilution (programme BAC C/D)
+function moleQuantite(rng: () => number, n: number): ExoGenere {
+  const M = choix(rng, [18, 44, 58, 98, 160]);
+  const nExo = entier(rng, 1, 4);
+  const m = nExo * M;
+  return {
+    enonce: `Quelle est la quantité de matière (en mol) contenue dans m = ${m} g d'une espèce de masse molaire M = ${M} g/mol ?`,
+    bonne_reponse: `${nExo}|${nExo}.0`,
+    indice1: 'La quantité de matière vaut n = m / M.',
+    indice2: `n = ${m} / ${M}.`,
+    explication: `n = m / M = ${m} / ${M} = ${nExo} mol.`,
+  };
+}
+
+function dilutionExo(rng: () => number, n: number): ExoGenere {
+  const CF = entier(rng, 1, 5); // concentration fille (g/L ou mol/L)
+  const VF = entier(rng, 2, 8); // volume fille final (L)
+  const coeff = entier(rng, 2, 10); // facteur de dilution
+  const CM = CF * coeff;
+  const VM = VF / coeff; // volume mère à prélever
+  return {
+    enonce: `On veut préparer V = ${VF} L d'une solution de concentration C = ${CF} mol/L par dilution d'une solution mère de concentration Cₘ = ${CM} mol/L. Quel volume (en L) de solution mère faut-il prélever ?`,
+    bonne_reponse: `${VM}|${Math.round(VM)}L`,
+    indice1: 'Loi de dilution : Cₘ × Vₘ = C × V.',
+    indice2: `Vₘ = C × V / Cₘ = ${CF} × ${VF} / ${CM}.`,
+    explication: `Vₘ = ${CF} × ${VF} / ${CM} = ${VM} L.`,
+  };
+}
+
+// 🔭 PHYSIQUE : poids / pesanteur
+function poidsPesanteur(rng: () => number, n: number): ExoGenere {
+  const m = entier(rng, 1, 50);
+  const g = 10;
+  const P = m * g;
+  return {
+    enonce: `Un corps a une masse m = ${m} kg. Calcule son poids P (en N) en prenant g = ${g} N/kg.`,
+    bonne_reponse: String(P),
+    indice1: 'P = m × g.',
+    indice2: `P = ${m} × ${g}.`,
+    explication: `P = m × g = ${m} × ${g} = ${P} N.`,
+  };
+}
+
+// 🧬 SVT : transmission du patrimoine génétique (croisement / pourcentage)
+function svtADN(rng: () => number, n: number): ExoGenere {
+  const cas = choix<string[]>(rng, [
+    [
+      "Chez l'homme, une cellule (2n=46) subit une division. Combien de chromosomes contient une cellule-fille issue d'une mitose ?",
+      '46', 'La mitose conserve le nombre de chromosomes (2n).', 'Mitose ⟹ 2 cellules identiques à la cellule mère, donc 46 chromosomes chacun.',
+    ],
+    [
+      "Un gamète (cellule reproductrice) humain contient 23 chromosomes. Combien en contiendrait après une fécondation (cellule-œuf) ?",
+      '46', 'La fécondation additionne les deux gamètes : 23 + 23 = 46.', 'Cellule-œuf = 23 + 23 = 46 chromosomes (2n).',
+    ],
+    [
+      "Une molécule d'ADN contient 30% de bases A (adénine). Quel est le pourcentage de bases T (thymine) par complémentarité ?",
+      '30', 'Règle de Chargaff : A = T et G = C.', 'A = T, donc si A = 30%, alors T = 30%.',
+    ],
+  ]);
+  return {
+    enonce: cas[0],
+    bonne_reponse: cas[1],
+    indice1: cas[2],
+    indice2: 'Applique l\'information du cours.',
+    explication: cas[3],
+  };
+}
 
 // Système 2x2 à solutions entières : ax+by=e, cx+dy=f
 function systemeDeuxEquations(rng: () => number, n: number): ExoGenere {
@@ -622,8 +689,8 @@ const SUJETS: Sujet[] = [
     generateurs: [suiteArithmetique, suiteGeometrique],
   },
   {
-    motsCles: ['probabil', 'statistiq', 'denombrement'],
-    generateurs: [probabiliteDe],
+    motsCles: ['probabil', 'statistiq', 'denombrement', 'arrangement', 'combinaison'],
+    generateurs: [probabiliteDe, arrangementCombinaison],
   },
   {
     motsCles: ['trigonometri', 'angles oriente', 'cosinus', 'sinus'],
@@ -658,8 +725,24 @@ const SUJETS: Sujet[] = [
     generateurs: [vitesseExo, energieCinetique],
   },
   {
+    motsCles: ['poids', 'pesanteur', 'gravite', 'poids et masse'],
+    generateurs: [poidsPesanteur],
+  },
+  {
     motsCles: ['chimie', 'solution', 'concentration', 'mole', 'matiere', 'atome', 'reaction'],
-    generateurs: [concentrationExo, masseVolumique],
+    generateurs: [concentrationExo, moleQuantite, dilutionExo],
+  },
+  {
+    motsCles: ['quantite de matiere', 'masse molaire', 'mole', 'n=m/m'],
+    generateurs: [moleQuantite, concentrationExo],
+  },
+  {
+    motsCles: ['dilution', 'diluer', 'concentration fille', 'facteur de dilution'],
+    generateurs: [dilutionExo, concentrationExo],
+  },
+  {
+    motsCles: ['svt', 'biologie', 'adn', 'chromosome', 'gene', 'mitose', 'cellule', 'patrimoine', 'genetique', 'heredite'],
+    generateurs: [svtADN],
   },
   {
     motsCles: ['masse', 'volumique', 'densite'],
@@ -732,10 +815,16 @@ const POOL_DEFAUT: GenFonction[] = [
   vitesseExo,            // Vitesse et mouvement
   loiOhm,                // Loi d'Ohm (électricité)
   energieCinetique,      // Énergie cinétique
+  poidsPesanteur,        // Poids et pesanteur
 
   // Chimie (2 notions)
   concentrationExo,      // Concentrations
   masseVolumique,        // Masse volumique
+  moleQuantite,          // Quantité de matière
+  dilutionExo,           // Dilution
+
+  // SVT (1 notion)
+  svtADN,                // Transmission du patrimoine génétique
 
   // Calcul & Applications (2 notions)
   calculMental,          // Calcul rapide
@@ -794,7 +883,8 @@ export function niveauLabel(niveau: number): string {
 
 export function generateurDisponible(matiere: string): boolean {
   const m = normaliserCle(matiere);
-  return m.includes('math') || m.includes('physique') || m.includes('mecanique');
+  return m.includes('math') || m.includes('physique') || m.includes('mecanique')
+    || m.includes('chimie') || m.includes('svt') || m.includes('biologie');
 }
 
 // Génère un exercice ciblé sur une micro-notion spécifique.
