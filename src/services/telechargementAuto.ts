@@ -13,6 +13,7 @@ import { collection, doc, getDoc, getDocs, limit, query, where } from 'firebase/
 import { db } from '../config/firebaseConfig';
 import { saveCours, saveExercices, type Exercice } from './cacheHorsLigne';
 import { estEnLigneSync } from '../utils/reseau';
+import { getEconomieDonnees } from './economieDonnees';
 
 const CLE_DERNIER_AUTO = 'lex_dernier_pretelechargement';
 const MAX_COURS = 30;
@@ -69,9 +70,15 @@ export async function telechargerChapitresAuto(): Promise<ResultatPreTelechargem
       return resultat;
     }
 
+    // Mode économie de données : on réduit les volumes téléchargés pour
+    // ménager les forfaits 3G/4G (contexte Niger).
+    const economie = await getEconomieDonnees();
+    const maxCours = economie ? Math.round(MAX_COURS / 2) : MAX_COURS;
+    const maxExos = economie ? Math.round(MAX_EXOS / 2) : MAX_EXOS;
+
     // 1) Cours de la classe → cache
     try {
-      const qCours = query(collection(db, 'cours'), where('classe', '==', classe), limit(MAX_COURS));
+      const qCours = query(collection(db, 'cours'), where('classe', '==', classe), limit(maxCours));
       const snapCours = await getDocs(qCours);
       snapCours.forEach((d) => {
         const data = d.data() as Record<string, unknown>;
@@ -91,7 +98,7 @@ export async function telechargerChapitresAuto(): Promise<ResultatPreTelechargem
 
     // 2) Exercices de la classe → groupés par chapitre → cache
     try {
-      const qExos = query(collection(db, 'exercices'), where('classe', '==', classe), limit(MAX_EXOS));
+      const qExos = query(collection(db, 'exercices'), where('classe', '==', classe), limit(maxExos));
       const snapExos = await getDocs(qExos);
       const parChapitre = new Map<string, Exercice[]>();
 
