@@ -10,7 +10,7 @@ export default function Matieres() {
       <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
       
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.push('/classes')}>
+        <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.backBtn}>‹ Retour</Text>
         </TouchableOpacity>
         <Text style={styles.subject}>{classe || "CLASSE"}</Text>

@@ -17,7 +17,7 @@ export default function Classes() {
       <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
       
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.push('/')}>
+        <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.backBtn}>‹ Retour au menu</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Choisis ta classe</Text>

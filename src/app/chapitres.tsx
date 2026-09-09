@@ -61,7 +61,7 @@ export default function Chapitres() {
       <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
       
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.push({ pathname: '/matieres', params: { classe: classe } })}>
+        <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.backBtn}>‹ Retour aux matières</Text>
         </TouchableOpacity>
         <Text style={styles.subject}>{classe} - {matiere}</Text>

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import Speech from 'expo-speech';
 import { getAllCoursCache } from '../services/cacheHorsLigne';
+import { plafondTexteAudio } from '../services/economieDonnees';
 
 // 51 — COURS EN AUDIO (optionnel par nature : on n'entre que si on le veut).
 // Lit le cours à voix haute via la synthèse vocale — pour réviser en marchant,
@@ -40,14 +41,17 @@ export default function AudioCours() {
     };
   }, []);
 
-  const lire = (c: { id: string; texte: string }) => {
+  const lire = async (c: { id: string; texte: string }) => {
     Speech.stop(); // stoppe la lecture en cours (relance ou coupure)
     if (enLecture === c.id) {
       setEnLecture(null);
       return;
     }
     setEnLecture(c.id);
-    Speech.speak(c.texte, {
+    // Plafond du mode économie de données : expo-speech coupe silencieusement
+    // les textes trop longs sur Android ; on borne explicitement le texte.
+    const plafond = await plafondTexteAudio();
+    Speech.speak(c.texte.slice(0, plafond), {
       language: 'fr',
       rate: 0.95,
       onDone: () => setEnLecture(null),
