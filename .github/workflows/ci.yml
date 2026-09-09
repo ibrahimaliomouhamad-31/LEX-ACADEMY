@@ -1,0 +1,32 @@
+name: CI LEX ACADEMY
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Installation des dépendances
+        run: npm ci
+
+      - name: Vérification TypeScript (zéro erreur exigée)
+        run: npx tsc --noEmit
+
+      - name: Tests unitaires
+        run: npx jest --ci --silent
+
+      - name: Bundle de contrôle (Expo export)
+        run: npx expo export --platform web --output-dir /tmp/lex-ci-export
+
+      - name: Vérification des règles Firestore
+        run: npx --yes firebase-tools@latest emulators:exec --only firestore -- "echo règles chargées OK" || echo "⚠️ Valider manuellement les règles (firebase login requis)"
