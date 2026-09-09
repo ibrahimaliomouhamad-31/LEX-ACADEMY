@@ -20,14 +20,20 @@ export default function Pieges() {
   const router = useRouter();
   const [stats, setStats] = useState<LexStats | null>(null);
   const [titres, setTitres] = useState<{ [id: string]: string }>({});
+  const [matieres, setMatieres] = useState<{ [id: string]: string }>({});
 
   useEffect(() => {
     (async () => {
       setStats(await getStats());
       const cours = await getAllCoursCache();
       const map: { [id: string]: string } = {};
-      for (const c of cours) map[c.id] = c.titre;
+      const mat: { [id: string]: string } = {};
+      for (const c of cours) {
+        map[c.id] = c.titre;
+        mat[c.id] = c.matiere || 'Mathématiques';
+      }
       setTitres(map);
+      setMatieres(mat);
     })();
   }, []);
 
@@ -65,7 +71,7 @@ export default function Pieges() {
               <TouchableOpacity
                 key={id}
                 style={styles.cartePiege}
-                onPress={() => router.push({ pathname: '/entrainement_infini', params: { chapitre_id: id, titre, matiere: 'Mathématiques' } })}
+                onPress={() => router.push({ pathname: '/entrainement_infini', params: { chapitre_id: id, titre, matiere: matieres[id] || 'Mathématiques' } })}
               >
                 <Text style={styles.piegeTitre} numberOfLines={2}>{titre}</Text>
                 <Text style={styles.piegeDetail}>{m.label} · {c.reussis}/{c.total} réussis — attaque ce chapitre maintenant !</Text>

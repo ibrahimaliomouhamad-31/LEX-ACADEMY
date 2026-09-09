@@ -13,6 +13,7 @@ import { messageAutorise, GROUPES_DISPONIBLES } from '../services/groupesEntraid
 import { modererFiche } from '../services/moderationFiches';
 import { compresserTexte, planifierPrechargement } from '../services/prechargement';
 import { streakAuthentique, scellerStreak, signalerAlteration } from '../services/integrite';
+import { genererSectionsCours } from "../services/enrichirCours";
 
 describe('Groupes d\'entraide', () => {
   it('bloque le spam, les majuscules et les liens', () => {
@@ -55,5 +56,23 @@ describe('Intégrité du streak', () => {
     await scellerStreak(5, '2026-09-09');
     expect(await streakAuthentique(5, '2026-09-09')).toBe(true);
     expect(await streakAuthentique(999, '2026-09-09')).toBe(false);
+  });
+});
+
+describe("Enrichissement des cours (morceau 1)", () => {
+  it("garde le titre des exemples en premier meme apres permutation", () => {
+    for (let i = 0; i < 100; i++) {
+      const sections = genererSectionsCours("Chapitre test " + i, "Mathematiques", "Contenu de test assez long pour faire varier la graine locale " + i);
+      expect(sections[2].lignes[0]).toContain("Exemples");
+    }
+  });
+  it("genere 6 sections pedagogiques minimum", () => {
+    const s1 = genererSectionsCours("Les suites numeriques", "Mathematiques", "x");
+    expect(s1.length).toBeGreaterThanOrEqual(6);
+    expect(s1[0].titre).toContain("Objectifs");
+  });
+  it("ajoute un schema quand le titre du chapitre correspond", () => {
+    const s2 = genererSectionsCours("Le theoreme de Pythagore", "Mathematiques", "x");
+    expect(s2.some((sec) => sec.titre.toLowerCase().includes("sch"))).toBe(true);
   });
 });

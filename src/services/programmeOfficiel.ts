@@ -48,7 +48,7 @@ export const PROGRAMME_TERMINALE_C: CompetenceOfficielle[] = [
   {
     id: 'TC-limites', matiere: 'Mathématiques', filiere: 'C',
     theme: 'Limites et continuité',
-    competence: 'Étudier limxité, continuité et prolongement des fonctions',
+    competence: 'Étudier les limites, la continuité et le prolongement des fonctions',
     notions: ['limite à gauche', 'limite à droite', 'continuité', 'prolongement par continuité', 'théorème des valeurs intermédiaires'],
   },
   {
@@ -150,7 +150,7 @@ export function toutesCompetences(filiere?: 'C' | 'D'): CompetenceOfficielle[] {
   if (!filiere || filiere === 'D') base.push(...PROGRAMME_TERMINALE_D);
   return base;
 }
-/** Glossaire : vocabulaire scientifique réelle du Niger, par matière. */
+/** Glossaire : vocabulaire scientifique réel du Niger, par matière. */
 export interface TermeGlossaire {
   terme: string;
   definition: string;

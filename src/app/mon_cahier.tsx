@@ -28,8 +28,9 @@ export default function MonCahier() {
       const c = await getCours(chapitreId);
       if (c) {
         setTitreChapitre(c.titre || 'Chapitre');
-        if (c.cahier) setContenu(dechiffrer(c.cahier) || c.cahier);
-        setNbNotions(extraireMicroNotions(dechiffrer(c.cahier || '') || c.cahier || '').length);
+        const cahier = c.cahier ? dechiffrer(c.cahier) || c.cahier : '';
+        if (cahier) setContenu(cahier);
+        setNbNotions(extraireMicroNotions(cahier).length);
       }
     })();
   }, [chapitreId]);

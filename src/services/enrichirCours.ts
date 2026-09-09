@@ -467,7 +467,10 @@ export function genererSectionsCours(titre: string, matiere?: string, contenu?: 
   }
 
   // On permute légèrement l'ordre des exemples pour varier (déterminisme local)
-  if (rng < 0.5) sections[2].lignes = [...sections[2].lignes].reverse();
+  if (rng < 0.5) {
+    const [intro, ...exemples] = sections[2].lignes;
+    sections[2].lignes = [intro, ...exemples.reverse()];
+  }
 
   return sections;
 }
