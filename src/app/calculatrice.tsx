@@ -1,77 +1,114 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { evaluer, formater } from '../services/calculatrice';
-
-const TOUCHES: { t: string; large?: boolean; couleur?: string }[] = [
-  { t: 'C', couleur: '#EF4444' }, { t: '(', couleur: '#334155' }, { t: ')', couleur: '#334155' }, { t: '÷', couleur: '#F59E0B' },
-  { t: '7' }, { t: '8' }, { t: '9' }, { t: '×', couleur: '#F59E0B' },
-  { t: '4' }, { t: '5' }, { t: '6' }, { t: '-', couleur: '#F59E0B' },
-  { t: '1' }, { t: '2' }, { t: '3' }, { t: '+', couleur: '#F59E0B' },
-  { t: '0' }, { t: '.' }, { t: '⌫', couleur: '#334155' }, { t: '=', couleur: '#10B981' },
-  { t: '√(', couleur: '#3B82F6' }, { t: '^', couleur: '#3B82F6' }, { t: 'π', couleur: '#3B82F6' }, { t: 'sin(', couleur: '#3B82F6' },
-  { t: 'cos(', couleur: '#3B82F6' }, { t: 'tan(', couleur: '#3B82F6' }, { t: 'ln(', couleur: '#3B82F6' }, { t: 'log(', couleur: '#3B82F6' },
-];
+import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function Calculatrice() {
   const router = useRouter();
-  const [expression, setExpression] = useState('');
-  const [resultat, setResultat] = useState('');
-  const [erreur, setErreur] = useState(false);
+  const [affichage, setAffichage] = useState('0');
+  const [operateur, setOperateur] = useState<string | null>(null);
+  const [premierNombre, setPremierNombre] = useState<number | null>(null);
+  const [attenteOperateur, setAttenteOperateur] = useState(false);
 
-  const appuyer = (t: string) => {
-    setErreur(false);
-    if (t === 'C') {
-      setExpression('');
-      setResultat('');
-      return;
-    }
-    if (t === '⌫') {
-      const e = expression.slice(0, -1);
-      setExpression(e);
-      return;
-    }
-    if (t === '=') {
-      try {
-        setResultat('= ' + formater(evaluer(expression)));
-      } catch {
-        setResultat('Expression invalide');
-        setErreur(true);
-      }
-      return;
-    }
-    setExpression(expression + t);
+  const taperChiffre = (chiffre: string) => {
+    if (attenteOperateur) { setAffichage(chiffre); setAttenteOperateur(false); }
+    else { setAffichage(affichage === '0' ? chiffre : affichage + chiffre); }
   };
+
+  const calculer = (a: number, b: number, op: string): number => {
+    switch (op) { case '+': return a + b; case '-': return a - b; case 'x': return a * b; case '/': return b !== 0 ? a / b : 0; case '^': return Math.pow(a, b); default: return b; }
+  };
+
+  const taperOperateur = (op: string) => {
+    const nombre = parseFloat(affichage);
+    if (premierNombre !== null && operateur && !attenteOperateur) {
+      const resultat = calculer(premierNombre, nombre, operateur);
+      setAffichage(String(resultat)); setPremierNombre(resultat);
+    } else { setPremierNombre(nombre); }
+    setOperateur(op); setAttenteOperateur(true);
+  };
+
+  const egal = () => {
+    if (premierNombre !== null && operateur) {
+      const nombre = parseFloat(affichage);
+      const resultat = calculer(premierNombre, nombre, operateur);
+      setAffichage(String(resultat)); setPremierNombre(null); setOperateur(null); setAttenteOperateur(false);
+    }
+  };
+
+  const effacer = () => { setAffichage('0'); setPremierNombre(null); setOperateur(null); setAttenteOperateur(false); };
+
+  const fonctionScientifique = (fonction: string) => {
+    const nombre = parseFloat(affichage);
+    let resultat = 0;
+    switch (fonction) {
+      case 'sqrt': resultat = Math.sqrt(nombre); break;
+      case 'sin': resultat = Math.sin(nombre * Math.PI / 180); break;
+      case 'cos': resultat = Math.cos(nombre * Math.PI / 180); break;
+      case 'tan': resultat = Math.tan(nombre * Math.PI / 180); break;
+      case 'ln': resultat = Math.log(nombre); break;
+      case 'log': resultat = Math.log10(nombre); break;
+      case 'x2': resultat = nombre * nombre; break;
+      case '1/x': resultat = nombre !== 0 ? 1 / nombre : 0; break;
+      case 'pi': resultat = Math.PI; break;
+      case 'e': resultat = Math.E; break;
+      case '+/-': resultat = -nombre; break;
+    }
+    setAffichage(String(parseFloat(resultat.toFixed(10))));
+  };
+
+  const Bouton = ({ valeur, onPress, style, texteStyle }: any) => (
+    <TouchableOpacity style={[styles.bouton, style]} onPress={onPress}>
+      <Text style={[styles.boutonTexte, texteStyle]}>{valeur}</Text>
+    </TouchableOpacity>
+  );
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+      <StatusBar barStyle="light-content" backgroundColor="#0B1120" />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backBtn}>‹ Retour</Text>
+          <Text style={styles.backBtn}>Retour</Text>
         </TouchableOpacity>
-        <Text style={styles.subject}>OUTIL</Text>
-        <Text style={styles.title}>🖩 Calculatrice</Text>
+        <Text style={styles.title}>Calculatrice Scientifique</Text>
       </View>
-
-      <View style={styles.ecran}>
-        <Text style={styles.expression} numberOfLines={2}>{expression || ' '}</Text>
-        <Text style={[styles.resultat, erreur && styles.resultatErreur]} numberOfLines={1}>{resultat || ' '}</Text>
+      <View style={styles.affichage}>
+        <Text style={styles.operateurTexte}>{premierNombre} {operateur}</Text>
+        <Text style={styles.resultatTexte}>{affichage}</Text>
       </View>
-
-      <View style={styles.pave}>
-        <View style={styles.grille}>
-          {TOUCHES.map((touche) => (
-            <TouchableOpacity
-              key={touche.t}
-              style={[styles.touche, { backgroundColor: touche.couleur || '#1E293B' }]}
-              onPress={() => appuyer(touche.t)}
-            >
-              <Text style={[styles.toucheText, (touche.couleur === '#F59E0B' || touche.couleur === '#EF4444' || touche.couleur === '#10B981') && { color: '#FFFFFF' }]}>
-                {touche.t}
-              </Text>
-            </TouchableOpacity>
-          ))}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.fonctionsScroll}>
+        {['sin', 'cos', 'tan', 'ln', 'log', 'sqrt', 'x2', '1/x', 'pi', 'e', '+/-', '^'].map(f => (
+          <Bouton key={f} valeur={f} onPress={() => fonctionScientifique(f)} style={styles.boutonFonction} texteStyle={styles.fonctionTexte} />
+        ))}
+      </ScrollView>
+      <View style={styles.clavier}>
+        <View style={styles.ligne}>
+          <Bouton valeur="C" onPress={effacer} style={styles.boutonEffacer} texteStyle={styles.effacerTexte} />
+          <Bouton valeur="(" onPress={() => taperChiffre('(')} style={styles.boutonOperateur} />
+          <Bouton valeur=")" onPress={() => taperChiffre(')')} style={styles.boutonOperateur} />
+          <Bouton valeur="/" onPress={() => taperOperateur('/')} style={styles.boutonOperateur} />
+        </View>
+        <View style={styles.ligne}>
+          <Bouton valeur="7" onPress={() => taperChiffre('7')} />
+          <Bouton valeur="8" onPress={() => taperChiffre('8')} />
+          <Bouton valeur="9" onPress={() => taperChiffre('9')} />
+          <Bouton valeur="x" onPress={() => taperOperateur('x')} style={styles.boutonOperateur} />
+        </View>
+        <View style={styles.ligne}>
+          <Bouton valeur="4" onPress={() => taperChiffre('4')} />
+          <Bouton valeur="5" onPress={() => taperChiffre('5')} />
+          <Bouton valeur="6" onPress={() => taperChiffre('6')} />
+          <Bouton valeur="-" onPress={() => taperOperateur('-')} style={styles.boutonOperateur} />
+        </View>
+        <View style={styles.ligne}>
+          <Bouton valeur="1" onPress={() => taperChiffre('1')} />
+          <Bouton valeur="2" onPress={() => taperChiffre('2')} />
+          <Bouton valeur="3" onPress={() => taperChiffre('3')} />
+          <Bouton valeur="+" onPress={() => taperOperateur('+')} style={styles.boutonOperateur} />
+        </View>
+        <View style={styles.ligne}>
+          <Bouton valeur="0" onPress={() => taperChiffre('0')} style={styles.boutonZero} />
+          <Bouton valeur="." onPress={() => taperChiffre('.')} />
+          <Bouton valeur="=" onPress={egal} style={styles.boutonEgal} texteStyle={styles.egalTexte} />
         </View>
       </View>
     </View>
@@ -79,17 +116,24 @@ export default function Calculatrice() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0F172A' },
-  header: { padding: 20, borderBottomWidth: 1, borderBottomColor: '#1E293B' },
-  backBtn: { color: '#FBBF24', fontSize: 14, marginBottom: 10 },
-  subject: { color: '#94A3B8', fontSize: 11, fontWeight: 'bold', letterSpacing: 1, textTransform: 'uppercase' },
-  title: { color: '#F8FAFC', fontSize: 22, fontWeight: 'bold', marginTop: 5 },
-  ecran: { margin: 15, backgroundColor: '#020617', borderRadius: 12, padding: 20, minHeight: 110, justifyContent: 'flex-end', borderWidth: 1, borderColor: '#1E293B' },
-  expression: { color: '#94A3B8', fontSize: 22, textAlign: 'right', marginBottom: 8 },
-  resultat: { color: '#10B981', fontSize: 30, fontWeight: 'bold', textAlign: 'right' },
-  resultatErreur: { color: '#EF4444', fontSize: 18 },
-  pave: { flex: 1, padding: 8 },
-  grille: { flexDirection: 'row', flexWrap: 'wrap' },
-  touche: { width: '23.5%', aspectRatio: 1, margin: '0.75%', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  toucheText: { color: '#F8FAFC', fontSize: 20, fontWeight: 'bold' },
+  container: { flex: 1, backgroundColor: '#0B1120' },
+  header: { padding: 20, paddingTop: 50, borderBottomWidth: 1, borderBottomColor: '#1E293B', backgroundColor: '#0F172A' },
+  backBtn: { color: '#FBBF24', fontSize: 14, marginBottom: 10, fontWeight: '600' },
+  title: { color: '#F9FAFB', fontSize: 20, fontWeight: 'bold' },
+  affichage: { backgroundColor: '#111827', padding: 20, margin: 15, borderRadius: 14, minHeight: 100, justifyContent: 'flex-end', alignItems: 'flex-end' },
+  operateurTexte: { color: '#6B7280', fontSize: 14 },
+  resultatTexte: { color: '#F9FAFB', fontSize: 36, fontWeight: 'bold' },
+  fonctionsScroll: { paddingHorizontal: 15, paddingVertical: 10, maxHeight: 50 },
+  boutonFonction: { backgroundColor: '#1F2937', borderWidth: 1, borderColor: '#374151', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, marginRight: 8 },
+  fonctionTexte: { color: '#93C5FD', fontSize: 12, fontWeight: '600' },
+  clavier: { flex: 1, padding: 10 },
+  ligne: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
+  bouton: { backgroundColor: '#374151', borderRadius: 12, flex: 1, marginHorizontal: 4, height: 55, alignItems: 'center', justifyContent: 'center' },
+  boutonTexte: { color: '#F9FAFB', fontSize: 20, fontWeight: '600' },
+  boutonOperateur: { backgroundColor: '#1E3A5F' },
+  boutonEffacer: { backgroundColor: '#7F1D1D' },
+  effacerTexte: { color: '#FCA5A5' },
+  boutonZero: { flex: 2 },
+  boutonEgal: { backgroundColor: '#10B981' },
+  egalTexte: { color: '#FFFFFF' },
 });
