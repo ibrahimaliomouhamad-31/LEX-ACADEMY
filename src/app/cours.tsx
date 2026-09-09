@@ -141,6 +141,12 @@ export default function Cours() {
           >
             <Text style={styles.audioBtnText}>🎧</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.audioBtn, { marginLeft: 8 }]}
+            onPress={() => router.push({ pathname: '/mon_cahier', params: { id } } as never)}
+          >
+            <Text style={styles.audioBtnText}>🧺</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -224,6 +230,15 @@ export default function Cours() {
           </View>
         )}
 
+        {/* 🧺 Contenu extrait du cahier de l'élève (local). Ajouté quand l'élève l'a
+            collé via l'écran "Mon cahier" (🧺). Toujours local, non synchronisé. */}
+        {coursData?.cahier && (
+          <View style={styles.cardCahier}>
+            <Text style={styles.cardTitleCahier}>🧺 Mon cahier</Text>
+            <Text style={styles.cahierText}>{formatText(coursData.cahier)}</Text>
+          </View>
+        )}
+
         {/* 📘 Compléments pédagogiques locaux (×3 du cours) : toujours présents,
             même si Firebase ne fournit qu'un court texte. Générés hors-ligne. */}
         {sectionsCours.length > 0 && (
@@ -303,6 +318,11 @@ const styles = StyleSheet.create({
   // Carte Violette (Compléments locaux ×3)
   cardPurple: { backgroundColor: '#1B1630', borderRadius: 14, padding: 20, marginBottom: 20, borderLeftWidth: 3, borderLeftColor: '#8B5CF6' },
   cardTitlePurple: { color: '#8B5CF6', fontSize: 17, fontWeight: 'bold', marginBottom: 8 },
+
+  // Carte Cahier (🧺, local)
+  cardCahier: { backgroundColor: '#0E2A1D', borderRadius: 14, padding: 20, marginBottom: 20, borderLeftWidth: 3, borderLeftColor: '#10B981' },
+  cardTitleCahier: { color: '#10B981', fontSize: 17, fontWeight: 'bold', marginBottom: 8 },
+  cahierText: { color: '#D1FAE5', fontSize: 14, lineHeight: 22 },
   purpleHint: { color: '#A78BFA', fontSize: 12, marginBottom: 16 },
   enrichCard: { backgroundColor: '#241D3A', borderRadius: 10, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: '#4C39A6' },
   enrichCardTitle: { color: '#D6CCFF', fontSize: 14, fontWeight: 'bold', marginBottom: 8 },

@@ -227,6 +227,8 @@ export interface CoursCache {
   methode_content?: string;
   matiere?: string;
   classe?: string;
+  /** Contenu extrait du cahier de l'élève (local, non synchronisé) */
+  cahier?: string;
 }
 
 export async function saveCours(cours: CoursCache): Promise<void> {

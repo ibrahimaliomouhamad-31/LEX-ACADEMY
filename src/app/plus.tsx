@@ -12,7 +12,11 @@ interface Fonctionnalite {
 }
 
 // Routes verrouillées quand le 🔒 Mode examen est actif (anti-triche)
-const ROUTES_VERROUILLEES_EXAMEN = ['/formulaire', '/calculatrice', '/flashcards', '/recherche', '/figures'];
+const ROUTES_VERROUILLEES_EXAMEN = [
+  '/formulaire', '/calculatrice', '/flashcards', '/recherche', '/figures',
+  '/entrainement_infini', '/badges', '/boutique', '/calcul_mental', '/journal_erreurs',
+  '/solveur', '/photo_exo',
+];
 
 const REVISER: Fonctionnalite[] = [
   { emoji: '📚', titre: 'Annales BAC', titreEn: 'Past BAC exams', description: 'Vrais sujets du BAC à télécharger', descriptionEn: 'Real BAC papers to download', route: '/annales', couleur: '#B91C1C' },
@@ -24,7 +28,9 @@ const REVISER: Fonctionnalite[] = [
   { emoji: '🎧', titre: 'Cours en audio', titreEn: 'Audio lessons', description: 'Écoute tes cours à voix haute, hors-ligne', descriptionEn: 'Listen to your lessons, offline', route: '/audio_cours', couleur: '#8B5CF6' },
   { emoji: '📅', titre: 'Planning', titreEn: 'Study plan', description: 'Ton programme de révision hebdomadaire', descriptionEn: 'Your weekly study plan', route: '/planning', couleur: '#0EA5E9' },
   { emoji: '📊', titre: 'Ma maîtrise', titreEn: 'My mastery', description: 'Progression par chapitre, du plus faible au plus fort', descriptionEn: 'Progress per chapter', route: '/maitrise', couleur: '#10B981' },
-  { emoji: '📈', titre: 'Statistiques', titreEn: 'Statistics', description: 'Activité, taux de réussite, progression', descriptionEn: 'Activity, success rate, progress', route: '/stats_detail', couleur: '#06B6D4' },
+  { emoji: '📈', titre: 'Statistiques', titreEn: 'Statistics', description: 'Activité, taux de réussite, progression', descriptionEn: 'Activity, success rate, progress', route: '/statistiques', couleur: '#06B6D4' },
+  { emoji: '🍃', titre: 'Exercices infinis', titreEn: 'Endless practice', description: 'Pratique sans fin ciblée sur chaque micro-notion', descriptionEn: 'Endless drilling on each sub-topic', route: '/entrainement_infini', couleur: '#10B981' },
+  { emoji: '📓', titre: 'Journal d\'erreurs', titreEn: 'Error journal', description: 'Apprends de chaque faute, corrige tes automatismes', descriptionEn: 'Learn from every mistake', route: '/journal_erreurs', couleur: '#F59E0B' },
   { emoji: '🧠', titre: 'Pièges du BAC', titreEn: 'BAC traps', description: 'Tes points noirs détectés + pièges classiques', descriptionEn: 'Your weak spots + classic traps', route: '/pieges', couleur: '#EF4444' },
   { emoji: '🎯', titre: 'Objectifs & Notes', titreEn: 'Goals & Notes', description: 'Fixe tes buts + notes attachées aux chapitres', descriptionEn: 'Set goals + chapter notes', route: '/objectifs', couleur: '#EC4899' },
 ];
@@ -47,6 +53,11 @@ const OUTILS: Fonctionnalite[] = [
   { emoji: '🖼️', titre: 'Figures', titreEn: 'Figures', description: 'Traceur de fonctions et Pythagore visuel', descriptionEn: 'Function plotter & visual Pythagoras', route: '/figures', couleur: '#06B6D4' },
   { emoji: '📸', titre: "Photo d'exercice", titreEn: 'Exercise photo', description: "Photographie un exo papier, l'IA te guide (wifi)", descriptionEn: 'Snap a paper exercise, AI guides you (wifi)', route: '/photo_exo', couleur: '#EC4899' },
   { emoji: '📡', titre: 'Partager', titreEn: 'Share', description: 'Envoie un chapitre à un camarade par code', descriptionEn: 'Send a chapter to a friend via code', route: '/partage', couleur: '#10B981' },
+  { emoji: '🛍️', titre: 'Boutique', titreEn: 'Shop', description: 'Dépense tes crédits : thèmes, boosters, streak-freezes', descriptionEn: 'Spend credits on themes, boosters, freezes', route: '/boutique', couleur: '#EC4899' },
+  { emoji: '🧺', titre: 'Mon cahier', titreEn: 'My notebook', description: 'Colle ton cahier LEX → micro-notions + cours enrichi', descriptionEn: 'Paste your LEX notebook → sub-topics + enriched course', route: '/mon_cahier', couleur: '#10B981' },
+  { emoji: '⚡', titre: 'Calcul mental', titreEn: 'Mental math', description: 'Entraîne tes réflexes de calcul, 2 min par jour', descriptionEn: 'Train your calculation reflexes', route: '/calcul_mental', couleur: '#FBBF24' },
+  { emoji: '🏆', titre: 'Badges', titreEn: 'Badges', description: 'Débloque des badges secrets et citations motivantes', descriptionEn: 'Unlock secret badges & quotes', route: '/badges', couleur: '#8B5CF6' },
+  { emoji: '🌿', titre: 'Bien-être', titreEn: 'Well-being', description: 'Pauses, hydratation, Pomodoro et planning de révision', descriptionEn: 'Breaks, water, Pomodoro & study plan', route: '/bien_etre', couleur: '#10B981' },
 ];
 
 const REGLAGES: Fonctionnalite[] = [
