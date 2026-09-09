@@ -7,6 +7,7 @@ import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, Text
 import { getExoById } from '../services/cacheHorsLigne';
 import { estJuste, normaliser, versNombre } from '../services/outilsReponse';
 import { planifierRevision } from '../services/revisions';
+import { plafondTexteAudio } from '../services/economieDonnees';
 import { signalerExercice } from '../services/signalementService';
 import { enregistrerTentative } from '../services/statsSuivi';
 import { gagnerXp, validerStreakDuJour } from '../services/xpLocal';
@@ -210,11 +211,13 @@ export default function Exercices() {
   };
 
 
-  const lireEnonce = () => {
+  const lireEnonce = async () => {
     if (exoData?.enonce) {
       // expo-speech v57 : isSpeaking() renvoie une promesse — on stoppe avant de relire
       Speech.stop();
-      Speech.speak(exoData.enonce, { language: 'fr', rate: 0.95 });
+      // Plafond du mode économie de données (cohérent avec cours.tsx)
+      const plafond = await plafondTexteAudio();
+      Speech.speak(String(exoData.enonce).slice(0, plafond), { language: 'fr', rate: 0.95 });
     }
   };
 
