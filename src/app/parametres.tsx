@@ -24,6 +24,11 @@ import {
 import { appliquerRappel } from '../services/optionsApp';
 import { getNotifsExtras, setNotifsExtras } from '../services/notifications';
 import { getEconomieDonnees, setEconomieDonnees } from '../services/economieDonnees';
+import {
+  getContrasteEleve, setContrasteEleve,
+  getPoliceDyslexie, setPoliceDyslexie,
+  getSombreAuto, setSombreAuto,
+} from '../services/accessibilite';
 
 export default function Parametres() {
   const router = useRouter();
@@ -36,6 +41,9 @@ export default function Parametres() {
   const [notifsExtras, setNotifsExtrasState] = useState(false);
   const [theme, setThemeState] = useState<Theme>('jaune');
   const [economie, setEconomie] = useState(false);
+  const [contraste, setContraste] = useState(false);
+  const [dyslexie, setDyslexie] = useState(false);
+  const [sombreAuto, setSombreAutoState] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -48,6 +56,9 @@ export default function Parametres() {
       setNotifsExtrasState(await getNotifsExtras());
       setThemeState(await getTheme());
       setEconomie(await getEconomieDonnees());
+      setContraste(await getContrasteEleve());
+      setDyslexie(await getPoliceDyslexie());
+      setSombreAutoState(await getSombreAuto());
     })();
   }, []);
 
@@ -159,6 +170,24 @@ export default function Parametres() {
           sousTitre="Allège les contenus et le téléchargement auto : idéal avec un forfait 3G/4G limité (Niger)"
           actif={economie}
           onToggle={async (v) => { setEconomie(v); await setEconomieDonnees(v); }}
+        />
+        <Ligne
+          titre="🔆 Contraste élevé"
+          sousTitre="Texte noir sur fond blanc : plus lisible en plein soleil"
+          actif={contraste}
+          onToggle={async (v) => { setContraste(v); await setContrasteEleve(v); }}
+        />
+        <Ligne
+          titre="🔤 Police dyslexie"
+          sousTitre="Espacement des lettres adapté aux lecteurs dyslexiques"
+          actif={dyslexie}
+          onToggle={async (v) => { setDyslexie(v); await setPoliceDyslexie(v); }}
+        />
+        <Ligne
+          titre="🌒 Thème sombre auto"
+          sousTitre="Active le mode dortoir automatiquement entre 19h et 7h"
+          actif={sombreAuto}
+          onToggle={async (v) => { setSombreAutoState(v); await setSombreAuto(v); }}
         />
         <View style={{ height: 30 }} />
       </ScrollView>

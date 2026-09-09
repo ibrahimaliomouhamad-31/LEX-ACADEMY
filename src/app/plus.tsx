@@ -33,6 +33,9 @@ const REVISER: Fonctionnalite[] = [
   { emoji: '📓', titre: 'Journal d\'erreurs', titreEn: 'Error journal', description: 'Apprends de chaque faute, corrige tes automatismes', descriptionEn: 'Learn from every mistake', route: '/journal_erreurs', couleur: '#F59E0B' },
   { emoji: '🧠', titre: 'Pièges du BAC', titreEn: 'BAC traps', description: 'Tes points noirs détectés + pièges classiques', descriptionEn: 'Your weak spots + classic traps', route: '/pieges', couleur: '#EF4444' },
   { emoji: '🎯', titre: 'Objectifs & Notes', titreEn: 'Goals & Notes', description: 'Fixe tes buts + notes attachées aux chapitres', descriptionEn: 'Set goals + chapter notes', route: '/objectifs', couleur: '#EC4899' },
+  { emoji: '🎓', titre: 'Auto-évaluation', titreEn: 'Self-assessment', description: 'Note tes compétences officielles du BAC, filière C/D', descriptionEn: 'Grade official BAC skills, C/D track', route: '/competences', couleur: '#10B981' },
+  { emoji: '⚡', titre: 'Révision express', titreEn: 'Express revision', description: '10 minutes chrono pour ancrer l\'essentiel', descriptionEn: '10 timed minutes to nail the basics', route: '/revision_express', couleur: '#F59E0B' },
+  { emoji: '📖', titre: 'Glossaire', titreEn: 'Glossary', description: 'Vocabulaire scientifique expliqué simplement', descriptionEn: 'Scientific vocabulary explained', route: '/glossaire', couleur: '#0EA5E9' },
 ];
 
 const JOUER: Fonctionnalite[] = [
@@ -61,6 +64,8 @@ const OUTILS: Fonctionnalite[] = [
 ];
 
 const REGLAGES: Fonctionnalite[] = [
+  { emoji: '🤝', titre: 'Groupes d\'entraide', titreEn: 'Study groups', description: 'Pose tes questions par matière, aide les autres', descriptionEn: 'Ask questions per subject, help others', route: '/groupes', couleur: '#8B5CF6' },
+  { emoji: '🎁', titre: 'Mes récompenses', titreEn: 'My rewards', description: 'Échange tes jetons contre des pauses bien-être', descriptionEn: 'Trade tokens for well-being breaks', route: '/recompenses', couleur: '#F59E0B' },
   { emoji: '📦', titre: 'Transfert', titreEn: 'Transfer', description: 'Sauvegarde tes données et restaure-les ailleurs', descriptionEn: 'Backup & restore your data', route: '/transfert', couleur: '#64748B' },
   { emoji: '⚙️', titre: 'Paramètres', titreEn: 'Settings', description: 'Langue, police, dortoir 🌙, rappel ⏰', descriptionEn: 'Language, font, dorm 🌙, reminder ⏰', route: '/parametres', couleur: '#475569' },
   { emoji: '🏛️', titre: 'Administration', titreEn: 'Administration', description: "Réservé au proviseur de l'app et aux admins", descriptionEn: 'App principal & admins only', route: '/admin', couleur: '#065F46' },
