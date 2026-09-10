@@ -1,13 +1,20 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { QCM_SVT, themesSvt, type QcmSvt } from '../services/qcmSvt';
 
 const CLE_SCORES = 'lex_qcm_svt_scores';
 
 function melanger<T>(arr: T[]): T[] {
-  return [...arr].sort(() => Math.random() - 0.5);
+  // 🛡️ FISHER-YATES : l'ancien [...arr].sort(() => Math.random() - 0.5) biaise
+  // la distribution (certaines questions revenaient toujours en premier).
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 export default function QcmSvtEcran() {
@@ -18,6 +25,9 @@ export default function QcmSvtEcran() {
   const [index, setIndex] = useState(0);
   const [choisi, setChoisi] = useState<number | null>(null);
   const [score, setScore] = useState(0);
+  // 🛡️ SCORE SYNCHRONE : setScore() est async → sur la dernière question la
+  // sauvegarde lisait l'ancien score et perdait +1. Ce ref suit le vrai total.
+  const scoreRef = useRef(0);
   const [meilleur, setMeilleur] = useState<number>(0);
 
   useEffect(() => {
@@ -40,24 +50,31 @@ export default function QcmSvtEcran() {
     setQuestions(melanger(selection));
     setIndex(0);
     setChoisi(null);
+    scoreRef.current = 0;
     setScore(0);
     setPhase('quiz');
   };
 
-  const repondre = async (i: number) => {
+  const repondre = (i: number) => {
     if (choisi !== null) return;
     setChoisi(i);
-    if (i === questions[index].bonneIndex) setScore((s) => s + 1);
+    if (i === questions[index].bonneIndex) {
+      scoreRef.current += 1;
+      setScore(scoreRef.current);
+    }
   };
 
   const suivant = async () => {
     if (index + 1 >= questions.length) {
-      const nouveauMeilleur = Math.max(meilleur, score);
+      // 🛡️ scoreRef = vrai total synchrone (setScore est async et perdait +1
+      // sur la dernière question quand la réponse était bonne).
+      const total = scoreRef.current;
+      const nouveauMeilleur = Math.max(meilleur, total);
       setMeilleur(nouveauMeilleur);
       try {
         const brut = await AsyncStorage.getItem(CLE_SCORES);
         const s = brut ? JSON.parse(brut) : {};
-        s[filtre] = Math.max(s[filtre] || 0, score);
+        s[filtre] = Math.max(s[filtre] || 0, total);
         await AsyncStorage.setItem(CLE_SCORES, JSON.stringify(s));
       } catch {
         // ignore
@@ -104,6 +121,11 @@ export default function QcmSvtEcran() {
   }
 
   const q = questions[index];
+  // 🛡️ ANTI-MÉMORISATION : avant, la bonne réponse gardait sa position d'origine
+  // (souvent B) → l'élève apprenait « toujours B » au lieu de la notion. On
+  // mélange l'ordre d'affichage à chaque question tout en suivant le nouvel
+  // index de la bonne réponse.
+  const ordre = useMemo(() => melanger([0, 1, 2, 3]), [index, q.id]);
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
@@ -114,17 +136,18 @@ export default function QcmSvtEcran() {
       </View>
       <ScrollView contentContainerStyle={{ padding: 20 }}>
         <Text style={styles.question}>{q.question}</Text>
-        {q.options.map((opt, i) => {
-          const estBonne = i === q.bonneIndex;
-          const estChoisie = i === choisi;
+        {ordre.map((optIdx) => {
+          const opt = q.options[optIdx];
+          const estBonne = optIdx === q.bonneIndex;
+          const estChoisie = optIdx === choisi;
           let style = styles.option;
           if (choisi !== null) {
             if (estBonne) style = styles.optionJuste;
             else if (estChoisie) style = styles.optionFausse;
           }
           return (
-            <TouchableOpacity key={i} style={style} onPress={() => repondre(i)} disabled={choisi !== null}>
-              <Text style={styles.optionText}>{String.fromCharCode(65 + i)}. {opt}</Text>
+            <TouchableOpacity key={optIdx} style={style} onPress={() => repondre(optIdx)} disabled={choisi !== null}>
+              <Text style={styles.optionText}>{String.fromCharCode(65 + ordre.indexOf(optIdx))}. {opt}</Text>
             </TouchableOpacity>
           );
         })}

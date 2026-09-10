@@ -9,7 +9,7 @@ import { getCours, saveCours } from '../services/cacheHorsLigne';
 import { genererSectionsCours, sectionsEnTexte } from '../services/enrichirCours';
 import { plafondTexteAudio } from '../services/economieDonnees';
 import { construireFiche, ficheEnTexte } from '../services/fichesSynthese';
-import { dechiffrer } from '../services/chiffrement';
+import { dechiffrerAsync } from '../services/chiffrement';
 
 const formatText = (text: string) => {
   if (!text) return "";
@@ -23,6 +23,7 @@ export default function Cours() {
   
   const [coursData, setCoursData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [cahierClair, setCahierClair] = useState('');
 
   const [showMethod, setShowMethod] = useState(false);
   const [showDemo, setShowDemo] = useState(false);
@@ -37,6 +38,7 @@ export default function Cours() {
         const cache = await getCours(id);
         if (cache) {
           setCoursData(cache);
+          if (cache.cahier) setCahierClair(await dechiffrerAsync(cache.cahier));
           // 📍 "Reprendre où j'en étais" : on mémorise le dernier chapitre ouvert
           await AsyncStorage.setItem(
             'lex_dernier_chapitre',
@@ -245,7 +247,7 @@ export default function Cours() {
         {coursData?.cahier && (
           <View style={styles.cardCahier}>
             <Text style={styles.cardTitleCahier}>🧺 Mon cahier</Text>
-            <Text style={styles.cahierText}>{formatText(dechiffrer(coursData.cahier))}</Text>
+            <Text style={styles.cahierText}>{formatText(cahierClair)}</Text>
           </View>
         )}
 

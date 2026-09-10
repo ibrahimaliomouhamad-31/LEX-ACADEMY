@@ -25,8 +25,12 @@ function membre(m: string): { a: number; b: number } | null {
 
 export function resoudrePasAPas(saisie: string): { etapes: EtapeSolveur[]; reponse: string } | { erreur: string } {
   const texte = saisie.replace(/\s+/g, '').replace(/−/g, '-').replace(/²/g, '^2').replace(/,/g, '.');
+  // 🛡️ INJECTION CARACTÈRES : avant, « 2x+3=7;alert() » ou lettres parasites
+  // passaient le split puis échouaient en messages confus. On valide le jeu de
+  // caractères autorisés d'abord → erreur claire et immédiate.
+  if (!/^[0-9xX+\-*/.^=()]*$/.test(texte) || texte === '') return { erreur: 'Caractères non reconnus. Exemples : 2x+3=7, x-5=2x, x^2-5x+6=0' };
   const parties = texte.split('=');
-  if (parties.length !== 2) return { erreur: "Écris une équation avec un seul signe = (ex : 2x+3=7)" };
+  if (parties.length !== 2 || !parties[0] || !parties[1]) return { erreur: "Écris une équation avec un seul signe = (ex : 2x+3=7)" };
 
   try {
     // ---- Second degré : ax^2 + bx + c = 0 ----

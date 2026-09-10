@@ -133,7 +133,8 @@ export async function pousserProgression(): Promise<boolean> {
 
     await setDoc(
       doc(db, 'progression', userId),
-      snapshot as unknown as Record<string, unknown>
+      snapshot as unknown as Record<string, unknown>,
+      { merge: true }
     );
 
     return true;

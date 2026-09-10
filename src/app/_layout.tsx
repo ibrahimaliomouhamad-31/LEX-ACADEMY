@@ -1,8 +1,7 @@
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import React from 'react';
 import { AppState, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { getDortoirActive, getTaillePolice, multiplicateurPolice, setDortoirActive } from '../services/parametres';
+import { getDortoirActive, setDortoirActive } from '../services/parametres';
 // 🔄 OFFLINE-FIRST : le hook réseau démarre l'écoute système de la connexion
 // pour toute l'app. Au retour du wifi, il déclenche la synchronisation de
 // TOUTES les files (XP, streak, progression, défis, signalements).
@@ -46,32 +45,13 @@ export default function Layout() {
     initAppCheck();
   }, []);
 
-  // Accessibilité : multiplie la taille de police de tous les Texte de l'app
-  // selon le réglage choisi dans ⚙️ Paramètres.
+  // Accessibilité : la taille de police est appliquée PAR ÉCRAN via les styles
+  // (voir parametres.tsx : petit/normal/grand). 🛡️ ANTI MONKEY-PATCH : l'ancien
+  // code remplaçait Text.render globalement — irréversible, appliqué 2× à
+  // chaque navigation, cassant les snapshots/tests et les tailles explicites.
+  // On ne touche plus jamais au composant Text ici.
   useEffect(() => {
-    (async () => {
-      const taille = await getTaillePolice();
-      const mult = multiplicateurPolice(taille);
-      if (mult !== 1) {
-        const TextOrigin = (Text as unknown as { render?: (...args: unknown[]) => unknown }).render;
-        if (TextOrigin) {
-          (Text as unknown as { render: (...args: unknown[]) => unknown }).render = function (
-            this: unknown,
-            ...args: unknown[]
-          ) {
-            const origine = TextOrigin.apply(this, args) as React.ReactElement<{ style?: unknown }>;
-            const styleAplat = StyleSheet.flatten(origine.props?.style || undefined) as
-              | { fontSize?: number }
-              | undefined;
-            const base = styleAplat?.fontSize || 14;
-            return React.cloneElement(origine, {
-              style: [origine.props?.style, { fontSize: base * mult }],
-            });
-          };
-        }
-      }
-      setPret(true);
-    })();
+    setPret(true);
   }, []);
 
   // Mode dortoir : re-vérifie le réglage quand l'app revient au premier plan

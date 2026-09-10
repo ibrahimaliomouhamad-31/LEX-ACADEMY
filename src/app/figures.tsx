@@ -1,11 +1,14 @@
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { bloquerSiExamen } from '../services/parametres';
 
 type TypeFonction = 'ax+b' | 'ax²+bx' | 'sin' | 'cos';
 
 export default function Figures() {
   const router = useRouter();
+  // 🛡️ VERROU EXAMEN DIRECT : bloque même en accès direct (deep link).
+  useEffect(() => { bloquerSiExamen(router, 'Figures'); }, []);
   const [mode, setMode] = useState<'fonction' | 'pythagore'>('fonction');
 
   // --- Traceur de fonctions ---

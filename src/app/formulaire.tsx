@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { FORMULES } from '../services/formulaire';
+import { bloquerSiExamen } from '../services/parametres';
 
 type Matiere = 'Mathématiques' | 'Physique-Chimie';
 
@@ -9,6 +10,8 @@ type Matiere = 'Mathématiques' | 'Physique-Chimie';
 // Par défaut : niveau Terminale (BAC C/D).
 export default function Formulaire() {
   const router = useRouter();
+  // 🛡️ VERROU EXAMEN DIRECT : bloque même en accès direct (deep link).
+  useEffect(() => { bloquerSiExamen(router, 'Formulaire'); }, []);
   const [matiere, setMatiere] = useState<Matiere>('Mathématiques');
   const [terminaleSeulement, setTerminaleSeulement] = useState(true);
   const [categorieChoisie, setCategorieChoisie] = useState('');

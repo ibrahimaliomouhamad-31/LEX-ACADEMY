@@ -42,8 +42,14 @@ export default function Classement() {
           // collection pas encore alimentée → repli ci-dessous
         }
 
-        // Repli temporaire : lecture directe de la nouvelle collection.
-        const q = query(collection(db, "utilisateurs"), orderBy("xp", "desc"), limit(50));
+        // Repli temporaire : lecture limitée directe de la nouvelle collection.
+        // limit(50) systématique pour éviter de télécharger tous les comptes
+        // (dont comptes locaux / hors-ligne) et respecter les règles Firestore.
+        const q = query(
+          collection(db, "utilisateurs"),
+          orderBy("xp", "desc"),
+          limit(50)
+        );
         const querySnapshot = await getDocs(q);
         const elevesData: any[] = [];
         querySnapshot.forEach((doc) => {

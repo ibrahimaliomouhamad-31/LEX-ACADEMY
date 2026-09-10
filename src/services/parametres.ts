@@ -88,6 +88,26 @@ export async function setExamenActif(v: boolean): Promise<void> {
   await AsyncStorage.setItem(CLE_EXAMEN, v ? '1' : '0');
 }
 
+/**
+ * 🛡️ GARDE EXAMEN PARTAGÉE : chaque écran d'outil (calculatrice, solveur,
+ * formulaire, flashcards, recherche...) doit l'appeler à l'ouverture. Avant,
+ * le verrou n'existait que sur l'écran Plus → accès direct = triche possible.
+ * Renvoie true si l'accès est REFUSÉ (et affiche l'alerte + retour arrière).
+ */
+export async function bloquerSiExamen(router: { back: () => void }, outil: string): Promise<boolean> {
+  try {
+    if ((await AsyncStorage.getItem(CLE_EXAMEN)) !== '1') return false;
+  } catch {
+    return false;
+  }
+  try {
+    const { Alert } = await import('react-native');
+    Alert.alert('🔒 Mode examen actif', `« ${outil} » est verrouillé pendant l'examen. Désactive le mode examen dans ⚙️ Paramètres.`);
+  } catch {}
+  try { router.back(); } catch {}
+  return true;
+}
+
 // --- Rappel quotidien (notification locale) ---
 const CLE_RAPPEL = 'lex_rappel_actif';
 const CLE_HEURE_RAPPEL = 'lex_rappel_heure';

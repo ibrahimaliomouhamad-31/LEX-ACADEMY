@@ -21,11 +21,14 @@ import { estJuste } from '../services/outilsReponse';
 import { chargerNotionsChapitre, type MicroNotion } from '../services/microNotions';
 import { getCours } from '../services/cacheHorsLigne';
 import { gagnerXp, validerStreakDuJour } from '../services/xpLocal';
+import { bloquerSiExamen } from '../services/parametres';
 
 const CLE_MAITRISE = 'lex_maitrise_notions';
 
 export default function EntrainementInfini() {
   const router = useRouter();
+  // 🛡️ VERROU EXAMEN DIRECT : bloque même en accès direct (deep link).
+  useEffect(() => { bloquerSiExamen(router, 'Exercices infinis'); }, []);
   const params = useLocalSearchParams();
   const chapitreId = (params.chapitre_id as string) || '';
   const titre = (params.titre as string) || 'Chapitre';

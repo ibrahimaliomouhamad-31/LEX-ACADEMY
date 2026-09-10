@@ -17,7 +17,13 @@ const app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 export function emailSynthetique(nom: string): string {
-  return `${nom.trim().toLowerCase().replace(/[^a-z0-9]/g, '.')}@lex.academy`;
+  // 🛡️ NORMALISATION ANTI-COLLISION : minuscules + suppression des accents +
+  // espaces → points. Avant, « Moussa » et « moussa » (ou « André » / « Andre »)
+  // donnaient deux emails différents → deux comptes pour le même élève,
+  // classements éclatés et usurpation facile par variante de casse.
+  const base = nom.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const propre = base.replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '') || 'eleve';
+  return `${propre}@lex.academy`;
 }
 
 // Crée le compte Auth ; renvoie l'uid. Le mot de passe passé est DÉJÀ haché (sha256).

@@ -1,10 +1,13 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { resoudrePasAPas, type EtapeSolveur } from '../services/solveur';
+import { bloquerSiExamen } from '../services/parametres';
 
 export default function Solveur() {
   const router = useRouter();
+  // 🛡️ VERROU EXAMEN DIRECT : bloque même en accès direct (deep link).
+  useEffect(() => { bloquerSiExamen(router, 'Solveur'); }, []);
   const [equation, setEquation] = useState('');
   const [etapes, setEtapes] = useState<EtapeSolveur[] | null>(null);
   const [reponse, setReponse] = useState('');

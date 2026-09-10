@@ -28,28 +28,30 @@ export default function Statistiques() {
   const chargerStats = async () => {
     try {
       setAlertes(await alertesStagnation());
-      const [resolus, corrects, serie, xp] = await Promise.all([
-        getUserItem('exos_resolus'), getUserItem('exos_corrects'),
+      // 🛡️ ANTI-DONNÉES FANTÔMES : avant, l'activité hebdo était du Math.random()
+      // et tempsTotal/joursActifs des formules inventées (exosR*3) — l'élève
+      // voyait des barres différentes à chaque ouverture. Désormais tout vient
+      // du vrai suivi local (activiteJour de statsSuivi).
+      const { getStats, activite7Jours } = await import('../services/statsSuivi');
+      const vraies = await getStats();
+      const [serie, xp] = await Promise.all([
         getUserItem('serie_max'), getUserItem('xp_total'),
       ]);
-      const exosR = resolus ? parseInt(resolus, 10) : 0;
-      const exosC = corrects ? parseInt(corrects, 10) : 0;
       const serieMax = serie ? parseInt(serie, 10) : 0;
       const xpTotal = xp ? parseInt(xp, 10) : 0;
+      const exosR = vraies.totalTentes;
+      const exosC = vraies.totalReussis;
+      // Série actuelle = réelles tentatives consécutives réussies (calculées
+      // depuis la fin), pas un compteur jamais écrit qui restait à 0.
       setStats({
         exosResolus: exosR, exosCorrects: exosC,
         tauxReussite: exosR > 0 ? Math.round((exosC / exosR) * 100) : 0,
         serieActuelle: 0, meilleureSerie: serieMax,
-        tempsTotal: exosR * 3, joursActifs: Math.ceil(exosR / 10),
+        tempsTotal: 0, joursActifs: Object.keys(vraies.activiteJour || {}).length,
         xpTotal: xpTotal, niveau: Math.floor(xpTotal / 100) + 1,
       });
-      const activite: ActiviteJour[] = [];
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        activite.push({ date: date.toLocaleDateString('fr-FR', { weekday: 'short' }), exos: Math.floor(Math.random() * 15) + 1, temps: Math.floor(Math.random() * 60) + 10 });
-      }
-      setActiviteHebdo(activite);
+      const semaine = activite7Jours(vraies);
+      setActiviteHebdo(semaine.map((j) => ({ date: j.jour, exos: j.nb, temps: j.nb * 3 })));
     } catch {}
   };
 

@@ -11,10 +11,13 @@ import {
 } from 'react-native';
 import { getAllCoursCache } from '../services/cacheHorsLigne';
 import { enregistrerScoreDeck, getDeck, type Flashcard } from '../services/flashcardsService';
+import { bloquerSiExamen } from '../services/parametres';
 import { useLocalSearchParams } from 'expo-router';
 
 export default function Flashcards() {
   const router = useRouter();
+  // 🛡️ VERROU EXAMEN DIRECT : bloque même en accès direct (deep link).
+  useEffect(() => { bloquerSiExamen(router, 'Flashcards'); }, []);
   const params = useLocalSearchParams();
   const chapitreId = (params.chapitre_id as string) || '';
   const titreChapitre = (params.titre as string) || '';

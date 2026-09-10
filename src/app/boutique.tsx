@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { depenserCredits, getCredits } from '../services/statsSuivi';
 import { couleurTheme, getTheme, setTheme, type Theme } from '../services/parametres';
+import { bloquerSiExamen } from '../services/parametres';
 import { ajouterStreakFreezes, activerBoosterDoubleXp, lireStreakFreezes } from '../services/xpLocal';
 
 // 50 — BOUTIQUE : les crédits se gagnent en résolvant des exercices
@@ -35,9 +36,14 @@ const CATALOGUE: Article[] = [
 
 const CLE_ACHATS = 'lex_boutique_achats';
 const CLE_TITRE_ACTIF = 'lex_titre_actif';
+// 🛡️ DOUBLE-DÉBIT : deux taps rapides débitaient 2× (crédits perdus). Ce verrou
+// bloque toute transaction concurrente sur le même article.
+const verrouAchat = new Set<string>();
 
 export default function Boutique() {
   const router = useRouter();
+  // 🛡️ VERROU EXAMEN DIRECT : bloque même en accès direct (deep link).
+  useEffect(() => { bloquerSiExamen(router, 'Boutique'); }, []);
   const [credits, setCredits] = useState(0);
   const [achats, setAchats] = useState<string[]>([]);
   const [theme, setT] = useState<Theme>('jaune');
@@ -47,10 +53,23 @@ export default function Boutique() {
     (async () => {
       setCredits(await getCredits());
       setT(await getTheme());
+      // 🛡️ ANTI-PARTAGE BOUTIQUE : les achats/titres étaient en clés GLOBALES
+      // (un élève retrouvait les achats d'un autre sur un téléphone partagé).
+      // Désormais par utilisateur ; migration douce de l'ancien stockage.
       try {
-        const brut = await AsyncStorage.getItem(CLE_ACHATS);
+        const { getUserItem, setUserItem } = await import('../services/userStorage');
+        let brut = await getUserItem(CLE_ACHATS);
+        let titre = await getUserItem(CLE_TITRE_ACTIF);
+        if (brut === null) {
+          const ancien = await AsyncStorage.getItem(CLE_ACHATS);
+          if (ancien) { await setUserItem(CLE_ACHATS, ancien); brut = ancien; }
+        }
+        if (titre === null) {
+          const ancienT = await AsyncStorage.getItem(CLE_TITRE_ACTIF);
+          if (ancienT) { await setUserItem(CLE_TITRE_ACTIF, ancienT); titre = ancienT; }
+        }
         if (brut) setAchats(JSON.parse(brut));
-        setTitreActif((await AsyncStorage.getItem(CLE_TITRE_ACTIF)) || '');
+        setTitreActif(titre || '');
       } catch {
         // ignore
       }
@@ -61,16 +80,22 @@ export default function Boutique() {
     // ⚡ BOOSTS CONSOMMABLES : pas de "possession", on applique l'effet
     // immédiatement (Streak Freeze / Double XP 24h), 100% hors-ligne.
     if (article.type === 'boost') {
-      const ok = await depenserCredits(article.prix);
-      if (!ok) return;
-      if (article.valeur === 'freeze') {
-        await ajouterStreakFreezes(1);
-        Alert.alert('❄️ Streak Freeze acheté !', 'Ta série est protégée pour un jour manqué. Tu en possèdes ' + (await lireStreakFreezes()) + '.');
-      } else if (article.valeur === 'x2') {
-        await activerBoosterDoubleXp();
-        Alert.alert('⚡ Double XP actif !', 'Pendant 24 heures, chaque exercice réussi te rapporte 2× plus d\'XP. À toi de jouer !');
+      if (verrouAchat.has(article.id)) return;
+      verrouAchat.add(article.id);
+      try {
+        const ok = await depenserCredits(article.prix);
+        if (!ok) return;
+        if (article.valeur === 'freeze') {
+          await ajouterStreakFreezes(1);
+          Alert.alert('❄️ Streak Freeze acheté !', 'Ta série est protégée pour un jour manqué. Tu en possèdes ' + (await lireStreakFreezes()) + '.');
+        } else if (article.valeur === 'x2') {
+          await activerBoosterDoubleXp();
+          Alert.alert('⚡ Double XP actif !', 'Pendant 24 heures, chaque exercice réussi te rapporte 2× plus d\'XP. À toi de jouer !');
+        }
+        setCredits(await getCredits());
+      } finally {
+        verrouAchat.delete(article.id);
       }
-      setCredits(await getCredits());
       return;
     }
 
@@ -81,22 +106,30 @@ export default function Boutique() {
         await setTheme(article.valeur as Theme);
       } else if (article.type === 'titre') {
         setTitreActif(article.valeur);
-        await AsyncStorage.setItem(CLE_TITRE_ACTIF, article.valeur);
+        const { setUserItem } = await import('../services/userStorage');
+        await setUserItem(CLE_TITRE_ACTIF, article.valeur);
       }
       return;
     }
-    const ok = await depenserCredits(article.prix);
-    if (!ok) return;
-    const nouveaux = [...achats, article.id];
-    setAchats(nouveaux);
-    await AsyncStorage.setItem(CLE_ACHATS, JSON.stringify(nouveaux));
-    setCredits(await getCredits());
-    if (article.type === 'theme') {
-      setT(article.valeur as Theme);
-      await setTheme(article.valeur as Theme);
-    } else if (article.type === 'titre') {
-      setTitreActif(article.valeur);
-      await AsyncStorage.setItem(CLE_TITRE_ACTIF, article.valeur);
+    if (verrouAchat.has(article.id)) return;
+    verrouAchat.add(article.id);
+    try {
+      const ok = await depenserCredits(article.prix);
+      if (!ok) return;
+      const nouveaux = [...achats, article.id];
+      setAchats(nouveaux);
+      const { setUserItem } = await import('../services/userStorage');
+      await setUserItem(CLE_ACHATS, JSON.stringify(nouveaux));
+      setCredits(await getCredits());
+      if (article.type === 'theme') {
+        setT(article.valeur as Theme);
+        await setTheme(article.valeur as Theme);
+      } else if (article.type === 'titre') {
+        setTitreActif(article.valeur);
+        await setUserItem(CLE_TITRE_ACTIF, article.valeur);
+      }
+    } finally {
+      verrouAchat.delete(article.id);
     }
   };
 

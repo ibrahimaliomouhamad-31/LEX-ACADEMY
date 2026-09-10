@@ -41,6 +41,9 @@ class Analyse {
   private peek(): Jeton | undefined { return this.jetons[this.i]; }
   private next(): Jeton | undefined { return this.jetons[this.i++]; }
 
+  /** 🛡️ FIN D'EXPRESSION : tous les jetons ont-ils été consommés ? */
+  estTerminee(): boolean { return this.i >= this.jetons.length; }
+
   // expression := terme (('+'|'-') terme)*
   expression(): number {
     let gauche = this.terme();
@@ -119,7 +122,12 @@ class Analyse {
 export function evaluer(expression: string): number {
   const jetons = tokeniser(expression);
   if (jetons.length === 0) throw new Error('Vide');
-  const resultat = new Analyse(jetons).expression();
+  const analyse = new Analyse(jetons);
+  const resultat = analyse.expression();
+  // 🛡️ TOKENS RESTANTS : avant, « 2+2) » ou « 3(4) » renvoyaient un résultat
+  // partiel sans erreur (le reste était silencieusement ignoré). Désormais
+  // toute expression non entièrement consommée est rejetée.
+  if (!analyse.estTerminee()) throw new Error('Syntaxe invalide : fin d\'expression inattendue');
   if (!Number.isFinite(resultat)) throw new Error('Résultat non défini');
   return resultat;
 }

@@ -21,10 +21,13 @@ async function lireStock(): Promise<StockDuels> {
   }
 }
 
-// Score du fantôme : meilleur score local, sinon 6 (soit 60% de réussite par défaut)
+// Score du fantôme : meilleur score local, calibré sur l'échelle réelle du duel
+// (bonnes réponses ×10 − pénalité temps, max 100). 🛡️ ANTI-FANTÔME IMBATTABLE :
+// l'ancien défaut de 6 venait de l'échelle QCM /10 et rendait le premier duel
+// perdu d'avance ; 55 correspond à ~6 bonnes réponses avec un bon chrono.
 export async function getFantome(chapitreId: string): Promise<number> {
   const stock = await lireStock();
-  return stock[chapitreId]?.score ?? 6;
+  return stock[chapitreId]?.score ?? 55;
 }
 
 // Enregistre le duel ; le fantôme devient le nouveau record si battu

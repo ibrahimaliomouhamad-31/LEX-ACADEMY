@@ -12,9 +12,12 @@ import {
 } from 'react-native';
 import { rechercher, type ResultatRecherche } from '../services/rechercheGlobale';
 import { FORMULES } from '../services/formulaire';
+import { bloquerSiExamen } from '../services/parametres';
 
 export default function Recherche() {
   const router = useRouter();
+  // 🛡️ VERROU EXAMEN DIRECT : bloque même en accès direct (deep link).
+  useEffect(() => { bloquerSiExamen(router, 'Recherche'); }, []);
   const [texte, setTexte] = useState('');
   const [resultats, setResultats] = useState<ResultatRecherche | null>(null);
   const [chercher, setChercher] = useState(false);
@@ -33,7 +36,7 @@ export default function Recherche() {
   }, [texte]);
 
   const total = resultats
-    ? resultats.exercices.length + resultats.formules.length + resultats.cours.length + resultats.olympiades.length
+    ? resultats.exercices.length + resultats.formules.length + resultats.cours.length + resultats.olympiades.length + (resultats.glossaire?.length ?? 0)
     : 0;
 
   return (
@@ -58,9 +61,9 @@ export default function Recherche() {
         />
         {chercher ? <ActivityIndicator color="#FBBF24" style={{ marginBottom: 10 }} /> : null}
         {resultats && texte.trim().length >= 2 ? (
-          <Text style={styles.compteur}>{total} résultat(s) — exercices 📝, formules 📐, cours 📘, olympiades 🏅</Text>
+          <Text style={styles.compteur}>{total} résultat(s) — exercices 📝, formules 📐, cours 📘, olympiades 🏅, glossaire 📖</Text>
         ) : (
-          <Text style={styles.compteur}>Cherche dans tes exercices téléchargés, les {FORMULES.length} formules, tes cours et les olympiades.</Text>
+          <Text style={styles.compteur}>Cherche dans tes exercices téléchargés, les {FORMULES.length} formules, tes cours, les olympiades et le glossaire 📖.</Text>
         )}
       </View>
 
@@ -117,6 +120,19 @@ export default function Recherche() {
           </>
         )}
 
+        {resultats && resultats.glossaire && resultats.glossaire.length > 0 && (
+          <>
+            <Text style={styles.section}>📖 Glossaire ({resultats.glossaire.length})</Text>
+            {resultats.glossaire.map((g) => (
+              <TouchableOpacity key={g.terme} style={styles.carteGlossaire} onPress={() => router.push({ pathname: '/glossaire' } as never)}>
+                <Text style={styles.carteTitre}>{g.terme}</Text>
+                <Text style={styles.carteDetail} numberOfLines={2}>{g.definition}</Text>
+                {g.matiere ? <Text style={styles.carteDetail}>{g.matiere}</Text> : null}
+              </TouchableOpacity>
+            ))}
+          </>
+        )}
+
         {resultats && total === 0 && texte.trim().length >= 2 && (
           <Text style={styles.vide}>
             Rien trouvé. Astuce : télécharge plus de chapitres 📥 pour enrichir la recherche, ou essaie un autre mot-clé.
@@ -142,6 +158,7 @@ const styles = StyleSheet.create({
   carteFormule: { backgroundColor: '#1E293B', borderRadius: 12, padding: 15, marginBottom: 10, borderLeftWidth: 3, borderLeftColor: '#3B82F6' },
   carteCours: { backgroundColor: '#1E293B', borderRadius: 12, padding: 15, marginBottom: 10, borderLeftWidth: 3, borderLeftColor: '#8B5CF6' },
   carteOlympiade: { backgroundColor: '#1E293B', borderRadius: 12, padding: 15, marginBottom: 10, borderLeftWidth: 3, borderLeftColor: '#F59E0B' },
+  carteGlossaire: { backgroundColor: '#1E293B', borderRadius: 12, padding: 15, marginBottom: 10, borderLeftWidth: 3, borderLeftColor: '#06B6D4' },
   carteTitre: { color: '#F8FAFC', fontSize: 14, fontWeight: 'bold', lineHeight: 20 },
   carteDetail: { color: '#64748B', fontSize: 11, marginTop: 4 },
   formuleTexte: { color: '#FBBF24', fontSize: 15, marginTop: 6 },

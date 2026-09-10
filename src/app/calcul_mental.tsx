@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { estJuste } from '../services/outilsReponse';
 import { gagnerXp, validerStreakDuJour } from '../services/xpLocal';
+import { bloquerSiExamen } from '../services/parametres';
 
 interface CalculMental { enonce: string; reponse: string; tempsLimite: number; }
 
@@ -30,6 +31,8 @@ const PIEGES_BAC = [
 
 export default function CalculMental() {
   const router = useRouter();
+  // 🛡️ VERROU EXAMEN DIRECT : bloque même en accès direct (deep link).
+  useEffect(() => { bloquerSiExamen(router, 'Calcul mental'); }, []);
   const [mode, setMode] = useState<'calcul' | 'pieges'>('calcul');
   const [index, setIndex] = useState(0);
   const [reponse, setReponse] = useState('');
