@@ -55,7 +55,7 @@ mais chaque fichier appartient à un domaine fonctionnel clair.
 
 ## ✅ Gates de validation
 - `npx tsc --noEmit` = 0 erreur
-- `npx jest --ci` = 35/35 verts
+- `npx jest --ci` = 46/46 verts
 - Toute route dans `plus.tsx` doit pointer vers un fichier existant.
 
 ---
@@ -70,5 +70,6 @@ mais chaque fichier appartient à un domaine fonctionnel clair.
 | D | 5 👥 + 6 ⚙️ | Transfert : restauration = remplacement complet (anti-incohérence XP/anti-farm), alerte code volumineux WhatsApp |
 | E | 7 🔐 + 8 🧰 | Compteur formules dynamique recherche, audit sécurité (IA proxy sans clé client, auth à sel SHA-256), +3 tests chiffrement/stagnation |
 | F | Tous | Revérification transversale : 23 routes / 0 orpheline, logs maîtrisés (2 console.log diagnostiques syncQueue), 1 TODO mineur (admin_roles) |
+| G | Tous | Chiffrement LEX2 (clé utilisateur + sel), bootstrap proviseur à code, garde examen partagée (bloquerSiExamen), données réelles (profil/statistiques), anti-double-débit boutique, export filtré (pas de hash), anti-troncature préchargement, Fisher-Yates QCM, calculatrice robuste, auth normalisée, rôles unifiés |
 
-**Défauts corrigés au total : ~20** (bugs d'affichage, données en dur, incohérences offline, pile de navigation, restauration incomplète).
+**Défauts corrigés au total : ~35** (bugs d'affichage, données en dur, incohérences offline, pile de navigation, restauration incomplète, sécurité, intégrité, anti-triche).
