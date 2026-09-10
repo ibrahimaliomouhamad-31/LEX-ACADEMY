@@ -65,12 +65,15 @@ export default function Admin() {
       const liste: Admin[] = [];
       snap.forEach((d) => liste.push({ id: d.id, nom: (d.data() as { nom?: string }).nom || d.id, ajouteLe: (d.data() as { ajouteLe?: string }).ajouteLe || '' }));
 
-      // 71 — ANTI-USURPATION : l'admin est identifié par son userId local,
-      // pas par son nom (n'importe qui pouvait créer un compte avec ton nom).
-      if (liste.length === 0 && nomEleve !== '' && uidEleve !== '') {
-        // Bootstrap : le premier élève connecté à ouvrir l'écran devient proviseur
-        await addDoc(collection(db, 'admins'), { nom: nomEleve, userId: uidEleve, ajouteLe: new Date().toISOString().slice(0, 10) });
-        liste.push({ id: 'moi', nom: nomEleve, ajouteLe: '' });
+      // 71 — ANTI-USURPATION + ANTI-COURSE : l'admin est identifié par userId.
+      // Le bootstrap « premier arrivé = proviseur » était une prise de contrôle
+      // ouverte : n'importe quel élève ouvrant l'écran en premier sur une base
+      // fraîche devenait admin à vie. Désormais le bootstrap exige un CODE
+      // PROVISEUR (config/proviseur.codeBootstrap, saisi ci-dessous) et le
+      // proviseur est ensuite le seul à pouvoir promouvoir.
+      if (liste.length === 0) {
+        setEstAdmin(false);
+        return;
       }
       // Migration : un admin hérité par nom est rélié à ton userId à ta 1re visite
       for (const adm of liste) {
@@ -89,6 +92,42 @@ export default function Admin() {
       }
     } catch {
       setHorsLigne(true);
+    } finally {
+      setChargement(false);
+    }
+  };
+
+  // 🛡️ BOOTSTRAP PROVISEUR : quand aucun admin n'existe, le créateur saisit le
+  // code proviseur (jamais stocké côté client) pour devenir proviseur.
+  // (Déclarée ici car elle utilise uid/nom ; le bouton apparaît quand
+  // admins.length === 0 — voir le rendu ci-dessous.)
+  const [codeProviseur, setCodeProviseur] = useState('');
+  const [uid, setUid] = useState('');
+  useEffect(() => {
+    AsyncStorage.getItem('lex_user_id').then((v) => setUid(v || '')).catch(() => {});
+  }, []);
+  const devenirProviseur = async () => {
+    if (!codeProviseur.trim() || !uid || !nom) return;
+    setChargement(true);
+    try {
+      const refProv = doc(db, 'config', 'proviseur');
+      const snapProv = await getDoc(refProv);
+      const attendu = snapProv.exists() ? (snapProv.data() as { codeBootstrap?: string }).codeBootstrap : undefined;
+      if (!attendu || codeProviseur.trim() !== attendu) {
+        Alert.alert('Code incorrect', 'Demande le code proviseur au créateur de l\'app.');
+        return;
+      }
+      const recheck = await getDocs(collection(db, 'admins'));
+      if (!recheck.empty) {
+        Alert.alert('Déjà initialisé', 'Un proviseur existe déjà. Demande-lui de te promouvoir.');
+        await charger(nom, uid);
+        return;
+      }
+      await addDoc(collection(db, 'admins'), { nom, userId: uid, ajouteLe: new Date().toISOString().slice(0, 10) });
+      setCodeProviseur('');
+      await charger(nom, uid);
+    } catch {
+      Alert.alert('Erreur', 'Vérifie ta connexion puis réessaie.');
     } finally {
       setChargement(false);
     }
@@ -297,6 +336,15 @@ export default function Admin() {
 
         {/* Gestion des admins */}
         <Text style={styles.section}>👥 Administration ({admins.length})</Text>
+        {admins.length === 0 && (
+          <View style={{ backgroundColor: '#1E293B', borderRadius: 10, padding: 14, marginBottom: 10 }}>
+            <Text style={{ color: '#FBBF24', fontWeight: 'bold', marginBottom: 6 }}>Aucun proviseur. Initialise l'administration :</Text>
+            <TextInput style={styles.inputAjout} placeholder="Code proviseur" placeholderTextColor="#64748B" value={codeProviseur} onChangeText={setCodeProviseur} secureTextEntry autoCapitalize="none" />
+            <TouchableOpacity style={[styles.boutonAjout, { marginTop: 8, alignItems: 'center' }]} onPress={devenirProviseur}>
+              <Text style={styles.boutonAjoutText}>Devenir proviseur</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         {admins.map((a) => (
           <View key={a.id} style={styles.ligneAdmin}>
             <Text style={styles.nomAdmin}>👤 {a.nom}{a.ajouteLe ? ` (ajouté le ${a.ajouteLe})` : ' — proviseur 👑'}</Text>

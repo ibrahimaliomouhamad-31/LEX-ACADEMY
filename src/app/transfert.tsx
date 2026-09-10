@@ -43,7 +43,15 @@ export default function Transfert() {
   const genererCode = async () => {
     setGenereEnCours(true);
     try {
-      const cles = (await AsyncStorage.getAllKeys()).filter((k) => k.startsWith('lex_'));
+      // 🛡️ EXPORT FILTRÉ : avant, TOUTES les clés lex_ partaient dans le code,
+      // y compris lex_user_id, lex_comptes_locaux (hash du mot de passe !) et
+      // les caches de cours. Quiconque recevait le code WhatsApp pouvait se
+      // connecter au compte. Désormais : seules les données de progression.
+      const cles = (await AsyncStorage.getAllKeys()).filter((k) =>
+        k.startsWith('lex_user_') || k === 'lex_xp_local' || k === 'lex_streak_local' ||
+        k === 'lex_duels' || k === 'lex_qcm_svt_scores' || k === 'lex_boutique_achats' ||
+        k === 'lex_titre_actif'
+      );
       const paires = await AsyncStorage.multiGet(cles);
       const donnees: { [cle: string]: string | null } = {};
       for (const [cle, valeur] of paires) donnees[cle] = valeur;

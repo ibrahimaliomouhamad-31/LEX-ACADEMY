@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { collection, doc, getDoc, getDocs, orderBy, query } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, limit, orderBy, query } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../config/firebaseConfig';
@@ -19,11 +19,7 @@ export default function Profil() {
   
   const [streak, setStreak] = useState<number>(0);
   const [avatar, setAvatar] = useState<string>('🎓'); 
-  const [historique] = useState<any[]>([
-    { action: "A réussi l'Exercice 1 (Maths)", xp: "+50 XP", temps: "Il y a 2h" },
-    { action: "A lu le Cours sur les Équations", xp: "+10 XP", temps: "Il y a 3h" },
-    { action: "A atteint le Niveau 2", xp: "Débloqué", temps: "Hier" }
-  ]);
+  const [historiqueReel, setHistoriqueReel] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchProfilComplet = async () => {
@@ -36,26 +32,54 @@ export default function Profil() {
           const userRef = doc(db, "utilisateurs", id);
           const userSnap = await getDoc(userRef);
             if (userSnap.exists()) {
-            setUserClasse(userSnap.data().classe);
-            setUserXp(userSnap.data().xp);
-            setStreak(userSnap.data().streak || 0);
-            setAvatar(userSnap.data().avatar || '🎓'); // <-- AJOUTE ÇA
+            const d = userSnap.data() as { classe?: string; xp?: number; streak?: number; avatar?: string };
+            // 🛡️ ANTI-NaN : les champs Firestore peuvent être absents ou d'un
+            // mauvais type (vieux docs) → Number(...) || 0 au lieu d'afficher
+            // « undefined » ou de casser les calculs de ligue.
+            setUserClasse(typeof d.classe === 'string' ? d.classe : '');
+            setUserXp(Number(d.xp) || 0);
+            setStreak(Number(d.streak) || 0);
+            setAvatar(typeof d.avatar === 'string' && d.avatar ? d.avatar : '🎓'); // <-- AJOUTE ÇA
           }
         }
 
-        const q = query(collection(db, "classement_public"), orderBy("xp", "desc"));
+        // 🛡️ CLASSEMENT LIMITÉ : avant, TOUTE la collection était téléchargée
+        // (coût + lenteur + lectures facturées). 50 suffisent pour le rang/top3.
+        const q = query(collection(db, "classement_public"), orderBy("xp", "desc"), limit(50));
         const querySnapshot = await getDocs(q);
         
         const elevesData: any[] = [];
-        querySnapshot.forEach((doc) => elevesData.push(doc.data()));
+        querySnapshot.forEach((doc) => elevesData.push({ uid: doc.id, ...doc.data() }));
         setTotalEleves(elevesData.length);
         setTop3(elevesData.slice(0, 3));
 
-        const monIndex = elevesData.findIndex(e => e.nom === nom);
+        // 🛡️ RANG PAR UID (jamais par nom) : deux élèves « Moussa » partageaient
+        // le même rang, et usurper un nom volait le rang. L'uid est unique.
+        const monIndex = id
+          ? elevesData.findIndex((e) => e.uid === id || e.userId === id)
+          : elevesData.findIndex((e) => e.nom === nom);
         if (monIndex !== -1) {
           setRangGlobal(monIndex + 1);
           if (monIndex > 0) setRivalHaut(elevesData[monIndex - 1]);
           if (monIndex < elevesData.length - 1) setRivalBas(elevesData[monIndex + 1]);
+        }
+
+        // 🛡️ HISTORIQUE RÉEL : avant, 3 lignes codées en dur (« Il y a 2h »)
+        // mentaient à chaque élève. Désormais on affiche les vrais compteurs
+        // locaux (exercices, XP semaine, série) — jamais de fausse activité.
+        try {
+          const { getStats } = await import('../services/statsSuivi');
+          const { lireXpSemaineActuelle, lireXpTotal } = await import('../services/xpLocal');
+          const vraies = await getStats();
+          const xpSem = await lireXpSemaineActuelle().catch(() => 0);
+          const xpTot = await lireXpTotal().catch(() => 0);
+          setHistoriqueReel([
+            { action: `${vraies.totalTentes} exercice(s) tenté(s) au total`, xp: `${vraies.totalReussis} réussi(s)`, temps: `${Object.keys(vraies.activiteJour || {}).length} jour(s) actif(s)` },
+            { action: 'XP cette semaine', xp: `+${xpSem} XP`, temps: '7 derniers jours' },
+            { action: 'XP total (local)', xp: `${xpTot} XP`, temps: 'tous appareils' },
+          ]);
+        } catch {
+          // historique indisponible : on garde un état vide honnête
         }
 
       } catch (error) {
@@ -272,7 +296,10 @@ export default function Profil() {
         {/* HISTORIQUE RÉCENT */}
         <Text style={styles.sectionTitle}>⏱️ ACTIVITÉ RÉCENTE</Text>
         <View style={styles.historyContainer}>
-          {historique.map((item, index) => (
+          {historiqueReel.length === 0 && (
+            <Text style={{ color: '#64748B', fontSize: 13, fontStyle: 'italic' }}>Aucune activite pour l'instant.</Text>
+          )}
+          {historiqueReel.map((item, index) => (
             <View key={index} style={styles.historyItem}>
               <View style={styles.historyDot} />
               <View style={styles.historyInfo}>

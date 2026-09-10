@@ -30,7 +30,12 @@ import { auth, db } from '../config/firebaseConfig';
  * dictionnaire partagé. ⚠️ Jamais de singleton/global.
  */
 export const selPourCompte = (nom: string): string => {
-  return sha256(`lex-academy::sel::${nom.trim().toLowerCase()}`);
+  // 🛡️ Même normalisation que l'email synthétique (minuscules, sans accents,
+  // séparateurs regroupés) : le hash du mot de passe est identique quelle que
+  // soit la casse/les accents tapés à la connexion.
+  const base = nom.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const propre = base.replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '') || 'eleve';
+  return sha256(`lex-academy::sel::${propre}`);
 };
 
 export const genererSel = (): string => {

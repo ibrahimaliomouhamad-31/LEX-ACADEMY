@@ -16,6 +16,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { collection, query, where, getDocs, DocumentData } from 'firebase/firestore';
+import { db } from '../config/firebaseConfig';
 import { getCurrentUserId, getSessionValide } from '../services/auth';
 import {
   UserRole,
@@ -67,6 +69,7 @@ export default function AdminPanel() {
   const [students, setStudents] = useState<StudentWithRole[]>([]);
   const [selectedRole, setSelectedRole] = useState<UserRole>('moniteur');
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     verifyAdmin();
@@ -79,6 +82,8 @@ export default function AdminPanel() {
         router.replace('/login');
         return;
       }
+
+      setCurrentUserId(userId);
 
       const isAdminUser = await peutEffectuerAction(userId, 'modifierRoles');
       if (!isAdminUser) {
@@ -108,15 +113,23 @@ export default function AdminPanel() {
       const roles = await getRolesClasse(classe);
       const rolesMap = new Map(roles.map((r) => [r.userId, r.role]));
 
-      // TODO: Récupérer liste des élèves de la classe depuis Firestore
-      // Pour maintenant, mock data
-      const mockStudents: StudentWithRole[] = [
-        { userId: 'stud1', nom: 'Ahmed Ali', classe, role: rolesMap.get('stud1') },
-        { userId: 'stud2', nom: 'Zainab Moussa', classe },
-        { userId: 'stud3', nom: 'Ibrahim Cissé', classe, role: rolesMap.get('stud3') },
-      ];
+      // Récupérer la vraie liste des élèves de la classe depuis Firestore
+      const utilisateursRef = collection(db, 'utilisateurs');
+      const q = query(utilisateursRef, where('classe', '==', classe));
+      const snapshot = await getDocs(q);
+      const adminId = currentUserId;
+      const students: StudentWithRole[] = snapshot.docs
+        .map((doc) => {
+          const data = doc.data() as DocumentData;
+          const userId = doc.id;
+          const nom = (data.nom || data.displayName || data.pseudo || 'Élève') as string;
+          const role = rolesMap.get(userId);
+          return { userId, nom, classe, role };
+        })
+        .filter((s) => s.userId !== adminId)
+        .sort((a, b) => a.nom.localeCompare(b.nom));
 
-      setStudents(mockStudents);
+      setStudents(students);
       setLoading(false);
     } catch (error) {
       Alert.alert('Erreur', String(error));

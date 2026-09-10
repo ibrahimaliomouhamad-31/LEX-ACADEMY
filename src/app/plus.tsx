@@ -11,11 +11,15 @@ interface Fonctionnalite {
   couleur: string;
 }
 
-// Routes verrouillées quand le 🔒 Mode examen est actif (anti-triche)
-const ROUTES_VERROUILLEES_EXAMEN = [
-  '/formulaire', '/calculatrice', '/flashcards', '/recherche', '/figures',
-  '/entrainement_infini', '/badges', '/boutique', '/calcul_mental', '/journal_erreurs',
-  '/solveur', '/photo_exo',
+// Routes verrouillées quand le 🔒 Mode examen est actif (anti-triche).
+// 🛡️ LISTE COMPLÈTE : avant, calculatrice/solveur/formulaire restaient ouverts
+// en accès DIRECT (deep link / recherche) — le verrou n'existait que sur
+// l'écran Plus. Désormais garde partagée via parametres.ts (bloquerSiExamen)
+// et appliquée dans chaque écran d'outil.
+const ROUTES_STRICT_EXAMEN = [
+  '/exercices', '/cours', '/annales', '/formulaire', '/calculatrice', '/flashcards',
+  '/recherche', '/figures', '/entrainement_infini', '/badges', '/boutique',
+  '/calcul_mental', '/journal_erreurs', '/solveur', '/photo_exo',
 ];
 
 const REVISER: Fonctionnalite[] = [
@@ -126,7 +130,7 @@ export default function Plus() {
       <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
         <View style={styles.grille}>
           {entrees.map((f) => {
-            const verrouille = examenActif && ROUTES_VERROUILLEES_EXAMEN.includes(f.route);
+            const verrouille = examenActif && ROUTES_STRICT_EXAMEN.includes(f.route);
             return (
               <TouchableOpacity
                 key={f.route}

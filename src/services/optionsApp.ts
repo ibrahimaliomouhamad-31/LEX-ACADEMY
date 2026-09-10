@@ -36,7 +36,11 @@ export async function demanderPermissionNotifications(): Promise<boolean> {
 // Renvoie un message de statut lisible.
 export async function appliquerRappel(): Promise<string> {
   try {
-    await Notifications.cancelAllScheduledNotificationsAsync();
+    // 🛡️ ANNULATION CIBLÉE : avant, cancelAllScheduledNotificationsAsync()
+    // supprimait AUSSI les rappels contextuels (défi 19h, série 20h) gérés par
+    // notifications.ts. On n'annule que nos deux identifiants connus.
+    try { await Notifications.cancelScheduledNotificationAsync(ID_RAPPEL); } catch {}
+    try { await Notifications.cancelScheduledNotificationAsync(ID_RAPPEL + '_matin'); } catch {}
     const actif = await getRappelActif();
     if (!actif) return 'Rappel désactivé ✅';
 

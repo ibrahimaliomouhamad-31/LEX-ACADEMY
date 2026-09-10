@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { getUserItem } from '../services/userStorage';
+import { bloquerSiExamen } from '../services/parametres';
 
 const CLE_JOURNAL = 'lex_journal_erreurs';
 
@@ -36,6 +37,8 @@ const TYPES_ERREUR: { id: EntreeJournal['typeErreur']; label: string; emoji: str
 
 export default function JournalErreurs() {
   const router = useRouter();
+  // 🛡️ VERROU EXAMEN DIRECT : bloque même en accès direct (deep link).
+  useEffect(() => { bloquerSiExamen(router, 'Journal'); }, []);
   const [entrees, setEntrees] = useState<EntreeJournal[]>([]);
   const [filtre, setFiltre] = useState<EntreeJournal['typeErreur'] | 'toutes'>('toutes');
 

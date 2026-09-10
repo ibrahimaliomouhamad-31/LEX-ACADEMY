@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { urlChat, headersIA } from '../services/configIA';
+import { bloquerSiExamen } from '../services/parametres';
 
 // 56 — PHOTO D'EXERCICE : photographie un exercice du manuel papier,
 // l'IA le lit et GUIDE sans donner la réponse (nécessite le wifi du LEX).
@@ -20,6 +21,8 @@ const MODELE_VISION = 'meta-llama/llama-4-scout-17b-16e-instruct';
 
 export default function PhotoExo() {
   const router = useRouter();
+  // 🛡️ VERROU EXAMEN DIRECT : bloque même en accès direct (deep link).
+  useEffect(() => { bloquerSiExamen(router, 'Photo d\'exercice'); }, []);
   const [image, setImage] = useState<string | null>(null);
   const [chargement, setChargement] = useState(false);
   const [guidage, setGuidage] = useState<string[]>([]);

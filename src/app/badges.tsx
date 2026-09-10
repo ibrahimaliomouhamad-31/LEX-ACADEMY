@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getUserItem } from '../services/userStorage';
 import { BADGES_MATIERE, getBadgesMatieresObtenus, reussitesParMatiere } from '../services/badgesMatiere';
+import { bloquerSiExamen } from '../services/parametres';
+import { CITATIONS, citationAleatoire } from '../services/citations';
 
 interface BadgeSecret {
   id: string; titre: string; emoji: string; description: string;
@@ -23,28 +25,19 @@ const BADGES_SECRETS: BadgeSecret[] = [
   { id: 'semaine_complete', titre: 'Assidu', emoji: '📅', description: 'Réviser 7 jours de suite', condition: 'Streak de 7', debloque: false, rarete: 'epique' },
 ];
 
-const CITATIONS = [
-  { texte: "Le succès est la somme de petits efforts répétés jour après jour.", auteur: "Robert Collier" },
-  { texte: "L'éducation est l'arme la plus puissante pour changer le monde.", auteur: "Nelson Mandela" },
-  { texte: "Le seul moyen de faire du bon travail est d'aimer ce que vous faites.", auteur: "Steve Jobs" },
-  { texte: "La connaissance est le commencement de l'action.", auteur: "Proverbe africain" },
-  { texte: "Chaque expert était un jour un débutant.", auteur: "Helen Hayes" },
-  { texte: "L'avenir appartient à ceux qui croient en la beauté de leurs rêves.", auteur: "Eleanor Roosevelt" },
-  { texte: "Le travail est la clé de la réussite.", auteur: "Proverbe touareg" },
-  { texte: "Celui qui déplace une montagne commence par déplacer de petites pierres.", auteur: "Confucius" },
-];
-
 export default function Badges() {
   const router = useRouter();
+  // 🛡️ VERROU EXAMEN DIRECT : bloque même en accès direct (deep link).
+  useEffect(() => { bloquerSiExamen(router, 'Badges'); }, []);
   const [badges, setBadges] = useState<BadgeSecret[]>(BADGES_SECRETS);
-  const [citation, setCitation] = useState(CITATIONS[0]);
+  const [citation, setCitation] = useState(citationAleatoire());
   const [stats, setStats] = useState({ debloques: 0, total: BADGES_SECRETS.length });
   const [badgesMatiere, setBadgesMatiere] = useState<{ id: string; obtenu: boolean; progression: number }[]>([]);
 
   useEffect(() => {
     chargerBadges();
     chargerBadgesMatiere();
-    setCitation(CITATIONS[Math.floor(Math.random() * CITATIONS.length)]);
+    setCitation(citationAleatoire());
   }, []);
 
   const chargerBadgesMatiere = async () => {

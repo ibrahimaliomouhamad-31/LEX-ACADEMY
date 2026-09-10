@@ -4,12 +4,14 @@
 import { getAllCoursCache, getAllCachedChapterIds, getExercices } from './cacheHorsLigne';
 import { FORMULES, type Formule } from './formulaire';
 import { OLYMPIADES, type ProblemeOlympiade } from './olympiades';
+import { chercherGlossaire, type TermeGlossaire } from './programmeOfficiel';
 
 export interface ResultatRecherche {
   exercices: { id: string; enonce: string; chapitre: string }[];
   formules: Formule[];
   cours: { id: string; titre: string; matiere?: string }[];
   olympiades: ProblemeOlympiade[];
+  glossaire: TermeGlossaire[];
 }
 
 function normaliserCle(s: string): string {
@@ -21,7 +23,7 @@ function normaliserCle(s: string): string {
 }
 
 export async function rechercher(texte: string): Promise<ResultatRecherche> {
-  const resultat: ResultatRecherche = { exercices: [], formules: [], cours: [], olympiades: [] };
+  const resultat: ResultatRecherche = { exercices: [], formules: [], cours: [], olympiades: [], glossaire: [] };
   const cle = normaliserCle(texte);
   if (cle.length < 2) return resultat;
 
@@ -61,6 +63,9 @@ export async function rechercher(texte: string): Promise<ResultatRecherche> {
   resultat.olympiades = OLYMPIADES.filter((p) =>
     normaliserCle(`${p.theme} ${p.enonce}`).includes(cle)
   ).slice(0, 10);
+
+  // 5) Glossaire scientifique (recherche dans les termes, définitions et matières)
+  resultat.glossaire = chercherGlossaire(texte).slice(0, 20);
 
   return resultat;
 }

@@ -1,27 +1,40 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { bloquerSiExamen } from '../services/parametres';
 
 export default function Calculatrice() {
   const router = useRouter();
+  // 🛡️ VERROU EXAMEN DIRECT : bloque même en accès direct (deep link).
+  useEffect(() => { bloquerSiExamen(router, 'Calculatrice'); }, []);
   const [affichage, setAffichage] = useState('0');
   const [operateur, setOperateur] = useState<string | null>(null);
   const [premierNombre, setPremierNombre] = useState<number | null>(null);
   const [attenteOperateur, setAttenteOperateur] = useState(false);
 
   const taperChiffre = (chiffre: string) => {
+    // 🛡️ ANTI-POINTS MULTIPLES : « 1..2 » donnait parseFloat=1 sans erreur.
+    // On refuse un 2e point dans le nombre en cours de frappe.
+    if (chiffre === '.' && !attenteOperateur) {
+      const m = affichage.match(/([0-9.]+)$/);
+      if (m && m[1].includes('.')) return;
+      if (affichage === '0') { setAffichage('0.'); return; }
+    }
     if (attenteOperateur) { setAffichage(chiffre); setAttenteOperateur(false); }
     else { setAffichage(affichage === '0' ? chiffre : affichage + chiffre); }
   };
 
-  const calculer = (a: number, b: number, op: string): number => {
-    switch (op) { case '+': return a + b; case '-': return a - b; case 'x': return a * b; case '/': return b !== 0 ? a / b : 0; case '^': return Math.pow(a, b); default: return b; }
+  const calculer = (a: number, b: number, op: string): number | null => {
+    // 🛡️ DIVISION PAR ZÉRO HONNÊTE : avant, 5/0 affichait 0 (faux et dangereux
+    // pour un élève). Désormais null → affichage « Erreur ».
+    switch (op) { case '+': return a + b; case '-': return a - b; case 'x': return a * b; case '/': return b !== 0 ? a / b : null; case '^': return Math.pow(a, b); default: return b; }
   };
 
   const taperOperateur = (op: string) => {
     const nombre = parseFloat(affichage);
     if (premierNombre !== null && operateur && !attenteOperateur) {
       const resultat = calculer(premierNombre, nombre, operateur);
+      if (resultat === null || !Number.isFinite(resultat)) { setAffichage('Erreur'); setPremierNombre(null); setOperateur(null); setAttenteOperateur(false); return; }
       setAffichage(String(resultat)); setPremierNombre(resultat);
     } else { setPremierNombre(nombre); }
     setOperateur(op); setAttenteOperateur(true);
@@ -31,6 +44,7 @@ export default function Calculatrice() {
     if (premierNombre !== null && operateur) {
       const nombre = parseFloat(affichage);
       const resultat = calculer(premierNombre, nombre, operateur);
+      if (resultat === null || !Number.isFinite(resultat)) { setAffichage('Erreur'); setPremierNombre(null); setOperateur(null); setAttenteOperateur(false); return; }
       setAffichage(String(resultat)); setPremierNombre(null); setOperateur(null); setAttenteOperateur(false);
     }
   };
@@ -39,20 +53,23 @@ export default function Calculatrice() {
 
   const fonctionScientifique = (fonction: string) => {
     const nombre = parseFloat(affichage);
-    let resultat = 0;
+    // 🛡️ DOMAINES MATHS : sqrt(-1), ln(0), 1/0... renvoyaient NaN/0 affichés
+    // tels quels. Désormais « Erreur » explicite, jamais de NaN à l'écran.
+    let resultat: number | null = 0;
     switch (fonction) {
-      case 'sqrt': resultat = Math.sqrt(nombre); break;
+      case 'sqrt': resultat = nombre < 0 ? null : Math.sqrt(nombre); break;
       case 'sin': resultat = Math.sin(nombre * Math.PI / 180); break;
       case 'cos': resultat = Math.cos(nombre * Math.PI / 180); break;
       case 'tan': resultat = Math.tan(nombre * Math.PI / 180); break;
-      case 'ln': resultat = Math.log(nombre); break;
-      case 'log': resultat = Math.log10(nombre); break;
+      case 'ln': resultat = nombre <= 0 ? null : Math.log(nombre); break;
+      case 'log': resultat = nombre <= 0 ? null : Math.log10(nombre); break;
       case 'x2': resultat = nombre * nombre; break;
-      case '1/x': resultat = nombre !== 0 ? 1 / nombre : 0; break;
+      case '1/x': resultat = nombre !== 0 ? 1 / nombre : null; break;
       case 'pi': resultat = Math.PI; break;
       case 'e': resultat = Math.E; break;
       case '+/-': resultat = -nombre; break;
     }
+    if (resultat === null || !Number.isFinite(resultat)) { setAffichage('Erreur'); return; }
     setAffichage(String(parseFloat(resultat.toFixed(10))));
   };
 

@@ -155,7 +155,7 @@ const TOUTES_QUETES: Quete[] = [
   { id: 'q_tel_3', titre: 'Télécharge 3 chapitres', emoji: '📥', objectif: 3, mesurer: (c) => c.chapitresTelecharges },
 ];
 
-function numeroSemaine(): number {
+export function numeroSemaine(): number {
   const d = new Date();
   const debut = new Date(d.getFullYear(), 0, 1);
   const jours = Math.floor((d.getTime() - debut.getTime()) / 86400000);

@@ -51,12 +51,15 @@ export async function attribuerRoleEtudiant(
   }
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Vérifier que l'utilisateur actuel est admin
+    // 🔒 CONTRÔLE ADMIN RÉEL : on exige soit le flag isAdmin du doc de rôle,
+    // soit le rôle 'admin' (les deux modèles coexistent dans l'app). Avant,
+    // seul isAdmin était testé → un admin créé avec role='admin' était rejeté.
     const adminId = await getCurrentUserId();
     if (!adminId) return { success: false, error: 'Pas de session admin' };
 
     const adminDoc = await getDoc(doc(db, 'roles', adminId));
-    if (!adminDoc.exists() || !adminDoc.data().isAdmin) {
+    const d = adminDoc.exists() ? (adminDoc.data() as { isAdmin?: boolean; role?: string }) : null;
+    if (!d || (d.isAdmin !== true && d.role !== 'admin')) {
       return { success: false, error: 'Permissions insuffisantes' };
     }
 
@@ -182,7 +185,8 @@ export async function revoquerRole(userId: string): Promise<{ success: boolean; 
     if (!adminId) return { success: false, error: 'Pas de session admin' };
 
     const adminDoc = await getDoc(doc(db, 'roles', adminId));
-    if (!adminDoc.exists() || !adminDoc.data().isAdmin) {
+    const d = adminDoc.exists() ? (adminDoc.data() as { isAdmin?: boolean; role?: string }) : null;
+    if (!d || (d.isAdmin !== true && d.role !== 'admin')) {
       return { success: false, error: 'Permissions insuffisantes' };
     }
 

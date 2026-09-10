@@ -33,9 +33,17 @@ export async function getFilePrechargement(): Promise<TachePrechargement[]> {
 
 /**
  * Compression native légère des données avant téléchargement (amélioration 22) :
- * on retire les espaces superflus et on tronque les sections non essentielles.
+ * on retire les espaces superflus SANS JAMAIS couper le contenu pédagogique.
+ * 🛡️ ANTI-TRONCATURE : l'ancienne version coupait 30% du texte en mode
+ * économie — les fins de cours/exercices disparaissaient silencieusement.
+ * Désormais on compresse seulement les blancs, jamais le contenu.
  */
 export function compresserTexte(s: string, modeEconomie: boolean): string {
-  const nettoie = (s || '').replace(/\n{3,}/g, '\n\n').replace(/[ \t]{2,}/g, ' ').trim();
-  return modeEconomie ? nettoie.slice(0, Math.floor(nettoie.length * 0.7)) : nettoie;
+  if (!s) return '';
+  let result = (s || '').replace(/\n{3,}/g, '\n\n').replace(/[ \t]{2,}/g, ' ').trim();
+  // Mode économie : on compacte les sauts de ligne pour réduire la taille
+  if (modeEconomie) {
+    result = result.replace(/\n/g, ' ').replace(/[ ]+/g, ' ').trim();
+  }
+  return result;
 }

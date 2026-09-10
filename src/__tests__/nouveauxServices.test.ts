@@ -6,7 +6,35 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
     getItem: jest.fn(async (k: string) => store.get(k) ?? null),
     setItem: jest.fn(async (k: string, v: string) => { store.set(k, v); }),
     removeItem: jest.fn(async (k: string) => { store.delete(k); }),
+    getAllKeys: jest.fn(async () => [...store.keys()]),
+    multiGet: jest.fn(async (keys: string[]) => keys.map((k) => [k, store.get(k) ?? null])),
+    multiSet: jest.fn(async (pairs: [string, string][]) => { pairs.forEach(([k, v]) => store.set(k, v)); }),
+    multiRemove: jest.fn(async (keys: string[]) => { keys.forEach((k) => store.delete(k)); }),
   },
+}));
+
+// Mocks natifs : expo-constants est ESM pur (crash Jest sinon), firebase
+// n'a rien à faire dans des tests unitaires de logique locale.
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: { expoConfig: { extra: {} } },
+}));
+jest.mock('firebase/firestore', () => ({
+  doc: jest.fn(),
+  updateDoc: jest.fn(),
+  increment: jest.fn((n: number) => n),
+  collection: jest.fn(),
+  getDoc: jest.fn(),
+  getDocs: jest.fn(),
+  query: jest.fn(),
+  where: jest.fn(),
+}));
+jest.mock('firebase/auth', () => ({ getAuth: jest.fn(() => ({})) }));
+jest.mock('../config/firebaseConfig', () => ({ db: {} }));
+jest.mock('../utils/reseau', () => ({ estEnLigne: jest.fn(async () => false) }));
+jest.mock('../services/userStorage', () => ({
+  getCurrentUserId: jest.fn(async () => 'test-user'),
+  getUserItem: jest.fn(async () => null),
 }));
 
 import { messageAutorise, GROUPES_DISPONIBLES } from '../services/groupesEntraide';
@@ -17,6 +45,27 @@ import { genererSectionsCours } from "../services/enrichirCours";
 import { extraireMicroNotions, couvrirNotions } from "../services/microNotions";
 import { chiffrer, dechiffrer, estChiffre } from '../services/chiffrement';
 import { enregistrerActivite, alertesStagnation } from '../services/stagnation';
+import {
+  gagnerXp,
+  lireXpTotal,
+  lireXpNonSync,
+  fusionnerXpCloud,
+  validerStreakDuJour,
+  lireStreakActuel,
+  lireStreakFreezes,
+  ajouterStreakFreezes,
+  boosterDoubleXpActif,
+  activerBoosterDoubleXp,
+  synchroniserXp,
+  lireXpSemaineActuelle,
+} from '../services/xpLocal';
+import {
+  ContexteBadges,
+  evaluerBadges,
+  liguePourXp,
+  quetesDeLaSemaine,
+  numeroSemaine,
+} from '../services/motivation';
 
 describe('Groupes d\'entraide', () => {
   it('bloque le spam, les majuscules et les liens', () => {
@@ -48,8 +97,13 @@ describe('Préchargement intelligent', () => {
     expect(file[0].chapitreId).toBe('b');
   });
   it('compresse en mode économie', () => {
-    const long = 'a '.repeat(200);
-    expect(compresserTexte(long, true).length).toBeLessThan(compresserTexte(long, false).length);
+    // Le mode économie remplace les sauts de ligne par des espaces et fusionne
+    // les espaces consécutifs. Avec 'a\n\n\n' le mode normal garde '\n\n' (après
+    // \n{3,} → \n\n) tandis que le mode économie compacte en 'a ' (2 caractères).
+    const long = 'a\n\n\n'.repeat(100); // 400 caractères, mode normal → 300
+    const normal = compresserTexte(long, false).length;  // 300
+    const eco = compresserTexte(long, true).length;      // 200
+    expect(eco).toBeLessThan(normal);
   });
 });
 
@@ -122,5 +176,108 @@ describe('Cahier chiffre + stagnation (cycle E)', () => {
     const alertes = await alertesStagnation();
     const svt = alertes.find((a) => a.matiere === 'SVT');
     expect(svt ? svt.jours : 0).toBeGreaterThanOrEqual(0);
+  });
+});
+
+// ========== XP LOCAL & STREAK (cycle F) ==========
+describe('XP local (cycle F)', () => {
+  beforeEach(async () => {
+    store.clear();
+  });
+
+  it('gagne 10 XP et les lit', async () => {
+    expect(await lireXpTotal()).toBe(0);
+    const total = await gagnerXp(10);
+    expect(total).toBe(10);
+    expect(await lireXpTotal()).toBe(10);
+    expect(await lireXpNonSync()).toBe(10);
+  });
+
+  it('applique le booster 2x quand actif', async () => {
+    await activerBoosterDoubleXp();
+    expect(await boosterDoubleXpActif()).toBe(true);
+    const total = await gagnerXp(10);
+    expect(total).toBe(20);
+  });
+
+  it('accumule XP sur plusieurs gains', async () => {
+    await gagnerXp(5);
+    await gagnerXp(7);
+    await gagnerXp(3);
+    expect(await lireXpTotal()).toBe(15);
+  });
+
+  it('fusionne avec le XP cloud sans perdre les XP locaux', async () => {
+    await gagnerXp(100);
+    expect(await fusionnerXpCloud(150)).toBe(150);
+    await gagnerXp(50);
+    // Local = 150 + 50 = 200 > cloud 180 : le cloud ne doit JAMAIS
+    // faire baisser le local (max), sinon l'élève perd ses XP hors-ligne.
+    expect(await fusionnerXpCloud(180)).toBe(200);
+    // Cloud supérieur au local : on adopte le cloud (sync multi-appareils).
+    expect(await fusionnerXpCloud(250)).toBe(250);
+  });
+});
+
+describe('Streak local (cycle F)', () => {
+  beforeEach(async () => {
+    store.clear();
+  });
+
+  it('commence a 1 le premier jour', async () => {
+    const streak = await validerStreakDuJour();
+    expect(streak).toBe(1);
+    expect(await lireStreakActuel()).toBe(1);
+  });
+
+  it('ne compte qu une fois par jour', async () => {
+    await validerStreakDuJour();
+    const apres = await validerStreakDuJour();
+    expect(apres).toBe(1);
+  });
+
+  it('plafonne a 5 gels de streak', async () => {
+    await ajouterStreakFreezes(7);
+    expect(await lireStreakFreezes()).toBe(5);
+  });
+});
+
+describe('Motivation & ligues (cycle F)', () => {
+  it('determine la ligue selon l XP', () => {
+    expect(liguePourXp(0).nom).toBe('Bronze');
+    expect(liguePourXp(500).nom).toBe('Argent');
+    expect(liguePourXp(1500).nom).toBe('Or');
+    expect(liguePourXp(3000).nom).toBe('Platine');
+    expect(liguePourXp(6000).nom).toBe('Diamant');
+    expect(liguePourXp(10000).nom).toBe('Légende');
+  });
+
+  it('retourne le bon palier suivant', () => {
+    const ligue = liguePourXp(500);
+    expect(ligue.prochainPalier).toBe(1500);
+    const max = liguePourXp(10000);
+    expect(max.prochainPalier).toBeNull();
+  });
+
+  it('evalue les badges et detecte ceux debloques', () => {
+    const ctx: ContexteBadges = {
+      exosResolus: 10,
+      infiniTotal: 0,
+      qcmRecord: 0,
+      chapitresTelecharges: 0,
+      flashcardsRevues: 0,
+      bacsBlancs: 0,
+    };
+    const resultats = evaluerBadges(ctx);
+    const debloques = resultats.filter((r) => r.debloque);
+    expect(debloques.some((d) => d.badge.id === 'dix_exos')).toBe(true);
+    expect(debloques.some((d) => d.badge.id === 'cinquante_exos')).toBe(false);
+  });
+
+  it('selectionne 3 quetes par semaine de facon deterministic', () => {
+    const quetes = quetesDeLaSemaine();
+    expect(quetes.length).toBe(3);
+    const quetes2 = quetesDeLaSemaine();
+    expect(quetes2.length).toBe(3);
   });
 });
