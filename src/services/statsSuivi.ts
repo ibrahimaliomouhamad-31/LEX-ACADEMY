@@ -104,7 +104,7 @@ async function setCredits(montant: number): Promise<void> {
 
 // À appeler à CHAQUE vérification de réponse.
 export async function enregistrerTentative(
-  exo: { id: string; chapitre_id?: string; difficulte?: any },
+  exo: { id: string; chapitre_id?: string; difficulte?: number | string },
   succes: boolean
 ): Promise<void> {
   const s = await getStats();

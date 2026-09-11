@@ -109,11 +109,14 @@ export default function QcmEclair() {
   }, [phase]);
 
   // Temps écoulé → fin
+  const terminerRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    terminerRef.current = terminer;
+  });
   useEffect(() => {
     if (phase === 'jeu' && secondes <= 0) {
-      terminer();
+      terminerRef.current();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [secondes, phase]);
 
   // ---------- Questions ----------

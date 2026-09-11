@@ -127,14 +127,15 @@ export async function registerUser(
     await saveSession(user.uid, email, nom, classe);
 
     return { success: true, user };
-  } catch (error: any) {
-    console.error('[auth] Erreur registration:', error);
+  } catch (error: unknown) {
+    const err = error as { code?: string; message?: string };
+    console.error('[auth] Erreur registration:', err);
     return {
       success: false,
       error:
-        error.code === 'auth/email-already-in-use'
+        err.code === 'auth/email-already-in-use'
           ? 'Email déjà utilisé'
-          : error.message || 'Erreur inscription',
+          : err.message || 'Erreur inscription',
     };
   }
 }
@@ -158,16 +159,17 @@ export async function loginUser(
     await saveSession(user.uid, email, userData.nom, userData.classe);
 
     return { success: true, user };
-  } catch (error: any) {
-    console.error('[auth] Erreur login:', error);
+  } catch (error: unknown) {
+    const err = error as { code?: string; message?: string };
+    console.error('[auth] Erreur login:', err);
     return {
       success: false,
       error:
-        error.code === 'auth/user-not-found'
+        err.code === 'auth/user-not-found'
           ? 'Utilisateur non trouvé'
-          : error.code === 'auth/wrong-password'
+          : err.code === 'auth/wrong-password'
           ? 'Mot de passe incorrect'
-          : error.message || 'Erreur connexion',
+          : err.message || 'Erreur connexion',
     };
   }
 }

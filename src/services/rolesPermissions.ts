@@ -77,7 +77,7 @@ export async function attribuerRoleEtudiant(
     };
 
     // Sauvegarder dans Firestore
-    await syncQueue.add('create', 'roles', userId, userRole);
+    await syncQueue.add('create', 'roles', userId, userRole as unknown as Record<string, unknown>);
 
     return { success: true };
   } catch (error) {
