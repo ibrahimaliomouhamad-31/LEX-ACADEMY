@@ -55,7 +55,7 @@ mais chaque fichier appartient à un domaine fonctionnel clair.
 
 ## ✅ Gates de validation
 - `npx tsc --noEmit` = 0 erreur
-- `npx jest --ci` = 110/110 verts (8 suites)
+- `npx jest --ci` = 118/118 verts (9 suites)
 - Toute route dans `plus.tsx` doit pointer vers un fichier existant.
 
 ---
@@ -73,5 +73,6 @@ mais chaque fichier appartient à un domaine fonctionnel clair.
 | G | Tous | Chiffrement LEX2 (clé utilisateur + sel), bootstrap proviseur à code, garde examen partagée (bloquerSiExamen), données réelles (profil/statistiques), anti-double-débit boutique, export filtré (pas de hash), anti-troncature préchargement, Fisher-Yates QCM, calculatrice robuste, auth normalisée, rôles unifiés |
 | H | Tests + Types | Tests calculatrice (22), QCM SVT (7), auth hachage (8), chiffrement LEX1/LEX8 (8), intégrité streak (5) = 49 tests. Élimination 10× `any` (syncQueue→unknown, statsSuivi→number\|string, auth→unknown typé). 2× eslint-disable supprimés (bac_blanc, qcm_eclair : pattern useRef) |
 | I | Perf cache + Sync | **Index inversé exo→chapitre** (`getExoById` O(1) au lieu de scanner 40 Mo), **LRU coalescé en RAM** (≤ 1 écriture/5 s vs 1 par lecture), **multiGet par lots de 40** (mémoire téléphone), **bug clé-réservée corrigé** (`lex_cache_meta` vue comme chapitre « meta » fantôme → fausses tailles + éviction de la meta à chaque purge), **sync antifragile** : saveQueue retry×3 backoff, conflicts corrompus → [], guard verifierConnexion, docId orphelin unique, +9 tests (cycleI) |
+| J | Sauvegarde + mémoire | **Sauvegarde de compte centralisée** (`sauvegardeCompte.ts`) : allowlist de ~32 clés de progression — correction d'une perte réelle : `lex_exos_resolus`, `bac_blanc_scores`, `flashcards_scores`, `srs`… étaient EXCLUS du code de transfert → anti-farm réinitialisé + historique perdu au changement de téléphone ; secrets/session/cache/files de sync toujours exclus. **Croissance bornée** : journal d'erreurs plafonné à 200 (avant : illimité), file préchargement parse sécurisé, texto transfert corrigé, +8 tests (cycleJ) |
 
-**Défauts corrigés au total : ~46** (bugs d'affichage, données en dur, incohérences offline, pile de navigation, restauration incomplète, sécurité, intégrité, anti-triche, couverture tests, sécurité de types, perf cache LRU/index, clé-réservée fantôme, antifragilité sync).
+**Défauts corrigés au total : ~50** (bugs d'affichage, données en dur, incohérences offline, pile de navigation, restauration incomplète, sécurité, intégrité, anti-triche, couverture tests, sécurité de types, perf cache LRU/index, clé-réservée fantôme, antifragilité sync, sauvegarde incomplète, croissance non bornée).
