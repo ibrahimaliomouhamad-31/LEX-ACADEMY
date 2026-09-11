@@ -156,7 +156,7 @@ export default function Cours() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.audioBtn, { marginLeft: 8 }]}
-            onPress={() => router.push({ pathname: '/mon_cahier', params: { id } } as never)}
+            onPress={() => router.push({ pathname: '/mon_cahier', params: { id } })}
           >
             <Text style={styles.audioBtnText}>🧺</Text>
           </TouchableOpacity>

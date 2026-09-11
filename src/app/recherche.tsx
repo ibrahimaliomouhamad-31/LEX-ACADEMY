@@ -124,7 +124,7 @@ export default function Recherche() {
           <>
             <Text style={styles.section}>📖 Glossaire ({resultats.glossaire.length})</Text>
             {resultats.glossaire.map((g) => (
-              <TouchableOpacity key={g.terme} style={styles.carteGlossaire} onPress={() => router.push({ pathname: '/glossaire' } as never)}>
+              <TouchableOpacity key={g.terme} style={styles.carteGlossaire} onPress={() => router.push({ pathname: '/glossaire' })}>
                 <Text style={styles.carteTitre}>{g.terme}</Text>
                 <Text style={styles.carteDetail} numberOfLines={2}>{g.definition}</Text>
                 {g.matiere ? <Text style={styles.carteDetail}>{g.matiere}</Text> : null}
