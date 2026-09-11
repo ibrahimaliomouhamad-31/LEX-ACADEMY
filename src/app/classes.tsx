@@ -46,7 +46,7 @@ export default function Classes() {
         {dernier && (
           <TouchableOpacity
             style={styles.carteReprendre}
-            onPress={() => router.push({ pathname: '/cours', params: { id: dernier.id } } as never)}
+            onPress={() => router.push({ pathname: '/cours', params: { id: dernier.id } })}
           >
             <Text style={styles.reprendreTitre} numberOfLines={1}>▶️ Reprendre : {dernier.titre}</Text>
             <Text style={styles.reprendreHint}>Continuer ta lecture là où tu t'es arrêté ›</Text>

@@ -30,7 +30,8 @@ export async function getBadgesMatieresObtenus(): Promise<string[]> {
 /** Appelle après chaque exercice réussi : débloque les badges de matière franchis. */
 export async function enregistrerReussite(matiere: string): Promise<BadgeMatiere[]> {
   const cle = `@lex/reussites:${matiere}`;
-  const n = ((await AsyncStorage.getItem(cle)) ? parseInt((await AsyncStorage.getItem(cle))!, 10) : 0) + 1;
+  const brut = await AsyncStorage.getItem(cle);
+  const n = (brut ? parseInt(brut, 10) : 0) + 1;
   await AsyncStorage.setItem(cle, String(n));
   const obtenus = await getBadgesMatieresObtenus();
   const nouveaux: BadgeMatiere[] = [];

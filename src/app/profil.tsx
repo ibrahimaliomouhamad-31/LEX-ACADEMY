@@ -6,6 +6,21 @@ import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, Touc
 import { db } from '../config/firebaseConfig';
 import { rapporterErreur } from '../utils/logger';
 
+/** Élève du classement public Firestore (champs connus typés). */
+interface EleveClassement {
+  uid: string;
+  nom: string;
+  xp: number;
+  userId?: string;
+}
+
+/** Ligne d'historique affichée (données locales réelles, jamais inventées). */
+interface LigneHistorique {
+  action: string;
+  xp: string;
+  temps: string;
+}
+
 export default function Profil() {
   const router = useRouter();
   const [userNom, setUserNom] = useState<string>('');
@@ -13,14 +28,14 @@ export default function Profil() {
   const [userXp, setUserXp] = useState<number>(0);
   const [rangGlobal, setRangGlobal] = useState<number>(0);
   const [totalEleves, setTotalEleves] = useState<number>(0);
-  const [top3, setTop3] = useState<any[]>([]);
-  const [rivalHaut, setRivalHaut] = useState<any>(null);
-  const [rivalBas, setRivalBas] = useState<any>(null);
+  const [top3, setTop3] = useState<EleveClassement[]>([]);
+  const [rivalHaut, setRivalHaut] = useState<EleveClassement | null>(null);
+  const [rivalBas, setRivalBas] = useState<EleveClassement | null>(null);
   const [loading, setLoading] = useState(true);
   
   const [streak, setStreak] = useState<number>(0);
   const [avatar, setAvatar] = useState<string>('🎓'); 
-  const [historiqueReel, setHistoriqueReel] = useState<any[]>([]);
+  const [historiqueReel, setHistoriqueReel] = useState<LigneHistorique[]>([]);
 
   useEffect(() => {
     const fetchProfilComplet = async () => {
@@ -49,8 +64,16 @@ export default function Profil() {
         const q = query(collection(db, "classement_public"), orderBy("xp", "desc"), limit(50));
         const querySnapshot = await getDocs(q);
         
-        const elevesData: any[] = [];
-        querySnapshot.forEach((doc) => elevesData.push({ uid: doc.id, ...doc.data() }));
+        const elevesData: EleveClassement[] = [];
+        querySnapshot.forEach((d) => {
+          const raw = d.data() as Record<string, unknown>;
+          elevesData.push({
+            uid: d.id,
+            nom: typeof raw.nom === 'string' ? raw.nom : '—',
+            xp: Number(raw.xp) || 0,
+            userId: typeof raw.userId === 'string' ? raw.userId : undefined,
+          });
+        });
         setTotalEleves(elevesData.length);
         setTop3(elevesData.slice(0, 3));
 

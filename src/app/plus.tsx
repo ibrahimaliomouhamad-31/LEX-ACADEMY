@@ -3,11 +3,14 @@ import { useEffect, useState } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getExamenActif, getLangue } from '../services/parametres';
 
+/** Type exact accepté par router.push (union des routes typées expo-router). */
+type HrefApp = Parameters<ReturnType<typeof useRouter>['push']>[0];
+
 interface Fonctionnalite {
   emoji: string;
   titre: string; titreEn: string;
   description: string; descriptionEn: string;
-  route: string;
+  route: HrefApp;
   couleur: string;
 }
 
@@ -16,7 +19,7 @@ interface Fonctionnalite {
 // en accès DIRECT (deep link / recherche) — le verrou n'existait que sur
 // l'écran Plus. Désormais garde partagée via parametres.ts (bloquerSiExamen)
 // et appliquée dans chaque écran d'outil.
-const ROUTES_STRICT_EXAMEN = [
+const ROUTES_STRICT_EXAMEN: HrefApp[] = [
   '/exercices', '/cours', '/annales', '/formulaire', '/calculatrice', '/flashcards',
   '/recherche', '/figures', '/entrainement_infini', '/badges', '/boutique',
   '/calcul_mental', '/journal_erreurs', '/solveur', '/photo_exo',
@@ -134,9 +137,9 @@ export default function Plus() {
             const verrouille = examenActif && ROUTES_STRICT_EXAMEN.includes(f.route);
             return (
               <TouchableOpacity
-                key={f.route}
+                key={typeof f.route === 'string' ? f.route : f.route.pathname}
                 style={[styles.carte, { borderLeftColor: f.couleur }, verrouille && styles.carteVerrouillee]}
-                onPress={() => router.push(f.route as never)}
+                onPress={() => router.push(f.route)}
                 disabled={verrouille}
               >
                 <Text style={styles.carteEmoji}>{verrouille ? '🔒' : f.emoji}</Text>

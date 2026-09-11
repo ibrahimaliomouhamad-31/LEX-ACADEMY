@@ -87,12 +87,23 @@ async function collecterLocal(): Promise<SnapshotProgression> {
   }
 
   return {
-    stats: stats ? JSON.parse(stats) : null,
+    stats: parseObjetSecurise(stats),
     resolus: resolusParses,
-    infiniStats: infini ? JSON.parse(infini) : null,
-    srs: srs ? JSON.parse(srs) : null,
+    infiniStats: parseObjetSecurise(infini),
+    srs: parseObjetSecurise(srs),
     dateISO: new Date().toISOString(),
   };
+}
+
+/** Parse une valeur censée être un objet local corrompu → null sans crash. */
+function parseObjetSecurise(brut: string | null): unknown {
+  if (!brut) return null;
+  try {
+    const v: unknown = JSON.parse(brut);
+    return v && typeof v === 'object' && !Array.isArray(v) ? v : null;
+  } catch {
+    return null;
+  }
 }
 
 // Envoie la progression locale vers Firestore.

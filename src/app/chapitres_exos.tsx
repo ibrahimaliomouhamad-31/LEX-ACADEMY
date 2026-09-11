@@ -3,9 +3,18 @@ import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firesto
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../config/firebaseConfig';
-import { getAllCachedChapterIds, getCacheSize, saveCours, saveExercices } from '../services/cacheHorsLigne';
+import { getAllCachedChapterIds, getCacheSize, saveCours, saveExercices, type Exercice } from '../services/cacheHorsLigne';
 import { generateurDisponible } from '../services/generateurLocal';
 import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
+
+/** Chapitre Firestore : champs connus typés, le reste en inconnu. */
+export interface ChapitreFirestore {
+  id: string;
+  titre?: string;
+  matiere?: string;
+  classe?: string;
+  [cle: string]: unknown;
+}
 
 export default function ChapitresExos() {
   const router = useRouter();
@@ -13,7 +22,7 @@ export default function ChapitresExos() {
   const matiere = (params.matiere as string) || 'Mathématiques';
   const classe = (params.classe as string) || '1ère C';
 
-  const [chapitres, setChapitres] = useState<any[]>([]);
+  const [chapitres, setChapitres] = useState<ChapitreFirestore[]>([]);
   const [loading, setLoading] = useState(true);
   const [telecharges, setTelecharges] = useState<Set<string>>(new Set());
   const [enCours, setEnCours] = useState<string | null>(null); // id du chapitre en téléchargement
@@ -35,9 +44,9 @@ export default function ChapitresExos() {
       try {
         const q = query(collection(db, 'cours'), where('matiere', '==', matiere), where('classe', '==', classe));
         const querySnapshot = await getDocs(q);
-        const chapitresData: any[] = [];
-        querySnapshot.forEach((doc) => {
-          chapitresData.push({ id: doc.id, ...doc.data() });
+        const chapitresData: ChapitreFirestore[] = [];
+        querySnapshot.forEach((d) => {
+          chapitresData.push({ id: d.id, ...(d.data() as Record<string, unknown>) });
         });
         chapitresData.sort((a, b) => (a.id > b.id ? 1 : -1));
         setChapitres(chapitresData);
@@ -56,9 +65,9 @@ export default function ChapitresExos() {
       setEnCours(chapitreId);
       const q = query(collection(db, 'exercices'), where('chapitre_id', '==', chapitreId));
       const querySnapshot = await getDocs(q);
-      const exos: any[] = [];
-      querySnapshot.forEach((doc) => {
-        exos.push({ id: doc.id, ...doc.data() });
+      const exos: Exercice[] = [];
+      querySnapshot.forEach((d) => {
+        exos.push({ id: d.id, ...(d.data() as Record<string, unknown>) } as Exercice);
       });
       await saveExercices(chapitreId, exos);
       // Embarque aussi le COURS complet du chapitre (lecture hors-ligne)
@@ -94,7 +103,7 @@ export default function ChapitresExos() {
     );
   }
 
-  const goInfini = (chapitre: any) => router.push({
+  const goInfini = (chapitre: ChapitreFirestore) => router.push({
     pathname: '/entrainement_infini',
     params: { chapitre_id: chapitre.id, titre: chapitre.titre || '', matiere, classe }
   });

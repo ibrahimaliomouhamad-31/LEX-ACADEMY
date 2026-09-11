@@ -45,8 +45,10 @@ export async function chargerContexte(): Promise<ContexteBadges> {
 
     const infiniBrut = infini ?? (await AsyncStorage.getItem('lex_infini_stats'));
     if (infiniBrut) {
-      const s = JSON.parse(infiniBrut) as { [k: string]: number };
-      ctx.infiniTotal = Object.values(s).reduce((a, b) => a + Number(b || 0), 0);
+      const s: unknown = JSON.parse(infiniBrut);
+      ctx.infiniTotal = s && typeof s === 'object' && !Array.isArray(s)
+        ? Object.values(s as Record<string, number>).reduce((a, b) => a + Number(b || 0), 0)
+        : 0;
     }
 
     const qcmBrut = qcm ?? (await AsyncStorage.getItem('lex_qcm_meilleur'));
