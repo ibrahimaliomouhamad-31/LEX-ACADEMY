@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
+import { selectionnerClesProgression } from '../services/sauvegardeCompte';
 import {
   Alert,
   ScrollView,
@@ -46,15 +47,11 @@ export default function Transfert() {
   const genererCode = async () => {
     setGenereEnCours(true);
     try {
-      // 🛡️ EXPORT FILTRÉ : avant, TOUTES les clés lex_ partaient dans le code,
-      // y compris lex_user_id, lex_comptes_locaux (hash du mot de passe !) et
-      // les caches de cours. Quiconque recevait le code WhatsApp pouvait se
-      // connecter au compte. Désormais : seules les données de progression.
-      const cles = (await AsyncStorage.getAllKeys()).filter((k) =>
-        k.startsWith('lex_user_') || k === 'lex_xp_local' || k === 'lex_streak_local' ||
-        k === 'lex_duels' || k === 'lex_qcm_svt_scores' || k === 'lex_boutique_achats' ||
-        k === 'lex_titre_actif'
-      );
+      // 🛡️ EXPORT FILTRÉ (cycle J) : la sélection centralisée inclut TOUTE
+      // la progression (anti-farm, scores, SRS, objectifs…) mais JAMAIS les
+      // secrets (hash du mot de passe, session) ni les caches de cours.
+      const toutes = await AsyncStorage.getAllKeys();
+      const cles = selectionnerClesProgression(toutes);
       const paires = await AsyncStorage.multiGet(cles);
       const donnees: { [cle: string]: string | null } = {};
       for (const [cle, valeur] of paires) donnees[cle] = valeur;
@@ -65,7 +62,7 @@ export default function Transfert() {
       if (codeGenere.length > 1500000) {
         Alert.alert(
           'Code très volumineux',
-          "Ton cache contient beaucoup de cours/exercices : le code risque d'être coupé par WhatsApp. Pour une sauvegarde fiable, vide d'abord tes téléchargements dans ⚙️ Paramètres, puis régénère le code."
+          "Tes données (journal, badges, notes…) deviennent lourdes : le code risque d'être coupé par WhatsApp. Pense à régénérer le code après une synchronisation."
         );
       }
     } catch (erreur) {
@@ -135,7 +132,7 @@ export default function Transfert() {
       <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
         <Text style={styles.intro}>
           Téléphone perdu ou changé ? Génère un code qui contient tout : ton profil, tes XP locaux, tes exercices
-          résolus, tes téléchargements, tes stats. Envoie-le toi par WhatsApp et restaure-le sur le nouveau téléphone.
+          résolus, tes stats, ton journal d'erreurs. Envoie-le toi par WhatsApp et restaure-le sur le nouveau téléphone.
         </Text>
 
         {/* Export */}

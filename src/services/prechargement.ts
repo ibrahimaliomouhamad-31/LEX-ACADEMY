@@ -27,8 +27,14 @@ export async function planifierPrechargement(
 }
 
 export async function getFilePrechargement(): Promise<TachePrechargement[]> {
-  const brut = await AsyncStorage.getItem(CLE_FILE);
-  return brut ? (JSON.parse(brut) as TachePrechargement[]) : [];
+  try {
+    const brut = await AsyncStorage.getItem(CLE_FILE);
+    const file = brut ? JSON.parse(brut) : [];
+    return Array.isArray(file) ? file : [];
+  } catch {
+    // file corrompue : on repart d'une file vide (replanifiera au besoin)
+    return [];
+  }
 }
 
 /**

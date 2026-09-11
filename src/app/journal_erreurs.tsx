@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { getUserItem } from '../services/userStorage';
 import { bloquerSiExamen } from '../services/parametres';
+import { plafonner } from '../services/sauvegardeCompte';
 import { rapporterErreur } from '../utils/logger';
 
 const CLE_JOURNAL = 'lex_journal_erreurs';
@@ -73,7 +74,10 @@ export default function JournalErreurs() {
   const sauvegarder = async (data: EntreeJournal[]) => {
     try {
       const { setUserItem } = await import('../services/userStorage');
-      await setUserItem(CLE_JOURNAL, JSON.stringify(data));
+      // 🧹 BORNÉ (cycle J) : avant, le journal grossissait indéfiniment
+      // (1 entrée par erreur, jamais purgé) → stockage saturé sur les
+      // téléphones limités. On garde les 200 entrées les plus récentes.
+      await setUserItem(CLE_JOURNAL, JSON.stringify(plafonner(data, 200)));
     } catch (erreurSilencieuse) {
       rapporterErreur('[audit] Erreur silencieuse', erreurSilencieuse);
     }
