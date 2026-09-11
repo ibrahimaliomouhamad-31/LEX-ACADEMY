@@ -3,12 +3,13 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { collection, getDocs, limit, query, where } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
+import { jourLocal } from '../utils/correctifsAudit';
 
 function lundiDeLaSemaine(): string {
   const d = new Date();
   const jour = (d.getDay() + 6) % 7; // lundi = 0
   d.setDate(d.getDate() - jour);
-  return d.toISOString().slice(0, 10);
+  return jourLocal(d);
 }
 
 interface StatsClasse {

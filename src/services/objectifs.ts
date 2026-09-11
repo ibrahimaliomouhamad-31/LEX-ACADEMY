@@ -5,7 +5,7 @@ import { addDoc, collection, setDoc, doc } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
 import { chargerContexte, type ContexteBadges } from './motivation';
 import { getStats } from './statsSuivi';
-import { parseTableauJSON } from '../utils/correctifsAudit';
+import { parseTableauJSON, jourLocal } from '../utils/correctifsAudit';
 
 // ---------- 41 : Objectifs personnels ----------
 
@@ -31,7 +31,7 @@ export async function getObjectifs(): Promise<Objectif[]> {
 
 export async function ajouterObjectif(type: TypeObjectif, cible: number): Promise<void> {
   const objectifs = await getObjectifs().then((o) => o.filter((x) => x.type !== type));
-  objectifs.push({ type, cible, creeLe: new Date().toISOString().slice(0, 10) });
+  objectifs.push({ type, cible, creeLe: jourLocal() });
   await AsyncStorage.setItem(CLE_OBJECTIFS, JSON.stringify(objectifs));
 }
 
@@ -46,7 +46,7 @@ export async function progressionObjectifs(): Promise<{ objectif: Objectif; actu
   const stats = await getStats();
   const semaine = new Date();
   semaine.setDate(semaine.getDate() - 7);
-  const cleSemaine = semaine.toISOString().slice(0, 10);
+  const cleSemaine = jourLocal(semaine);
   const actifs7j = Object.entries(stats.activiteJour)
     .filter(([jour]) => jour >= cleSemaine)
     .reduce((somme, [, nb]) => somme + nb, 0);
@@ -143,7 +143,7 @@ const CLE_NOTES = 'lex_annotations';
 
 export async function ajouterAnnotation(chapitreId: string, chapitreTitre: string, texte: string): Promise<void> {
   const notes = await getAnnotations();
-  notes.unshift({ chapitreId, chapitreTitre, texte, dateISO: new Date().toISOString().slice(0, 10) });
+  notes.unshift({ chapitreId, chapitreTitre, texte, dateISO: jourLocal() });
   await AsyncStorage.setItem(CLE_NOTES, JSON.stringify(notes.slice(0, 200)));
 }
 

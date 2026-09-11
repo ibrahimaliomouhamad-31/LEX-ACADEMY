@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { genererExerciceSeede, type ExoGenere } from '../services/generateurLocal';
 import { estJuste } from '../services/outilsReponse';
+import { jourLocal } from '../utils/correctifsAudit';
 
 // 75 — TEST DE POSITIONNEMENT : 20 questions à difficulté croissante (10→90).
 // Situe l'élève dès la rentrée et donne des recommandations personnalisées.
@@ -43,7 +44,7 @@ export default function Positionnement() {
   const suivant = async () => {
     if (index + 1 >= questions.length) {
       setTermine(true);
-      await AsyncStorage.setItem('lex_positionnement', JSON.stringify({ score, sur: 20, date: new Date().toISOString().slice(0, 10) }));
+      await AsyncStorage.setItem('lex_positionnement', JSON.stringify({ score, sur: 20, date: jourLocal() }));
     } else {
       setIndex(index + 1);
       setReponse('');

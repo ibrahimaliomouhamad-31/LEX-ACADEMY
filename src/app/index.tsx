@@ -146,7 +146,7 @@ export default function Index() {
         const classe = await AsyncStorage.getItem('lex_classe_actuelle');
         if (classe) {
           const fait = await AsyncStorage.getItem(`lex_defi_fait_${classe}`);
-          setDefiFait(fait === new Date().toISOString().slice(0, 10));
+          setDefiFait(fait === jourLocal());
         }
       } catch {
         // ignore
