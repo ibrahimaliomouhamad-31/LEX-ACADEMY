@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { rapporterErreur } from '../utils/logger';
 
 export default function Classes() {
   const router = useRouter();
@@ -14,10 +15,12 @@ export default function Classes() {
         if (v) {
           try {
             setDernier(JSON.parse(v));
-          } catch {}
+          } catch (erreurSilencieuse) {
+      rapporterErreur('[audit] Erreur silencieuse', erreurSilencieuse);
+    }
         }
       })
-      .catch(() => {});
+      .catch((e) => rapporterErreur('app/classes.tsx', e));
   }, []);
 
   const classes = [

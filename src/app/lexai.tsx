@@ -4,12 +4,13 @@ import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StatusBa
 import { urlChat, headersIA } from '../services/configIA';
 import { chercher, memoriser } from '../services/qaCache';
 import { estEnLigne } from '../utils/reseau';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 // ⚠️ REMPLACE "TA_CLE_GROQ_ICI" par ta clé gratuite de Groq
 
 export default function LexAI() {
   const router = useRouter();
-  const [messages, setMessages] = useState<any[]>([
+  const [messages, setMessages] = useState<{ role: string; content: string }[]>([
     { role: 'assistant', content: 'Bonjour, je suis LEX.AI, ton assistant. En quoi puis-je t\'aider aujourd\'hui ?'}
   ]);
   const [input, setInput] = useState('');
@@ -56,7 +57,7 @@ export default function LexAI() {
         throw new Error(data.error?.message || "Réponse vide de l'API");
       }
     } catch (error) {
-      console.error("Erreur LEX.AI : ", error);
+      rapporterErreur("Erreur LEX.AI : ", error);
       // 📴 MODE DÉGRADÉ HORS-LIGNE : rejoue une réponse similaire du cache
       // plutôt que le message d'erreur générique. L'élève reste aidé,
       // même 4 jours sans wifi.

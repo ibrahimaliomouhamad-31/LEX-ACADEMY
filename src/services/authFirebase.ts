@@ -10,7 +10,6 @@ import {
   signOut,
 } from 'firebase/auth';
 
-// @ts-ignore config JS existante
 import { firebaseConfig } from '../config/firebaseConfig';
 
 const app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);

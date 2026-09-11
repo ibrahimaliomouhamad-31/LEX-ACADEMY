@@ -20,7 +20,9 @@ import { doc, setDoc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
 import { getCurrentUserId } from './auth';
 import { estEnLigneSync, surChangementConnexion, verifierConnexion } from '../utils/reseau';
+import { genererIdUnique, parseEntier } from '../utils/correctifsAudit';
 import { estErreurReseau } from '../utils/erreurs';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 const SYNC_QUEUE_KEY = 'lex_sync_queue';
 const LAST_SYNC_KEY = 'lex_last_sync_timestamp';
@@ -101,10 +103,10 @@ export class SyncQueue {
       const parse = stored ? JSON.parse(stored) : [];
       this.queue = Array.isArray(parse) ? parse : [];
       if (this.queue.length > 0) {
-        console.log(`[SyncQueue] ${this.queue.length} actions en attente`);
+        logDev(`[SyncQueue] ${this.queue.length} actions en attente`);
       }
     } catch (error) {
-      console.error('[SyncQueue] Erreur chargement:', error);
+      rapporterErreur('[SyncQueue] Erreur chargement:', error);
       this.queue = [];
     }
   }
@@ -113,7 +115,7 @@ export class SyncQueue {
     try {
       await AsyncStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(this.queue));
     } catch (error) {
-      console.error('[SyncQueue] Erreur sauvegarde:', error);
+      rapporterErreur('[SyncQueue] Erreur sauvegarde:', error);
     }
   }
 
@@ -143,12 +145,12 @@ export class SyncQueue {
 
     if (!docId || docId === 'null' || docId === 'undefined') {
       // La donnée n'est JAMAIS jetée : identifiant de rattrapage.
-      console.error('[SyncQueue] docId invalide, action sauvegardée en orphelin :', collection);
+      rapporterErreur('[SyncQueue] docId invalide, action sauvegardée en orphelin :', collection);
       docId = `orphan_${Date.now()}`;
     }
 
     const action: SyncAction = {
-      id: `${Date.now()}-${Math.random().toString(36)}`,
+      id: genererIdUnique('sync'),
       type,
       collection,
       docId,
@@ -305,9 +307,9 @@ export class SyncQueue {
       conflicts.push(conflict);
       // Garde-fou mémoire : max 100 conflits conservés.
       await AsyncStorage.setItem(SYNC_CONFLICTS_KEY, JSON.stringify(conflicts.slice(-100)));
-      console.error('[SyncQueue] 🔴 Conflit enregistré :', error);
+      rapporterErreur('[SyncQueue] 🔴 Conflit enregistré :', error);
     } catch (e) {
-      console.error('[SyncQueue] Erreur conflit:', e);
+      rapporterErreur('[SyncQueue] Erreur conflit:', e);
     }
   }
 
@@ -326,7 +328,7 @@ export class SyncQueue {
     return {
       pending: this.queue.length,
       synced: this.queue.length === 0,
-      lastSync: lastSync ? new Date(parseInt(lastSync)).toISOString() : undefined,
+      lastSync: lastSync ? new Date(parseEntier(lastSync)).toISOString() : undefined,
       conflicts: conflicts.length,
       isOnline: this.isOnline && estEnLigneSync(),
     };
@@ -335,7 +337,7 @@ export class SyncQueue {
   setOnlineStatus(online: boolean): void {
     const wasOffline = !this.isOnline;
     this.isOnline = online;
-    console.log(`[SyncQueue] ${online ? '🟢 ONLINE' : '🔴 OFFLINE'}`);
+    logDev(`[SyncQueue] ${online ? '🟢 ONLINE' : '🔴 OFFLINE'}`);
     if (wasOffline && online && this.queue.length > 0) {
       this.flush();
     }

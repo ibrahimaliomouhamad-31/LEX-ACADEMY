@@ -26,18 +26,21 @@ function xorAvecCle(s: string, cle: string): string {
   return out;
 }
 
+// 🛡️ AUDIT : Buffer typé via globalThis (plus de @ts-ignore qui masque tout).
+declare const Buffer: { from(s: string, enc: string): { toString(enc: string): string } } | undefined;
+
 function versBase64(s: string): string {
   const binaire = unescape(encodeURIComponent(s));
   if (typeof btoa === 'function') return btoa(binaire);
-  // @ts-ignore Buffer global Hermes
-  return Buffer.from(binaire, 'binary').toString('base64');
+  if (typeof Buffer !== 'undefined') return Buffer.from(binaire, 'binary').toString('base64');
+  return binaire;
 }
 
 function depuisBase64(b64: string): string {
   let binaire: string;
   if (typeof atob === 'function') binaire = atob(b64);
-  // @ts-ignore Buffer global Hermes
-  else binaire = Buffer.from(b64, 'base64').toString('binary');
+  else if (typeof Buffer !== 'undefined') binaire = Buffer.from(b64, 'base64').toString('binary');
+  else binaire = b64;
   return decodeURIComponent(escape(binaire));
 }
 
@@ -61,8 +64,9 @@ function xorAncien(s: string): string {
 }
 
 function dechiffrerV1(s: string): string {
-  // @ts-ignore compatibilité btoa/atob navigateur
-  return xorAncien(decodeURIComponent(escape(atob(s.slice(5)))));
+  // 🛡️ AUDIT : atob peut être absent sur Hermes — repli sur Buffer typé.
+  const brut = typeof atob === 'function' ? atob(s.slice(5)) : depuisBase64(s.slice(5));
+  return xorAncien(decodeURIComponent(escape(brut)));
 }
 
 /** Chiffre avec la clé de l'utilisateur + sel aléatoire (format LEX2). */

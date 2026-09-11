@@ -17,8 +17,9 @@ import { getAllCoursCache, getExercices, saveExercices, saveCours, type Exercice
 function versBase64(texte: string): string {
   const ascii = encodeURIComponent(texte).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16)));
   if (typeof btoa === 'function') return btoa(ascii);
-  // @ts-ignore fallback Hermes
-  return Buffer.from(ascii, 'binary').toString('base64');
+  const Buf = (globalThis as { Buffer?: { from(s: string, enc: string): { toString(enc: string): string } } }).Buffer;
+  if (Buf) return Buf.from(ascii, 'binary').toString('base64');
+  return ascii;
 }
 
 function depuisBase64(b64: string): string {
@@ -26,8 +27,8 @@ function depuisBase64(b64: string): string {
   if (typeof atob === 'function') {
     ascii = atob(b64.trim());
   } else {
-    // @ts-ignore fallback Hermes
-    ascii = Buffer.from(b64.trim(), 'base64').toString('binary');
+    const Buf = (globalThis as { Buffer?: { from(s: string, enc: string): { toString(enc: string): string } } }).Buffer;
+    ascii = Buf ? Buf.from(b64.trim(), 'base64').toString('binary') : b64.trim();
   }
   return decodeURIComponent(ascii.split('').map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
 }

@@ -14,6 +14,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { demanderPermissionNotifications } from './optionsApp';
+import { jourLocal } from '../utils/correctifsAudit';
 
 const CLE_ACTIVE = 'lex_notifs_extras';
 const ID_DEFI = 'lex-rappel-defi';
@@ -64,7 +65,7 @@ export async function planifierRappelsDuJour(): Promise<void> {
     if (!(await demanderPermissionNotifications())) return;
 
     await annulerExtras();
-    const aujourdHui = new Date().toISOString().split('T')[0];
+    const aujourdHui = jourLocal();
 
     // 1) Défi du jour non fait ? → rappel à 19h.
     const classe = await AsyncStorage.getItem('lex_classe_actuelle');

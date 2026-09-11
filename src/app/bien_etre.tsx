@@ -2,6 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { jourLocal } from '../utils/correctifsAudit';
+import { rapporterErreur } from '../utils/logger';
 
 type Mode = 'bienetre' | 'pomodoro' | 'planning';
 
@@ -46,14 +48,18 @@ export default function BienEtre() {
   const chargerHydratation = async () => {
     try {
       const data = await AsyncStorage.getItem('lex_eau_aujourd_hui');
-      if (data) { const parsed = JSON.parse(data); if (parsed.date === new Date().toISOString().split('T')[0]) setEauConsomme(parsed.verres); }
-    } catch {}
+      if (data) { const parsed = JSON.parse(data); if (parsed.date === jourLocal()) setEauConsomme(parsed.verres); }
+    } catch (erreurSilencieuse) {
+      rapporterErreur('[audit] Erreur silencieuse', erreurSilencieuse);
+    }
   };
 
   const boireEau = async () => {
     const nouveau = eauConsomme + 1;
     setEauConsomme(nouveau);
-    try { await AsyncStorage.setItem('lex_eau_aujourd_hui', JSON.stringify({ date: new Date().toISOString().split('T')[0], verres: nouveau })); } catch {}
+    try { await AsyncStorage.setItem('lex_eau_aujourd_hui', JSON.stringify({ date: jourLocal(), verres: nouveau })); } catch (erreurSilencieuse) {
+      rapporterErreur('[audit] Erreur silencieuse', erreurSilencieuse);
+    }
   };
 
   const formaterTemps = (s: number): string => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;

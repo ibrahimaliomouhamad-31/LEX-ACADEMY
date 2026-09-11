@@ -7,6 +7,7 @@ import { doc, setDoc, getDoc, query, collection, where, getDocs } from 'firebase
 import { db } from '../config/firebaseConfig';
 import { getCurrentUserId } from './auth';
 import { syncQueue } from './syncQueue';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 export type UserRole = 'etudiant' | 'moniteur' | 'chef_classe' | 'delegue' | 'admin';
 
@@ -81,7 +82,7 @@ export async function attribuerRoleEtudiant(
 
     return { success: true };
   } catch (error) {
-    console.error('[roles] Erreur attribution:', error);
+    rapporterErreur('[roles] Erreur attribution:', error);
     return { success: false, error: String(error) };
   }
 }
@@ -152,7 +153,7 @@ export async function getPermissionsUtilisateur(userId: string): Promise<UserPer
     const doc_snap = await getDoc(doc(db, 'roles', userId));
     return doc_snap.exists() ? (doc_snap.data() as UserPermissions) : null;
   } catch (error) {
-    console.error('[roles] Erreur lecture permissions:', error);
+    rapporterErreur('[roles] Erreur lecture permissions:', error);
     return null;
   }
 }
@@ -173,7 +174,7 @@ export async function getRolesClasse(classe: string): Promise<UserPermissions[]>
     const snapshot = await getDocs(q);
     return snapshot.docs.map((doc) => doc.data() as UserPermissions);
   } catch (error) {
-    console.error('[roles] Erreur liste rôles:', error);
+    rapporterErreur('[roles] Erreur liste rôles:', error);
     return [];
   }
 }

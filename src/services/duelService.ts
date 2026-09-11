@@ -2,6 +2,8 @@
 // 100% hors-ligne. Le vrai duel à deux se joue en se passant le téléphone.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { jourLocal } from '../utils/correctifsAudit';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 const CLE_DUELS = 'lex_duels';
 
@@ -36,11 +38,11 @@ export async function enregistrerDuel(chapitreId: string, score: number): Promis
     const stock = await lireStock();
     const ancien = stock[chapitreId];
     if (!ancien || score > ancien.score) {
-      stock[chapitreId] = { score, dateISO: new Date().toISOString().split('T')[0] };
+      stock[chapitreId] = { score, dateISO: jourLocal() };
       await AsyncStorage.setItem(CLE_DUELS, JSON.stringify(stock));
     }
   } catch (error) {
-    console.error('[duelService] Erreur enregistrerDuel :', error);
+    rapporterErreur('[duelService] Erreur enregistrerDuel :', error);
   }
 }
 

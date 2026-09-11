@@ -4,7 +4,7 @@ import Speech from 'expo-speech';
 import { doc, getDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { getExoById } from '../services/cacheHorsLigne';
+import { getExoById, type Exercice } from '../services/cacheHorsLigne';
 import { estJuste, normaliser, versNombre } from '../services/outilsReponse';
 import { planifierRevision } from '../services/revisions';
 import { plafondTexteAudio } from '../services/economieDonnees';
@@ -15,6 +15,7 @@ import { pousserCompteur } from '../services/syncQueue';
 import { classifierErreur } from '../utils/erreurs';
 import Confettis from '../components/confettis';
 import { db } from '../config/firebaseConfig';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 export { estJuste, normaliser, versNombre };
 
@@ -34,7 +35,7 @@ const ENCOURAGEMENTS = [
 const alea = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
 
 // 7 — XP selon la difficulté : ★=50, ★★=75, ★★★=100
-function xpPourDifficulte(diff: any): number {
+function xpPourDifficulte(diff: unknown): number {
   const d = Number(diff) || 1;
   return d >= 3 ? 100 : d === 2 ? 75 : 50;
 }
@@ -58,7 +59,7 @@ export default function Exercices() {
   const params = useLocalSearchParams();
   const exoId = (params.id as string) || '1ere_c_math_ex1';
 
-  const [exoData, setExoData] = useState<any>(null);
+  const [exoData, setExoData] = useState<Exercice | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [reponse, setReponse] = useState('');
@@ -83,7 +84,7 @@ export default function Exercices() {
         setConfettis(false);
 
         // 1) CACHE D'ABORD : instantané, marche sans internet
-        let dataCache: any = null;
+        let dataCache: Exercice | null = null;
         try {
           dataCache = await getExoById(exoId);
         } catch {
@@ -98,7 +99,8 @@ export default function Exercices() {
           const docRef = doc(db, 'exercices', exoId);
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
-            setExoData({ id: exoId, ...docSnap.data() });
+            const brut = docSnap.data() as Partial<Exercice>;
+            setExoData({ classe: '', matiere: '', chapitre: '', chapitre_id: '', difficulte: '1', enonce: '', bonne_reponse: '', ...brut, id: exoId });
           } else if (!dataCache) {
             setExoData(null);
             setFeedback('Exercice introuvable.');
@@ -121,7 +123,7 @@ export default function Exercices() {
           setDejaResolu(false);
         }
       } catch (error) {
-        console.error('Erreur : ', error);
+        rapporterErreur('Erreur : ', error);
       } finally {
         setLoading(false);
       }
@@ -141,7 +143,7 @@ export default function Exercices() {
       const { enregistrerActivite } = await import('../services/stagnation');
       await enregistrerActivite((exoData?.matiere as string) || 'Mathématiques');
     } catch (error) {
-      console.error('Erreur sauvegarde exo résolu : ', error);
+      rapporterErreur('Erreur sauvegarde exo résolu : ', error);
     }
   };
 
@@ -153,7 +155,7 @@ export default function Exercices() {
     // Suivi d'apprentissage + répétition espacée (marche hors-ligne)
     try {
       await enregistrerTentative({ id: exoId, chapitre_id: exoData.chapitre_id, difficulte: exoData.difficulte }, juste);
-      await planifierRevision({ ...exoData, id: exoId }, juste);
+      if (exoData.id) await planifierRevision(exoData, juste);
     } catch {
       // le suivi ne doit jamais bloquer l'exercice
     }
@@ -198,7 +200,7 @@ export default function Exercices() {
       } catch (erreurXp) {
         // Les XP sont déjà crédités localement : l'élève ne perd JAMAIS sa
         // récompense, la sync rattrapera plus tard.
-        console.error('XP cloud reporté (sera synchronisé plus tard) : ', erreurXp);
+        rapporterErreur('XP cloud reporté (sera synchronisé plus tard) : ', erreurXp);
       }
     } else {
       // 🧠 FEEDBACK CIBLÉ : on qualifie l'erreur (signe oublié, unité

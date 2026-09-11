@@ -17,6 +17,7 @@ import { db } from '../config/firebaseConfig';
 import { syncQueue } from '../services/syncQueue';
 import { lireXpNonSync } from '../services/xpLocal';
 import { derniersCrashs } from '../services/crashLog';
+import { rapporterErreur } from '../utils/logger';
 
 // ADMINISTRATION — le créateur de l'app est le "proviseur" : le PREMIER nom
 // enregistré dans la collection 'admins' devient admin à vie. Il peut ensuite
@@ -104,7 +105,7 @@ export default function Admin() {
   const [codeProviseur, setCodeProviseur] = useState('');
   const [uid, setUid] = useState('');
   useEffect(() => {
-    AsyncStorage.getItem('lex_user_id').then((v) => setUid(v || '')).catch(() => {});
+    AsyncStorage.getItem('lex_user_id').then((v) => setUid(v || '')).catch((e) => rapporterErreur('app/admin.tsx', e));
   }, []);
   const devenirProviseur = async () => {
     if (!codeProviseur.trim() || !uid || !nom) return;

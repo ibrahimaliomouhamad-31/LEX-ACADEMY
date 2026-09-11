@@ -30,6 +30,7 @@ import {
 } from '../services/rolesPermissions';
 import { t } from '../services/traductions';
 import { getLangue } from '../services/parametres';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 const ROLES_DISPONIBLES: { id: UserRole; label: string; icon: string; description: string }[] = [
   {
@@ -97,7 +98,7 @@ export default function AdminPanel() {
       setLangue(lang);
       setLoading(false);
     } catch (error) {
-      console.error('[admin]:', error);
+      rapporterErreur('[admin]:', error);
       setLoading(false);
     }
   };

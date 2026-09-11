@@ -14,6 +14,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Exercice } from './cacheHorsLigne';
 import { genererExerciceSeede, generateurDisponible } from './generateurLocal';
+import { jourLocal } from '../utils/correctifsAudit';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 const CLE_SRS = 'lex_srs';
 const CLE_FAITS_JOUR = 'lex_srs_faits'; // { date: 'YYYY-MM-DD', n: number }
@@ -35,11 +37,11 @@ type StockSRS = { [exoId: string]: EntreeSRS };
 function dansNJours(n: number): string {
   const d = new Date();
   d.setDate(d.getDate() + n);
-  return d.toISOString().split('T')[0];
+  return jourLocal(d);
 }
 
 function aujourdhui(): string {
-  return new Date().toISOString().split('T')[0];
+  return jourLocal();
 }
 
 async function lireStock(): Promise<StockSRS> {
@@ -55,7 +57,7 @@ async function ecrireStock(stock: StockSRS): Promise<void> {
   try {
     await AsyncStorage.setItem(CLE_SRS, JSON.stringify(stock));
   } catch (error) {
-    console.error('[revisions] Erreur sauvegarde SRS :', error);
+    rapporterErreur('[revisions] Erreur sauvegarde SRS :', error);
   }
 }
 
@@ -164,7 +166,9 @@ function entrelacerParMatiere(exercices: Exercice[]): Exercice[] {
   while (resteVrai) {
     resteVrai = false;
     for (const cle of cles) {
-      const suivant = groupes.get(cle)!.shift();
+      // 🛡️ AUDIT : assertion non-null supprimée — file absente = ignorée.
+      const file = groupes.get(cle);
+      const suivant = file ? file.shift() : undefined;
       if (suivant) {
         resultats.push(suivant);
         resteVrai = true;

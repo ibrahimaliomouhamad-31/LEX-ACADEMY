@@ -15,6 +15,7 @@ import { getCours } from '../services/cacheHorsLigne';
 import { estJuste } from '../services/outilsReponse';
 import { genererExercice } from '../services/generateurLocal';
 import { enregistrerDuel, getFantome } from '../services/duelService';
+import { melangeFisherYates } from '../utils/correctifsAudit';
 
 type Phase = 'choix' | 'duel' | 'fin';
 
@@ -57,7 +58,8 @@ export default function Duels() {
     setScoreFantome(await getFantome(chapitreId));
 
     let exos = await getExercices(chapitreId);
-    exos = exos ? [...exos].sort(() => Math.random() - 0.5) : [];
+    // 🛡️ AUDIT : Fisher-Yates non biaisé (l'ancien sort(random-0.5) biaise).
+    exos = exos ? melangeFisherYates(exos) : [];
     if (exos.length > 10) exos = exos.slice(0, 10);
 
     // Complète avec le générateur si le cache est trop maigre

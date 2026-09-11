@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getUserItem } from '../services/userStorage';
 import { alertesStagnation, type AlerteStagnation } from '../services/stagnation';
+import { rapporterErreur } from '../utils/logger';
 
 interface StatsDetaillees {
   exosResolus: number; exosCorrects: number; tauxReussite: number;
@@ -52,7 +53,9 @@ export default function Statistiques() {
       });
       const semaine = activite7Jours(vraies);
       setActiviteHebdo(semaine.map((j) => ({ date: j.jour, exos: j.nb, temps: j.nb * 3 })));
-    } catch {}
+    } catch (erreurSilencieuse) {
+      rapporterErreur('[audit] Erreur silencieuse', erreurSilencieuse);
+    }
   };
 
   const couleurTaux = (taux: number): string => { if (taux >= 80) return '#10B981'; if (taux >= 60) return '#FBBF24'; return '#EF4444'; };

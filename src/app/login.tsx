@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Alert, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { db } from '../config/firebaseConfig';
 import { estEnLigne } from '../utils/reseau';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 // 🔄 OFFLINE-FIRST : les identifiants (nom + hash du mot de passe) sont
 // conservés localement après CHAQUE connexion réussie en ligne. Sans
@@ -116,7 +117,7 @@ export default function Login() {
       // Faute d'identifiant Firebase Auth : mot de passe ou nom incorrect.
       Alert.alert("Erreur", "Nom ou mot de passe incorrect.");
     } catch (error) {
-      console.error("Erreur login : ", error);
+      rapporterErreur("Erreur login : ", error);
       // 🔄 Dernier recours : compte local ? (le réseau a pu lâcher en route)
       const comptes = await lireComptesLocaux();
       const compte = comptes[cleLocale];

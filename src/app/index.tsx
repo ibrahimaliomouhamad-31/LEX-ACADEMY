@@ -19,7 +19,7 @@ import BadgeSync from '../components/badgeSync';
 const CLE_TEMPS_JOUR = 'lex_temps_';
 
 function jourCourant(): string {
-  return new Date().toISOString().split('T')[0];
+  return jourLocal();
 }
 
 async function verifierPause(): Promise<void> {
@@ -40,6 +40,8 @@ async function verifierPause(): Promise<void> {
 import { getLangue } from '../services/parametres';
 import { couleurTheme, getTheme } from '../services/parametres';
 import { t } from '../services/traductions';
+import { jourLocal } from '../utils/correctifsAudit';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 // Jours restants avant la prochaine composition (calendrier scolaire type Niger)
 function joursAvantProchaineCompo(): number {
@@ -109,7 +111,7 @@ export default function Index() {
         }
       }
     } catch (error) {
-      console.error('Erreur lecture profil : ', error);
+      rapporterErreur('Erreur lecture profil : ', error);
     }
   };
 

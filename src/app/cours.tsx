@@ -5,11 +5,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ActivityIndicator, ScrollView, Share, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Speech from 'expo-speech';
 import { db } from '../config/firebaseConfig';
-import { getCours, saveCours } from '../services/cacheHorsLigne';
+import { getCours, saveCours, type CoursCache } from '../services/cacheHorsLigne';
 import { genererSectionsCours, sectionsEnTexte } from '../services/enrichirCours';
 import { plafondTexteAudio } from '../services/economieDonnees';
 import { construireFiche, ficheEnTexte } from '../services/fichesSynthese';
 import { dechiffrerAsync } from '../services/chiffrement';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 const formatText = (text: string) => {
   if (!text) return "";
@@ -21,7 +22,7 @@ export default function Cours() {
   const params = useLocalSearchParams();
   const id = (params.id as string) || "1ere_c_math_chap1";
   
-  const [coursData, setCoursData] = useState<any>(null);
+  const [coursData, setCoursData] = useState<CoursCache | null>(null);
   const [loading, setLoading] = useState(true);
   const [cahierClair, setCahierClair] = useState('');
 
@@ -50,15 +51,15 @@ export default function Cours() {
           const docRef = doc(db, "cours", id);
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
-            const donnees = docSnap.data();
+            const donnees = docSnap.data() as CoursCache;
             setCoursData(donnees);
-            await saveCours({ id, ...(donnees as object) } as never);
+            await saveCours({ ...donnees, id });
           }
         } catch {
           // hors-ligne : le cache (s'il existe) suffit
         }
       } catch (error) {
-        console.error("Erreur : ", error);
+        rapporterErreur("Erreur : ", error);
       } finally {
         setLoading(false);
       }
@@ -192,7 +193,7 @@ export default function Cours() {
         {coursData.methode_content && (
           <View style={styles.cardBlue}>
             <Text style={styles.cardTitle}>⚙️ 2. La Méthode</Text>
-            <Text style={styles.cardSubtitle}>{formatText(coursData.methode_titre)}</Text>
+            <Text style={styles.cardSubtitle}>{formatText(coursData.methode_titre ?? '')}</Text>
             <TouchableOpacity style={styles.expandBtn} onPress={() => setShowMethod(!showMethod)}>
               <Text style={styles.expandBtnText}>{showMethod ? "🔼 Masquer les étapes" : "🔽 Afficher les étapes"}</Text>
             </TouchableOpacity>

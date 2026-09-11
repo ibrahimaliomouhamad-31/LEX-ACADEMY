@@ -5,6 +5,8 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setUserItem, getUserItem } from './userStorage';
+import { jourLocal } from '../utils/correctifsAudit';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 const SRS_KEY = 'lex_srs_sm2';
 
@@ -24,7 +26,7 @@ type StockSM2 = { [id: string]: CardSM2 };
 function dansNJours(n: number): string {
   const d = new Date();
   d.setDate(d.getDate() + n);
-  return d.toISOString().split('T')[0];
+  return jourLocal(d);
 }
 
 // SM-2 Algorithm: https://en.wikipedia.org/wiki/SuperMemo#History_of_research
@@ -56,10 +58,10 @@ export async function chargerCartesRevision(): Promise<CardSM2[]> {
   try {
     const data = await getUserItem(SRS_KEY);
     const stock: StockSM2 = data ? JSON.parse(data) : {};
-    const aujourd_hui = new Date().toISOString().split('T')[0];
+    const aujourd_hui = jourLocal();
     return Object.values(stock).filter((c) => c.nextReview <= aujourd_hui);
   } catch (e) {
-    console.error('[srs]:', e);
+    rapporterErreur('[srs]:', e);
     return [];
   }
 }
@@ -90,7 +92,7 @@ export async function enregistrerReponseCarte(
 
     await setUserItem(SRS_KEY, JSON.stringify(stock));
   } catch (e) {
-    console.error('[srs] Erreur enregistrement:', e);
+    rapporterErreur('[srs] Erreur enregistrement:', e);
   }
 }
 
@@ -104,12 +106,12 @@ export async function ajouterNouvelleCarte(card: Omit<CardSM2, 'interval' | 'eas
       interval: 1,
       easeFactor: 2.5,
       repetitions: 0,
-      nextReview: new Date().toISOString().split('T')[0],
+      nextReview: jourLocal(),
       quality: 0,
     };
 
     await setUserItem(SRS_KEY, JSON.stringify(stock));
   } catch (e) {
-    console.error('[srs] Erreur ajout:', e);
+    rapporterErreur('[srs] Erreur ajout:', e);
   }
 }

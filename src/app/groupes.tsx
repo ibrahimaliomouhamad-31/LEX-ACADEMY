@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { GROUPES_DISPONIBLES, envoyerMessage, getMessages, getReactions, reagirMessage, type MessageGroupe } from '../services/groupesEntraide';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { rapporterErreur } from '../utils/logger';
 
 export default function GroupesEntraide() {
   const router = useRouter();
@@ -13,7 +14,7 @@ export default function GroupesEntraide() {
   const [reactions, setReactions] = useState<Record<string, { n: number; moi: boolean }>>({});
 
   useEffect(() => {
-    if (groupeActif) getReactions(groupeActif).then(setReactions);
+    if (groupeActif) getReactions(groupeActif).then(setReactions).catch((e) => rapporterErreur('groupes/reactions', e));
   }, [groupeActif]);
 
   const reagir = async (id: string) => {
@@ -23,10 +24,10 @@ export default function GroupesEntraide() {
   };
 
   useEffect(() => {
-    AsyncStorage.getItem('@lex/pseudo').then((p) => setPseudo(p || 'Élève LEX'));
+    AsyncStorage.getItem('@lex/pseudo').then((p) => setPseudo(p || 'Élève LEX')).catch((e) => rapporterErreur('groupes/pseudo', e));
   }, []);
   useEffect(() => {
-    if (groupeActif) getMessages(groupeActif).then(setMessages);
+    if (groupeActif) getMessages(groupeActif).then(setMessages).catch((e) => rapporterErreur('groupes/messages', e));
   }, [groupeActif]);
 
   const envoyer = async () => {

@@ -6,6 +6,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 import { db } from '../config/firebaseConfig';
 import { getCurrentUserId, getUserItem, setUserItem } from './userStorage';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 // Anciennes clés globales — utilisées uniquement pour la migration.
 const ANCIENNE_CLE_STATS = 'lex_stats';
@@ -139,7 +140,7 @@ export async function pousserProgression(): Promise<boolean> {
 
     return true;
   } catch (error) {
-    console.error('[syncCloud] Erreur synchronisation :', error);
+    rapporterErreur('[syncCloud] Erreur synchronisation :', error);
     return false;
   }
 }
@@ -228,7 +229,7 @@ export async function restaurerProgressionSiVide(): Promise<boolean> {
 
     return true;
   } catch (error) {
-    console.error('[syncCloud] Erreur restauration :', error);
+    rapporterErreur('[syncCloud] Erreur restauration :', error);
     return false;
   }
 }

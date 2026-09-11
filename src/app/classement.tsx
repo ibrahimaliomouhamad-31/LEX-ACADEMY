@@ -6,18 +6,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db } from '../config/firebaseConfig';
 import { liguePourXp } from '../services/motivation';
 import { lireXpTotal } from '../services/xpLocal';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 export default function Classement() {
   const router = useRouter();
-  const [eleves, setEleves] = useState<any[]>([]);
+  interface EleveClassement { nom?: string; classe?: string; xp?: number; avatar?: string; xp_semaine?: number }
+  const [eleves, setEleves] = useState<EleveClassement[]>([]);
   const [loading, setLoading] = useState(true);
   const [monXp, setMonXp] = useState(0);
   const [pseudo, setPseudo] = useState('');
 
   useEffect(() => {
     // 📍 Repli local : XP + pseudo de l'élève courant (visibles hors-ligne)
-    lireXpTotal().then(setMonXp).catch(() => {});
-    AsyncStorage.getItem('@lex/pseudo').then((p) => setPseudo(p || 'Toi')).catch(() => {});
+    lireXpTotal().then(setMonXp).catch((e) => rapporterErreur('app/classement.tsx', e));
+    AsyncStorage.getItem('@lex/pseudo').then((p) => setPseudo(p || 'Toi')).catch((e) => rapporterErreur('app/classement.tsx', e));
   }, []);
 
   useEffect(() => {
@@ -30,9 +32,9 @@ export default function Classement() {
         try {
           const q = query(collection(db, "classement_public"), orderBy("xp", "desc"), limit(50));
           const querySnapshot = await getDocs(q);
-          const elevesData: any[] = [];
+          const elevesData: EleveClassement[] = [];
           querySnapshot.forEach((doc) => {
-            elevesData.push(doc.data());
+            elevesData.push(doc.data() as EleveClassement);
           });
           if (elevesData.length > 0) {
             setEleves(elevesData);
@@ -51,13 +53,13 @@ export default function Classement() {
           limit(50)
         );
         const querySnapshot = await getDocs(q);
-        const elevesData: any[] = [];
+        const elevesData: EleveClassement[] = [];
         querySnapshot.forEach((doc) => {
-          elevesData.push(doc.data());
+          elevesData.push(doc.data() as EleveClassement);
         });
         setEleves(elevesData);
       } catch (error) {
-        console.error("Erreur classement : ", error);
+        rapporterErreur("Erreur classement : ", error);
       } finally {
         setLoading(false);
       }

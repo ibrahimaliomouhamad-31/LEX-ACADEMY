@@ -4,6 +4,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../config/firebaseConfig';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 export default function Avatars() {
   const router = useRouter();
@@ -37,7 +38,7 @@ export default function Avatars() {
         router.push('/profil');
       }
     } catch (error) {
-      console.error("Erreur avatar : ", error);
+      rapporterErreur("Erreur avatar : ", error);
       Alert.alert("Erreur", "Impossible de mettre à jour l'avatar.");
     } finally {
       setLoading(false);

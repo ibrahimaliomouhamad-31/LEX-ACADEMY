@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useMemo } from 'react';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 // --- Types ---
 
@@ -27,7 +28,7 @@ export async function saveExercices(chapitre_id: string, exercices: Exercice[]):
     const json = JSON.stringify(exercices);
     await AsyncStorage.setItem(key, json);
   } catch (error) {
-    console.error(`[cacheHorsLigne] Erreur saveExercices(${chapitre_id}):`, error);
+    rapporterErreur(`[cacheHorsLigne] Erreur saveExercices(${chapitre_id}):`, error);
     throw error;
   }
 }
@@ -42,7 +43,7 @@ export async function getExercices(chapitre_id: string): Promise<Exercice[] | nu
     await noterAcces(chapitre_id); // suivi LRU
     return JSON.parse(json) as Exercice[];
   } catch (error) {
-    console.error(`[cacheHorsLigne] Erreur getExercices(${chapitre_id}):`, error);
+    rapporterErreur(`[cacheHorsLigne] Erreur getExercices(${chapitre_id}):`, error);
     return null;
   }
 }
@@ -71,7 +72,7 @@ export async function getExoById(id: string): Promise<Exercice | null> {
 
     return null;
   } catch (error) {
-    console.error(`[cacheHorsLigne] Erreur getExoById(${id}):`, error);
+    rapporterErreur(`[cacheHorsLigne] Erreur getExoById(${id}):`, error);
     return null;
   }
 }
@@ -139,7 +140,7 @@ export async function appliquerQuotaCache(
 
     return supprimes;
   } catch (error) {
-    console.error('[cacheHorsLigne] Erreur appliquerQuotaCache:', error);
+    rapporterErreur('[cacheHorsLigne] Erreur appliquerQuotaCache:', error);
     return 0;
   }
 }
@@ -149,7 +150,7 @@ export async function supprimerChapitre(chapitreId: string): Promise<void> {
   try {
     await AsyncStorage.removeItem(CACHE_PREFIX + chapitreId);
   } catch (error) {
-    console.error(`[cacheHorsLigne] Erreur supprimerChapitre(${chapitreId}):`, error);
+    rapporterErreur(`[cacheHorsLigne] Erreur supprimerChapitre(${chapitreId}):`, error);
   }
 }
 
@@ -159,7 +160,7 @@ export async function isCached(chapitre_id: string): Promise<boolean> {
     const value = await AsyncStorage.getItem(key);
     return value !== null;
   } catch (error) {
-    console.error(`[cacheHorsLigne] Erreur isCached(${chapitre_id}):`, error);
+    rapporterErreur(`[cacheHorsLigne] Erreur isCached(${chapitre_id}):`, error);
     return false;
   }
 }
@@ -171,7 +172,7 @@ export async function getAllCachedChapterIds(): Promise<string[]> {
       .filter((k) => k.startsWith(CACHE_PREFIX))
       .map((k) => k.slice(CACHE_PREFIX.length));
   } catch (error) {
-    console.error('[cacheHorsLigne] Erreur getAllCachedChapterIds:', error);
+    rapporterErreur('[cacheHorsLigne] Erreur getAllCachedChapterIds:', error);
     return [];
   }
 }
@@ -198,7 +199,7 @@ export async function getCacheSize(): Promise<number> {
     }
     return totalBytes;
   } catch (error) {
-    console.error('[cacheHorsLigne] Erreur getCacheSize:', error);
+    rapporterErreur('[cacheHorsLigne] Erreur getCacheSize:', error);
     return 0;
   }
 }
@@ -211,7 +212,7 @@ export async function clearCache(): Promise<void> {
       await AsyncStorage.multiRemove(cacheKeys);
     }
   } catch (error) {
-    console.error('[cacheHorsLigne] Erreur clearCache:', error);
+    rapporterErreur('[cacheHorsLigne] Erreur clearCache:', error);
     throw error;
   }
 }
@@ -225,6 +226,16 @@ export interface CoursCache {
   titre: string;
   theorie?: string;
   methode_content?: string;
+  /** Titre de la méthode (affiché comme sous-titre) */
+  methode_titre?: string;
+  /** Activité d'approche */
+  activite?: string;
+  /** Piège du prof */
+  piege?: string;
+  /** Démonstration / approfondissement */
+  demo?: string;
+  /** Exercice type corrigé */
+  exercice_corrige?: string;
   matiere?: string;
   classe?: string;
   /** Contenu extrait du cahier de l'élève (local, non synchronisé) */
@@ -236,7 +247,7 @@ export async function saveCours(cours: CoursCache): Promise<void> {
     const key = CACHE_COURS_PREFIX + cours.id;
     await AsyncStorage.setItem(key, JSON.stringify(cours));
   } catch (error) {
-    console.error(`[cacheHorsLigne] Erreur saveCours(${cours.id}):`, error);
+    rapporterErreur(`[cacheHorsLigne] Erreur saveCours(${cours.id}):`, error);
     throw error;
   }
 }
@@ -247,7 +258,7 @@ export async function getCours(id: string): Promise<CoursCache | null> {
     if (json === null) return null;
     return JSON.parse(json) as CoursCache;
   } catch (error) {
-    console.error(`[cacheHorsLigne] Erreur getCours(${id}):`, error);
+    rapporterErreur(`[cacheHorsLigne] Erreur getCours(${id}):`, error);
     return null;
   }
 }
@@ -270,7 +281,7 @@ export async function getAllCoursCache(): Promise<CoursCache[]> {
     resultat.sort((a, b) => (a.id > b.id ? 1 : -1));
     return resultat;
   } catch (error) {
-    console.error('[cacheHorsLigne] Erreur getAllCoursCache:', error);
+    rapporterErreur('[cacheHorsLigne] Erreur getAllCoursCache:', error);
     return [];
   }
 }
@@ -279,7 +290,7 @@ export async function supprimerCours(id: string): Promise<void> {
   try {
     await AsyncStorage.removeItem(CACHE_COURS_PREFIX + id);
   } catch (error) {
-    console.error(`[cacheHorsLigne] Erreur supprimerCours(${id}):`, error);
+    rapporterErreur(`[cacheHorsLigne] Erreur supprimerCours(${id}):`, error);
   }
 }
 
