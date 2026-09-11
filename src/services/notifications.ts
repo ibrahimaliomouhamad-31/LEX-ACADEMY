@@ -14,7 +14,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { demanderPermissionNotifications } from './optionsApp';
-import { jourLocal } from '../utils/correctifsAudit';
+import { jourLocal, lireObjet } from '../utils/correctifsAudit';
 
 const CLE_ACTIVE = 'lex_notifs_extras';
 const ID_DEFI = 'lex-rappel-defi';
@@ -86,7 +86,15 @@ export async function planifierRappelsDuJour(): Promise<void> {
     // 2) Série active mais rien fait aujourd'hui ? → alerte à 20h.
     const streakBrut = await AsyncStorage.getItem('lex_streak_local');
     if (streakBrut) {
-      const s = JSON.parse(streakBrut) as { streak: number; dernierJour: string };
+      // 🛡️ lireObjet : validation de forme (streak number, dernierJour string)
+      const s = lireObjet<{ streak: number; dernierJour: string }>(
+        streakBrut,
+        { streak: 0, dernierJour: '' },
+        [
+          { cle: 'streak', type: 'number' },
+          { cle: 'dernierJour', type: 'string' },
+        ]
+      );
       if (s.streak > 0 && s.dernierJour !== aujourdHui) {
         await Notifications.scheduleNotificationAsync({
           identifier: ID_STREAK,

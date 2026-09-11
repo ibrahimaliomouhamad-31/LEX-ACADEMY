@@ -8,6 +8,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { syncQueue } from './syncQueue';
+import { parseTableauJSON } from '../utils/correctifsAudit';
 
 const CLE_LOGS = 'lex_crash_logs';
 const MAX_LOCAL = 20;
@@ -27,8 +28,9 @@ export async function signalerCrash(error: unknown): Promise<void> {
     };
 
     // 1) Copie locale (toujours, même hors-ligne)
+    // 🛡️ parseTableauJSON : un objet corrompu ne fait plus crasher .push
     const brut = await AsyncStorage.getItem(CLE_LOGS);
-    const liste: CrashLog[] = brut ? JSON.parse(brut) : [];
+    const liste: CrashLog[] = parseTableauJSON<CrashLog>(brut, []);
     liste.push(crash);
     await AsyncStorage.setItem(CLE_LOGS, JSON.stringify(liste.slice(-MAX_LOCAL)));
 
@@ -49,7 +51,7 @@ export async function signalerCrash(error: unknown): Promise<void> {
 export async function derniersCrashs(): Promise<CrashLog[]> {
   try {
     const brut = await AsyncStorage.getItem(CLE_LOGS);
-    return brut ? (JSON.parse(brut) as CrashLog[]) : [];
+    return parseTableauJSON<CrashLog>(brut, []);
   } catch {
     return [];
   }

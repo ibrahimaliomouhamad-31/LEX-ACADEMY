@@ -3,7 +3,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getCours } from './cacheHorsLigne';
-import { jourLocal } from '../utils/correctifsAudit';
+import { jourLocal, parseObjetJSON } from '../utils/correctifsAudit';
 import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 export interface Flashcard {
@@ -81,7 +81,8 @@ export interface ScoreDeck {
 export async function enregistrerScoreDeck(chapitreId: string, sues: number, revues: number): Promise<void> {
   try {
     const brut = await AsyncStorage.getItem('lex_flashcards_scores');
-    const scores = brut ? JSON.parse(brut) : {};
+    // 🛡️ parseObjetJSON : un tableau/chaîne corrompu → {} au lieu de crash
+    const scores = parseObjetJSON<Record<string, ScoreDeck>>(brut, {});
     scores[chapitreId] = { sues, revues, dateISO: jourLocal() };
     await AsyncStorage.setItem('lex_flashcards_scores', JSON.stringify(scores));
   } catch (error) {
@@ -92,7 +93,7 @@ export async function enregistrerScoreDeck(chapitreId: string, sues: number, rev
 export async function getScores(): Promise<{ [chapitreId: string]: ScoreDeck }> {
   try {
     const brut = await AsyncStorage.getItem('lex_flashcards_scores');
-    return brut ? JSON.parse(brut) : {};
+    return parseObjetJSON<Record<string, ScoreDeck>>(brut, {});
   } catch {
     return {};
   }

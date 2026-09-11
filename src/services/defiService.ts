@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { collection, doc, getDocs, limit, query, setDoc, where } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
 import { genererExerciceSeede, type ExoGenere } from './generateurLocal';
+import { parseTableauJSON } from '../utils/correctifsAudit';
 
 const NB_QUESTIONS = 3;
 
@@ -63,7 +64,8 @@ export async function envoyerScoreDefi(nom: string, classe: string, score: numbe
     // Hors-ligne : on met en file d'attente pour l'envoi au prochain wifi
     try {
       const brut = await AsyncStorage.getItem('lex_defi_en_attente');
-      const file = brut ? JSON.parse(brut) : [];
+      // 🛡️ AUDIT : parseTableauJSON → jamais de .push sur un objet corrompu.
+      const file = parseTableauJSON(brut);
       file.push({ nom, classe, score, tempsS, date: jour });
       await AsyncStorage.setItem('lex_defi_en_attente', JSON.stringify(file));
     } catch {

@@ -18,6 +18,7 @@ import {
 import { genererExercice } from '../services/generateurLocal';
 import { getStats } from '../services/statsSuivi';
 import { estJuste } from '../services/outilsReponse';
+import { parseTableauJSON } from '../utils/correctifsAudit';
 
 // BAC BLANC CHRONOMÉTRÉ — 100% hors-ligne (cache + générateur local)
 // 3 états dans un seul écran : CONFIG → ÉPREUVE → RÉSULTATS
@@ -156,7 +157,8 @@ export default function BacBlanc() {
     (async () => {
       try {
         const brut = await AsyncStorage.getItem(CLE_SCORES);
-        if (brut) setHistorique(JSON.parse(brut) as ScoreBac[]);
+        // 🛡️ AUDIT : parseTableauJSON → jamais de crash sur donnée corrompue.
+        setHistorique(parseTableauJSON<ScoreBac>(brut));
       } catch {
         // ignore
       }
@@ -318,7 +320,8 @@ export default function BacBlanc() {
   const sauvegarderScore = async (noteFinale: number) => {
     try {
       const brut = await AsyncStorage.getItem(CLE_SCORES);
-      const liste: ScoreBac[] = brut ? (JSON.parse(brut) as ScoreBac[]) : [];
+      // 🛡️ AUDIT : parseTableauJSON → jamais de .push/.sort sur un objet corrompu.
+      const liste = parseTableauJSON<ScoreBac>(brut);
       liste.push({ note: noteFinale, matiere, dateISO: new Date().toISOString() });
       liste.sort((a, b) => b.note - a.note);
       const top5 = liste.slice(0, 5);
