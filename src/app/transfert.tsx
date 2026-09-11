@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { parseObjetJSON } from '../utils/correctifsAudit';
 
 // Encodage base64 unicode-safe (ternaire : web/native ont btoa/atob dans React Native ? non toujours)
 // 🛡️ AUDIT : Buffer typé (plus de @ts-ignore).
@@ -97,7 +98,7 @@ export default function Transfert() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const donnees = JSON.parse(depuisBase64(texte)) as { [cle: string]: string | null };
+              const donnees = parseObjetJSON<Record<string, string | null>>(depuisBase64(texte), {});
               const paires = Object.entries(donnees).filter(([, v]) => v !== null) as [string, string][];
               if (paires.length === 0) throw new Error('vide');
               // 🧹 REMPLACEMENT complet (promis par l'alerte) : on supprime

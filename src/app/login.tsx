@@ -8,6 +8,7 @@ import { ActivityIndicator, Alert, StatusBar, StyleSheet, Text, TextInput, Touch
 import { db } from '../config/firebaseConfig';
 import { estEnLigne } from '../utils/reseau';
 import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
+import { parseObjetJSON, tableauDeChaines } from '../utils/correctifsAudit';
 
 // 🔄 OFFLINE-FIRST : les identifiants (nom + hash du mot de passe) sont
 // conservés localement après CHAQUE connexion réussie en ligne. Sans
@@ -23,7 +24,7 @@ interface CompteLocal {
 async function lireComptesLocaux(): Promise<Record<string, CompteLocal>> {
   try {
     const brut = await AsyncStorage.getItem(CLE_COMPTES_LOCAUX);
-    return brut ? (JSON.parse(brut) as Record<string, CompteLocal>) : {};
+    return parseObjetJSON<Record<string, CompteLocal>>(brut, {});
   } catch {
     return {};
   }
