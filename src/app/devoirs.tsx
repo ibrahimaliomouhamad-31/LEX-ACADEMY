@@ -15,6 +15,7 @@ import {
 import { creerObjectif, listeObjectifs, completerObjectif, type ObjectifPersonnel } from '../services/devoirsService';
 import { estJuste } from '../services/outilsReponse';
 import { genererExercice, niveauLabel, type ExoGenere } from '../services/generateurLocal';
+import { jourLocal } from '../utils/correctifsAudit';
 
 const CHAPITRES_DISPONIBLES = [
   { id: 'tle_c_math_chap1', titre: 'Algèbre', matiere: 'Mathématiques' },
@@ -85,7 +86,7 @@ export default function Devoirs() {
         chapitreTitre: chap?.titre || 'Chapitre',
         nbExercices,
         niveauGenerateur: niveau,
-        dateLimite: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
+        dateLimite: jourLocal(new Date(Date.now() + 7 * 86400000)),
       });
       
       setTitre('');

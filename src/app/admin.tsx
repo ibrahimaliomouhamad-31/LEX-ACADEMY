@@ -18,6 +18,7 @@ import { syncQueue } from '../services/syncQueue';
 import { lireXpNonSync } from '../services/xpLocal';
 import { derniersCrashs } from '../services/crashLog';
 import { rapporterErreur } from '../utils/logger';
+import { jourLocal } from '../utils/correctifsAudit';
 
 // ADMINISTRATION — le créateur de l'app est le "proviseur" : le PREMIER nom
 // enregistré dans la collection 'admins' devient admin à vie. Il peut ensuite
@@ -79,7 +80,7 @@ export default function Admin() {
       // Migration : un admin hérité par nom est rélié à ton userId à ta 1re visite
       for (const adm of liste) {
         if (!adm.userId && nomEleve !== '' && uidEleve !== '' && adm.nom.toLowerCase() === nomEleve.toLowerCase()) {
-          await addDoc(collection(db, 'admins'), { nom: adm.nom, userId: uidEleve, ajouteLe: new Date().toISOString().slice(0, 10) });
+          await addDoc(collection(db, 'admins'), { nom: adm.nom, userId: uidEleve, ajouteLe: jourLocal() });
           adm.id = 'migre';
         }
       }
@@ -124,7 +125,7 @@ export default function Admin() {
         await charger(nom, uid);
         return;
       }
-      await addDoc(collection(db, 'admins'), { nom, userId: uid, ajouteLe: new Date().toISOString().slice(0, 10) });
+      await addDoc(collection(db, 'admins'), { nom, userId: uid, ajouteLe: jourLocal() });
       setCodeProviseur('');
       await charger(nom, uid);
     } catch {

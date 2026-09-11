@@ -7,12 +7,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { collection, doc, getDocs, limit, query, setDoc, where } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
 import { genererExerciceSeede, type ExoGenere } from './generateurLocal';
-import { parseTableauJSON } from '../utils/correctifsAudit';
+import { jourLocal, parseTableauJSON } from '../utils/correctifsAudit';
 
 const NB_QUESTIONS = 3;
 
 function graineDuJour(classe: string): number {
-  const jour = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  // 🛡️ AUDIT : jour LOCAL (pas UTC) — sinon à Niamey (UTC+1), entre 00h et
+  // 01h locales, la graine change déjà : les élèves n'auraient PAS LE MÊME
+  // défi au même moment, cassant la promesse « le même défi pour la classe ».
+  const jour = jourLocal(); // YYYY-MM-DD local
   let h = 2166136261;
   const s = `${jour}|${classe}`;
   for (let i = 0; i < s.length; i++) {
@@ -53,7 +56,7 @@ export interface EntreeClassementDefi {
 }
 
 export async function envoyerScoreDefi(nom: string, classe: string, score: number, tempsS: number): Promise<boolean> {
-  const jour = new Date().toISOString().slice(0, 10);
+  const jour = jourLocal();
   try {
     const userId = (await AsyncStorage.getItem('lex_user_id')) || `local_${Date.now()}`;
     await setDoc(doc(db, 'defi_jour', `${jour}_${userId}`), {
@@ -78,7 +81,7 @@ export async function envoyerScoreDefi(nom: string, classe: string, score: numbe
 // Renvoie les scores du jour si en ligne (max 30), sinon null
 export async function classementDuJour(classe: string): Promise<EntreeClassementDefi[] | null> {
   try {
-    const jour = new Date().toISOString().slice(0, 10);
+    const jour = jourLocal();
     // Un seul where : pas d'index composite requis. Filtre classe côté client.
     const q = query(collection(db, 'defi_jour'), where('date', '==', jour), limit(200));
     const snap = await getDocs(q);

@@ -11,6 +11,7 @@ import {
   type EntreeClassementDefi,
 } from '../services/defiService';
 import type { ExoGenere } from '../services/generateurLocal';
+import { jourLocal } from '../utils/correctifsAudit';
 
 const CLASSES = ['2nde C', '1ère C', '1ère D', 'Tle C', 'Tle D'];
 const CLE_CLASSE = 'lex_classe_actuelle';
@@ -41,7 +42,7 @@ export default function DefiJour() {
       if (n) setNom(n);
       if (c) {
         const fait = await AsyncStorage.getItem(`${CLE_DEFI_JOUR}${c}`);
-        setDejaFait(fait === new Date().toISOString().slice(0, 10));
+        setDejaFait(fait === jourLocal());
       }
     })();
     return () => {
@@ -76,7 +77,7 @@ export default function DefiJour() {
   const suivant = async () => {
     if (index + 1 >= questions.length) {
       if (chronoRef.current) clearInterval(chronoRef.current);
-      const jour = new Date().toISOString().slice(0, 10);
+      const jour = jourLocal();
       await AsyncStorage.setItem(`${CLE_DEFI_JOUR}${classe}`, jour);
       await envoyerScoreDefi(estDuo ? `${nom || 'Anonyme'} & ${nom2 || 'Joueur 2'}` : (nom || 'Anonyme'), classe, score, temps);
       setClassement(await classementDuJour(classe));
