@@ -13,6 +13,7 @@
  */
 
 import * as Network from 'expo-network';
+import { avertirDev, rapporterErreur } from './logger';
 
 type Ecouteur = (enLigne: boolean) => void;
 
@@ -56,7 +57,7 @@ function changerEtat(enLigne: boolean): void {
       try {
         fn(enLigne);
       } catch (error) {
-        console.error('[reseau] Erreur dans un écouteur :', error);
+        rapporterErreur('[reseau] Erreur dans un écouteur :', error);
       }
     });
   }
@@ -86,7 +87,7 @@ export function demarrerEcouteReseau(): void {
   } catch (error) {
     // Certains environnements (web ancien) n'ont pas de listener natif :
     // on retombe sur un sondage léger.
-    console.warn('[reseau] Listener natif indisponible, sondage 30 s :', error);
+    avertirDev('[reseau] Listener natif indisponible, sondage 30 s :', error);
     setInterval(() => {
       verifierConnexion();
     }, 30000);

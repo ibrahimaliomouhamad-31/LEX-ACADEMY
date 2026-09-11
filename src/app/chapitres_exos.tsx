@@ -5,6 +5,7 @@ import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOp
 import { db } from '../config/firebaseConfig';
 import { getAllCachedChapterIds, getCacheSize, saveCours, saveExercices } from '../services/cacheHorsLigne';
 import { generateurDisponible } from '../services/generateurLocal';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 export default function ChapitresExos() {
   const router = useRouter();
@@ -41,7 +42,7 @@ export default function ChapitresExos() {
         chapitresData.sort((a, b) => (a.id > b.id ? 1 : -1));
         setChapitres(chapitresData);
       } catch (error) {
-        console.error('Erreur : ', error);
+        rapporterErreur('Erreur : ', error);
       } finally {
         setLoading(false);
       }
@@ -64,12 +65,12 @@ export default function ChapitresExos() {
       try {
         const snapCours = await getDoc(doc(db, 'cours', chapitreId));
         if (snapCours.exists()) {
-          await saveCours({ id: chapitreId, ...(snapCours.data() as object) } as never);
+          await saveCours({ id: chapitreId, ...(snapCours.data() as Record<string, unknown>) } as unknown as Parameters<typeof saveCours>[0]);
         }
       } catch { /* cours indisponible hors-ligne */ }
       await rafraichirCache();
     } catch (error) {
-      console.error('Erreur téléchargement : ', error);
+      rapporterErreur('Erreur téléchargement : ', error);
     } finally {
       setEnCours(null);
     }

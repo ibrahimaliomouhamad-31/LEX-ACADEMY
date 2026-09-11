@@ -1,5 +1,6 @@
 // GROUPES D'ENTRAIDE : mini-forum local par matière, 100% élève (amélioration 20)
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { genererIdUnique, parseObjetJSON, parseTableauJSON } from '../utils/correctifsAudit';
 
 export interface MessageGroupe {
   id: string;
@@ -43,8 +44,15 @@ export function messageAutorise(texte: string): { ok: boolean; raison?: string }
 }
 
 export async function getMessages(matiere: string): Promise<MessageGroupe[]> {
-  const brut = await AsyncStorage.getItem(`${CLE}:${matiere}`);
-  return brut ? (JSON.parse(brut) as MessageGroupe[]) : [];
+  try {
+    const brut = await AsyncStorage.getItem(`${CLE}:${matiere}`);
+    const tableau = parseTableauJSON(brut);
+    return tableau.filter((m): m is MessageGroupe =>
+      !!m && typeof m === 'object' && typeof (m as MessageGroupe).id === 'string' && typeof (m as MessageGroupe).texte === 'string'
+    ) as MessageGroupe[];
+  } catch {
+    return [];
+  }
 }
 
 export async function envoyerMessage(matiere: string, auteur: string, texte: string): Promise<{ ok: boolean; raison?: string }> {
@@ -52,7 +60,7 @@ export async function envoyerMessage(matiere: string, auteur: string, texte: str
   if (!verif.ok) return verif;
   const msgs = await getMessages(matiere);
   msgs.push({
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    id: genererIdUnique('msg'),
     auteur: auteur || 'Anonyme',
     matiere,
     texte: texte.trim(),
@@ -68,17 +76,25 @@ const CLE_REACTIONS = '@lex/reactionsGroupes';
 
 /** Toggle le cœur de l'élève local sur un message. Retourne le nouveau total. */
 export async function reagirMessage(matiere: string, idMessage: string): Promise<number> {
-  const brut = await AsyncStorage.getItem(`${CLE_REACTIONS}:${matiere}`);
-  const etat: Record<string, { n: number; moi: boolean }> = brut ? JSON.parse(brut) : {};
-  const e = etat[idMessage] || { n: 0, moi: false };
-  e.moi = !e.moi;
-  e.n = Math.max(0, e.n + (e.moi ? 1 : -1));
-  if (e.n === 0 && !e.moi) delete etat[idMessage]; else etat[idMessage] = e;
-  await AsyncStorage.setItem(`${CLE_REACTIONS}:${matiere}`, JSON.stringify(etat));
-  return e.n;
+  try {
+    const brut = await AsyncStorage.getItem(`${CLE_REACTIONS}:${matiere}`);
+    const etat = parseObjetJSON<Record<string, { n: number; moi: boolean }>>(brut, {});
+    const e = etat[idMessage] || { n: 0, moi: false };
+    e.moi = !e.moi;
+    e.n = Math.max(0, e.n + (e.moi ? 1 : -1));
+    if (e.n === 0 && !e.moi) delete etat[idMessage]; else etat[idMessage] = e;
+    await AsyncStorage.setItem(`${CLE_REACTIONS}:${matiere}`, JSON.stringify(etat));
+    return e.n;
+  } catch {
+    return 0;
+  }
 }
 
 export async function getReactions(matiere: string): Promise<Record<string, { n: number; moi: boolean }>> {
-  const brut = await AsyncStorage.getItem(`${CLE_REACTIONS}:${matiere}`);
-  return brut ? (JSON.parse(brut) as Record<string, { n: number; moi: boolean }>) : {};
+  try {
+    const brut = await AsyncStorage.getItem(`${CLE_REACTIONS}:${matiere}`);
+    return parseObjetJSON<Record<string, { n: number; moi: boolean }>>(brut, {});
+  } catch {
+    return {};
+  }
 }

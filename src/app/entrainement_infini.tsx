@@ -22,6 +22,7 @@ import { chargerNotionsChapitre, type MicroNotion } from '../services/microNotio
 import { getCours } from '../services/cacheHorsLigne';
 import { gagnerXp, validerStreakDuJour } from '../services/xpLocal';
 import { bloquerSiExamen } from '../services/parametres';
+import { rapporterErreur } from '../utils/logger';
 
 const CLE_MAITRISE = 'lex_maitrise_notions';
 
@@ -50,7 +51,7 @@ export default function EntrainementInfini() {
     (async () => {
       try {
         let cours = await getCours(chapitreId);
-        let contenuFB: any = null;
+        let contenuFB: Record<string, unknown> | null = null;
         if (!cours) {
           try {
             const snap = await getDoc(doc(db, 'cours', chapitreId));
@@ -58,9 +59,11 @@ export default function EntrainementInfini() {
               contenuFB = snap.data();
               cours = { id: chapitreId, titre: snap.data().titre || titre, ...snap.data() };
             }
-          } catch {}
+          } catch (erreurSilencieuse) {
+      rapporterErreur('[audit] Erreur silencieuse', erreurSilencieuse);
+    }
         }
-        const n = await chargerNotionsChapitre(chapitreId, cours as any, contenuFB);
+        const n = await chargerNotionsChapitre(chapitreId, cours as unknown as Record<string, unknown>, contenuFB as unknown as Record<string, unknown> | null);
         
         // Charge la maîtrise depuis le stockage local
         const maitriseStr = await AsyncStorage.getItem(`${CLE_MAITRISE}_${chapitreId}`);
@@ -74,7 +77,9 @@ export default function EntrainementInfini() {
         }
         
         setNotions(n);
-      } catch {} finally {
+      } catch (erreurSilencieuse) {
+      rapporterErreur('[audit] Erreur silencieuse', erreurSilencieuse);
+    } finally {
         setChargement(false);
       }
     })();

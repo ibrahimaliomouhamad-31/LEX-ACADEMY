@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { getUserItem } from '../services/userStorage';
 import { bloquerSiExamen } from '../services/parametres';
+import { rapporterErreur } from '../utils/logger';
 
 const CLE_JOURNAL = 'lex_journal_erreurs';
 
@@ -52,7 +53,9 @@ export default function JournalErreurs() {
       if (data) {
         setEntrees(JSON.parse(data));
       }
-    } catch {}
+    } catch (erreurSilencieuse) {
+      rapporterErreur('[audit] Erreur silencieuse', erreurSilencieuse);
+    }
   };
 
   const marquerResolu = async (id: string) => {
@@ -71,7 +74,9 @@ export default function JournalErreurs() {
     try {
       const { setUserItem } = await import('../services/userStorage');
       await setUserItem(CLE_JOURNAL, JSON.stringify(data));
-    } catch {}
+    } catch (erreurSilencieuse) {
+      rapporterErreur('[audit] Erreur silencieuse', erreurSilencieuse);
+    }
   };
 
   const statistiques = () => {

@@ -19,6 +19,8 @@ import { doc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
 import { getCurrentUserId } from './userStorage';
 import { estEnLigne } from '../utils/reseau';
+import { jourLocal } from '../utils/correctifsAudit';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 const CLE_XP = 'lex_xp_local'; // { xp: number, xpNonSync: number }
 const CLE_STREAK = 'lex_streak_local'; // { streak: number, dernierJour: string }
@@ -50,7 +52,7 @@ async function ecrireXp(xp: XpLocal): Promise<void> {
   try {
     await AsyncStorage.setItem(CLE_XP, JSON.stringify(xp));
   } catch (error) {
-    console.error('[xpLocal] Erreur sauvegarde XP :', error);
+    rapporterErreur('[xpLocal] Erreur sauvegarde XP :', error);
   }
 }
 
@@ -128,13 +130,13 @@ export async function synchroniserXp(): Promise<boolean> {
 // ---------- STREAK (série de jours consécutifs) ----------
 
 function aujourdHui(): string {
-  return new Date().toISOString().split('T')[0];
+  return jourLocal();
 }
 
 function hier(): string {
   const d = new Date();
   d.setDate(d.getDate() - 1);
-  return d.toISOString().split('T')[0];
+  return jourLocal(d);
 }
 
 async function lireStreak(): Promise<StreakLocal> {
@@ -200,7 +202,7 @@ export async function validerStreakDuJour(): Promise<number> {
   try {
     await AsyncStorage.setItem(CLE_STREAK, JSON.stringify(s));
   } catch (error) {
-    console.error('[xpLocal] Erreur sauvegarde streak :', error);
+    rapporterErreur('[xpLocal] Erreur sauvegarde streak :', error);
   }
 
   return s.streak;
@@ -209,7 +211,7 @@ export async function validerStreakDuJour(): Promise<number> {
 function hier2Jours(): string {
   const d = new Date();
   d.setDate(d.getDate() - 2);
-  return d.toISOString().split('T')[0];
+  return jourLocal(d);
 }
 
 /** Streak affiché localement (sans le modifier). */

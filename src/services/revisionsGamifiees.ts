@@ -18,6 +18,8 @@ import { setUserItem, getUserItem } from './userStorage';
 import { gagnerXp, lireXpTotal } from './xpLocal';
 import { syncQueue } from './syncQueue';
 import { streakAuthentique, scellerStreak } from './integrite';
+import { jourLocal } from '../utils/correctifsAudit';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 const STATS_KEY = 'stats_gamifiees';
 
@@ -47,12 +49,12 @@ interface RevisionSession {
 const XP_BASE = 10; // Par exercice réussi
 const XP_BONUS_STREAK = 5; // Bonus si streak actif
 const XP_BONUS_RAPIDE = 5; // Si résolu en < 30s
-const AUJOURD_HUI = (): string => new Date().toISOString().split('T')[0];
+const AUJOURD_HUI = (): string => jourLocal();
 
 function hier(): string {
   const d = new Date();
   d.setDate(d.getDate() - 1);
-  return d.toISOString().split('T')[0];
+  return jourLocal(d);
 }
 
 export async function initRevisionStats(): Promise<RevisionStats> {
@@ -90,7 +92,7 @@ export async function getRevisionStats(): Promise<RevisionStats | null> {
     const data = await getUserItem(STATS_KEY);
     return data ? (JSON.parse(data) as RevisionStats) : null;
   } catch (e) {
-    console.error('[revisions] Erreur lecture stats:', e);
+    rapporterErreur('[revisions] Erreur lecture stats:', e);
     return null;
   }
 }
@@ -117,7 +119,7 @@ async function saveRevisionStats(stats: RevisionStats): Promise<void> {
       });
     }
   } catch (e) {
-    console.error('[revisions] Erreur sauvegarde stats:', e);
+    rapporterErreur('[revisions] Erreur sauvegarde stats:', e);
   }
 }
 

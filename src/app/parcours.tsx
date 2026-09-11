@@ -106,7 +106,7 @@ export default function Parcours() {
             </Text>
             <TouchableOpacity
               style={styles.bouton}
-              onPress={() => router.push('/exercices' as never)}
+              onPress={() => router.push({ pathname: '/exercices', params: { id: etape.chapitreId } })}
             >
               <Text style={styles.boutonTexte}>{t('Se entrainer', 'Practice')}</Text>
             </TouchableOpacity>

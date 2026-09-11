@@ -4,6 +4,7 @@ import { collection, doc, getDoc, getDocs, limit, orderBy, query } from 'firebas
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../config/firebaseConfig';
+import { rapporterErreur } from '../utils/logger';
 
 export default function Profil() {
   const router = useRouter();
@@ -83,7 +84,7 @@ export default function Profil() {
         }
 
       } catch (error) {
-        console.error("Erreur profil : ", error);
+        rapporterErreur('Profil lecture', error);
       } finally {
         setLoading(false);
       }

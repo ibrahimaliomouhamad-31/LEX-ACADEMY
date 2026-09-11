@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db } from '../config/firebaseConfig';
-import { getAllCoursCache, saveCours } from '../services/cacheHorsLigne';
+import { getAllCoursCache, saveCours, type CoursCache } from '../services/cacheHorsLigne';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 export default function Chapitres() {
   const router = useRouter();
@@ -12,14 +13,14 @@ export default function Chapitres() {
   const matiere = (params.matiere as string) || 'Mathématiques';
   const classe = (params.classe as string) || 'Première C';
 
-  const [chapitres, setChapitres] = useState<any[]>([]);
+  const [chapitres, setChapitres] = useState<CoursCache[]>([]);
   const [loading, setLoading] = useState(true);
   const [favoris, setFavoris] = useState<string[]>([]);
 
   const basculerFavori = (id: string) => {
     setFavoris((prev) => {
       const suivant = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
-      AsyncStorage.setItem('lex_favoris_chapitres', JSON.stringify(suivant)).catch(() => {});
+      AsyncStorage.setItem('lex_favoris_chapitres', JSON.stringify(suivant)).catch((e) => rapporterErreur('app/chapitres.tsx', e));
       return suivant;
     });
   };
@@ -29,7 +30,7 @@ export default function Chapitres() {
     ...chapitres.filter((c) => !favoris.includes(c.id)),
   ];
 
-  const carteChapitre = (chapitre: any) => {
+  const carteChapitre = (chapitre: CoursCache) => {
     const index = chapitres.indexOf(chapitre);
     const estFavori = favoris.includes(chapitre.id);
     return (
@@ -61,29 +62,31 @@ export default function Chapitres() {
         try {
           const v = await AsyncStorage.getItem('lex_favoris_chapitres');
           if (v) setFavoris(JSON.parse(v));
-        } catch {}
+        } catch (erreurSilencieuse) {
+      rapporterErreur('[audit] Erreur silencieuse', erreurSilencieuse);
+    }
         // CACHE D'ABORD : sommaire lisible hors-ligne
         const caches = await getAllCoursCache();
         const horsLigne = caches.filter((c) => c.matiere === matiere && c.classe === classe);
         if (horsLigne.length > 0) {
-          setChapitres(horsLigne.map((c) => ({ ...c, id: c.id })) as never);
+          setChapitres(horsLigne.map((c) => ({ ...c, id: c.id })));
           setLoading(false);
         }
         // FIREBASE ensuite : mise à jour + sauvegarde complète des cours
         try {
           const q = query(collection(db, 'cours'), where('matiere', '==', matiere), where('classe', '==', classe));
           const querySnapshot = await getDocs(q);
-          const chapitresData: any[] = [];
+          const chapitresData: CoursCache[] = [];
           for (const d of querySnapshot.docs) {
-            chapitresData.push({ id: d.id, ...d.data() });
-            await saveCours({ id: d.id, ...(d.data() as object) } as never); // chaque cours consulté devient hors-ligne
+            chapitresData.push({ id: d.id, titre: String((d.data() as { titre?: unknown }).titre ?? d.id), ...(d.data() as Record<string, unknown>) } as CoursCache);
+            await saveCours({ id: d.id, ...(d.data() as Record<string, unknown>) } as unknown as Parameters<typeof saveCours>[0]); // chaque cours consulté devient hors-ligne
           }
           if (chapitresData.length > 0) setChapitres(chapitresData);
         } catch {
           // hors-ligne : le cache suffit
         }
       } catch (error) {
-        console.error('Erreur : ', error);
+        rapporterErreur('Erreur : ', error);
       } finally {
         setLoading(false);
       }

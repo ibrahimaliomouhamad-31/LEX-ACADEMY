@@ -73,7 +73,7 @@ export default function Calculatrice() {
     setAffichage(String(parseFloat(resultat.toFixed(10))));
   };
 
-  const Bouton = ({ valeur, onPress, style, texteStyle }: any) => (
+  const Bouton = ({ valeur, onPress, style, texteStyle }: { valeur: string; onPress: () => void; style?: object; texteStyle?: object }) => (
     <TouchableOpacity style={[styles.bouton, style]} onPress={onPress}>
       <Text style={[styles.boutonTexte, texteStyle]}>{valeur}</Text>
     </TouchableOpacity>

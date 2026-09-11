@@ -8,6 +8,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 const CLE_AVATAR = 'lex_avatar_uri';
 
@@ -51,7 +52,7 @@ export default function AvatarEditor({
         onAvatarChange?.(uri);
       }
     } catch (err) {
-      console.warn('[AvatarEditor] Échec de la sélection :', err);
+      avertirDev('[AvatarEditor] Échec de la sélection :', err);
     } finally {
       setLoading(false);
     }

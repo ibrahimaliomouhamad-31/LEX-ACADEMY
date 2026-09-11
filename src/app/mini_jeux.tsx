@@ -5,6 +5,7 @@ import { Alert as Alert_, ScrollView, StatusBar, StyleSheet, Text, TextInput, To
 import { FORMULES } from '../services/formulaire';
 import { estJuste } from '../services/outilsReponse';
 import { genererExercice, type ExoGenere } from '../services/generateurLocal';
+import { melangeFisherYates } from '../utils/correctifsAudit';
 
 // 45 + 48 — MINI-JEUX : course de calcul à 2 joueurs sur un téléphone
 // (avec abandon possible) + memory des formules.
@@ -82,13 +83,13 @@ export default function MiniJeux() {
   const [coups, setCoups] = useState(0);
 
   const demarrerMemory = () => {
-    const tirees = [...FORMULES].sort(() => Math.random() - 0.5).slice(0, 6);
-    const cartes = tirees
-      .flatMap((f) => [
+    const tirees = melangeFisherYates([...FORMULES]).slice(0, 6);
+    const cartes = melangeFisherYates(
+      tirees.flatMap((f) => [
         { id: `${f.id}_n`, texte: f.titre, paire: f.id, trouve: false },
         { id: `${f.id}_f`, texte: f.formule, paire: f.id, trouve: false },
       ])
-      .sort(() => Math.random() - 0.5);
+    );
     setPaires(cartes);
     setSelection([]);
     setCoups(0);

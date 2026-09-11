@@ -6,6 +6,7 @@ import { getUserItem } from '../services/userStorage';
 import { BADGES_MATIERE, getBadgesMatieresObtenus, reussitesParMatiere } from '../services/badgesMatiere';
 import { bloquerSiExamen } from '../services/parametres';
 import { CITATIONS, citationAleatoire } from '../services/citations';
+import { rapporterErreur } from '../utils/logger';
 
 interface BadgeSecret {
   id: string; titre: string; emoji: string; description: string;
@@ -51,7 +52,9 @@ export default function Badges() {
         })),
       );
       setBadgesMatiere(liste);
-    } catch {}
+    } catch (erreurSilencieuse) {
+      rapporterErreur('[audit] Erreur silencieuse', erreurSilencieuse);
+    }
   };
 
   const chargerBadges = async () => {
@@ -63,7 +66,9 @@ export default function Badges() {
         setBadges(misAJour);
         setStats({ debloques: debloques.length, total: BADGES_SECRETS.length });
       }
-    } catch {}
+    } catch (erreurSilencieuse) {
+      rapporterErreur('[audit] Erreur silencieuse', erreurSilencieuse);
+    }
   };
 
   const couleurRarete = (rarete: string): string => {

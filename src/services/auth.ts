@@ -15,6 +15,8 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebaseConfig';
+import { jourLocal } from '../utils/correctifsAudit';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 /**
  * 🔐 SALAGE DÉTERMINISTE PAR COMPTE (sans lecture pré-auth requise).
@@ -105,7 +107,7 @@ export async function registerUser(
       streak: 0,
       avatar: '🎓',
       dateCreation: new Date().toISOString(),
-      derniere_connexion: new Date().toISOString().split('T')[0],
+      derniere_connexion: jourLocal(),
     });
     await setDoc(doc(db, 'donnees_privees', user.uid), {
       email,
@@ -129,7 +131,7 @@ export async function registerUser(
     return { success: true, user };
   } catch (error: unknown) {
     const err = error as { code?: string; message?: string };
-    console.error('[auth] Erreur registration:', err);
+    rapporterErreur('[auth] Erreur registration:', err);
     return {
       success: false,
       error:
@@ -161,7 +163,7 @@ export async function loginUser(
     return { success: true, user };
   } catch (error: unknown) {
     const err = error as { code?: string; message?: string };
-    console.error('[auth] Erreur login:', err);
+    rapporterErreur('[auth] Erreur login:', err);
     return {
       success: false,
       error:
@@ -181,7 +183,7 @@ export async function logoutUser(): Promise<void> {
     await AsyncStorage.removeItem(USER_SESSION_KEY);
     await AsyncStorage.removeItem(SESSION_EXPIRY_KEY);
   } catch (error) {
-    console.error('[auth] Erreur logout:', error);
+    rapporterErreur('[auth] Erreur logout:', error);
   }
 }
 
@@ -283,11 +285,21 @@ export async function refreshSession(): Promise<UserSession | null> {
 }
 
 // 🔑 GÉNÉRER CODE DE TRANSFERT (sauvegarde compte)
+// 🛡️ AUDIT : crypto.getRandomValues (CSPRNG) au lieu de Math.random.
 function generateTransferCode(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let code = '';
-  for (let i = 0; i < 16; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  try {
+    const alea = new Uint32Array(16);
+    crypto.getRandomValues(alea);
+    for (let i = 0; i < 16; i++) {
+      const v = alea[i] as number;
+      code += chars.charAt(v % chars.length);
+    }
+  } catch {
+    for (let i = 0; i < 16; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
   }
   return code;
 }

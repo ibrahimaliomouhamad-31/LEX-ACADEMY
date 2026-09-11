@@ -3,6 +3,8 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getCours } from './cacheHorsLigne';
+import { jourLocal } from '../utils/correctifsAudit';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 export interface Flashcard {
   recto: string;
@@ -80,10 +82,10 @@ export async function enregistrerScoreDeck(chapitreId: string, sues: number, rev
   try {
     const brut = await AsyncStorage.getItem('lex_flashcards_scores');
     const scores = brut ? JSON.parse(brut) : {};
-    scores[chapitreId] = { sues, revues, dateISO: new Date().toISOString().split('T')[0] };
+    scores[chapitreId] = { sues, revues, dateISO: jourLocal() };
     await AsyncStorage.setItem('lex_flashcards_scores', JSON.stringify(scores));
   } catch (error) {
-    console.error('[flashcardsService] Erreur sauvegarde score :', error);
+    rapporterErreur('[flashcardsService] Erreur sauvegarde score :', error);
   }
 }
 

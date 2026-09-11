@@ -14,6 +14,7 @@
 import { Platform } from 'react-native';
 import { initializeAppCheck, ReCaptchaV3Provider, CustomProvider } from 'firebase/app-check';
 import app from '../config/firebaseConfig';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 let demarre = false;
 
@@ -47,12 +48,12 @@ export function initAppCheck(): void {
     } else {
       // Mobile en production : on ne peut pas fournir de token valide sans le
       // module natif. On log un avertissement, l'app continue normalement.
-      console.warn(
+      avertirDev(
         '[appCheck] Provider natif requis en production mobile ' +
           '(Play Integrity / App Attest) : installe @react-native-firebase/app-check.'
       );
     }
   } catch (error) {
-    console.warn("[appCheck] Indisponible (l'app continue sans) :", error);
+    avertirDev("[appCheck] Indisponible (l'app continue sans) :", error);
   }
 }

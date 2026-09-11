@@ -22,6 +22,7 @@ import { pousserProgression } from './syncCloud';
 import { viderFileSignalements } from './signalementService';
 import { synchroniserXp, synchroniserStreak } from './xpLocal';
 import { estEnLigneSync, verifierConnexion } from '../utils/reseau';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 const CLE_FILE_GLOBALE = 'lex_file_sync_globale';
 const CLE_DEFI_EN_ATTENTE = 'lex_defi_en_attente';
@@ -62,7 +63,7 @@ async function viderDefisEnAttente(): Promise<number> {
 
     await AsyncStorage.setItem(CLE_DEFI_EN_ATTENTE, JSON.stringify(restants));
   } catch (error) {
-    console.error('[syncOrchestrator] Erreur défis en attente :', error);
+    rapporterErreur('[syncOrchestrator] Erreur défis en attente :', error);
   }
   return envoyes;
 }
@@ -98,7 +99,7 @@ async function viderFileGlobale(): Promise<number> {
 
     await AsyncStorage.setItem(CLE_FILE_GLOBALE, JSON.stringify(restants));
   } catch (error) {
-    console.error('[syncOrchestrator] Erreur file globale :', error);
+    rapporterErreur('[syncOrchestrator] Erreur file globale :', error);
   }
   return envoyes;
 }
@@ -149,7 +150,7 @@ export async function toutSynchroniser(): Promise<ResultatSync> {
     await viderFileSignalements();
     resultat.divers = defis + globale;
   } catch (error) {
-    console.error('[syncOrchestrator] Erreur sync globale :', error);
+    rapporterErreur('[syncOrchestrator] Erreur sync globale :', error);
   }
 
   return resultat;

@@ -7,6 +7,9 @@ import { db } from '../config/firebaseConfig';
 import { getExercices, saveExercices } from '../services/cacheHorsLigne';
 import { getStats } from '../services/statsSuivi';
 import { prioriserExercices } from '../services/selectionAdaptive';
+import type { Exercice } from '../services/cacheHorsLigne';
+import { rapporterErreur } from '../utils/logger';
+import { parseTableauJSON } from '../utils/correctifsAudit';
 
 const FILTRES = [
   { label: 'Tous', valeur: 0 },
@@ -23,7 +26,7 @@ export default function ListeExercices() {
   const chapitreId = (params.chapitre_id as string) || '';
   const chapitreTitre = (params.titre as string) || '';
 
-  const [exercices, setExercices] = useState<any[]>([]);
+  const [exercices, setExercices] = useState<Exercice[]>([]);
   const [loading, setLoading] = useState(true);
   const [resolus, setResolus] = useState<string[]>([]);
   const [horsLigne, setHorsLigne] = useState(false); // affiché depuis le cache ?
@@ -35,7 +38,7 @@ export default function ListeExercices() {
         // Exercices déjà résolus sur ce téléphone (pour afficher le badge ✅)
         try {
           const stockage = await AsyncStorage.getItem('lex_exos_resolus');
-          setResolus(stockage ? JSON.parse(stockage) : []);
+          setResolus(parseTableauJSON(stockage).filter((v): v is string => typeof v === 'string'));
         } catch {
           setResolus([]);
         }
@@ -65,9 +68,11 @@ export default function ListeExercices() {
             q = query(q, where('chapitre_id', '==', chapitreId));
           }
           const querySnapshot = await getDocs(q);
-          const exosData: any[] = [];
-          querySnapshot.forEach((doc) => {
-            exosData.push({ id: doc.id, ...doc.data() });
+          const exosData: Exercice[] = [];
+          querySnapshot.forEach((docSnap) => {
+            const d = docSnap.data() as Partial<Exercice>;
+            // 🛡️ AUDIT : typage Exercice réel (plus de Record<string,unknown> qui casse prioriser/save).
+            exosData.push({ classe: '', matiere: '', chapitre: '', chapitre_id: '', difficulte: '1', enonce: '', bonne_reponse: '', ...d, id: docSnap.id });
           });
           // 🎯 SÉLECTION ADAPTATIVE aussi pour les données fraîches.
           const stats = await getStats().catch(() => null);
@@ -88,7 +93,7 @@ export default function ListeExercices() {
           }
         }
       } catch (error) {
-        console.error('Erreur : ', error);
+        rapporterErreur('Erreur : ', error);
       } finally {
         setLoading(false);
       }
@@ -96,7 +101,7 @@ export default function ListeExercices() {
     fetchExos();
   }, [classe, matiere, chapitreId]);
 
-  const etoiles = (diff: any) => {
+  const etoiles = (diff: unknown) => {
     const n = Number(diff) || 1;
     return '★'.repeat(Math.min(n, 3)) + '☆'.repeat(Math.max(0, 3 - n));
   };

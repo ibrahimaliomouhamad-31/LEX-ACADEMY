@@ -3,6 +3,8 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getUserItem, setUserItem } from './userStorage';
+import { jourLocal } from '../utils/correctifsAudit';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 // Anciennes clés globales — utilisées uniquement pour la migration.
 const ANCIENNE_CLE_STATS = 'lex_stats';
@@ -41,7 +43,7 @@ function statsVierges(): LexStats {
 }
 
 export function aujourdHui(): string {
-  return new Date().toISOString().split('T')[0];
+  return jourLocal();
 }
 
 /**
@@ -75,7 +77,7 @@ async function setStats(s: LexStats): Promise<void> {
   try {
     await setUserItem(NOM_STATS, JSON.stringify(s));
   } catch (error) {
-    console.error('[statsSuivi] Erreur sauvegarde :', error);
+    rapporterErreur('[statsSuivi] Erreur sauvegarde :', error);
   }
 }
 
@@ -210,7 +212,7 @@ export function activite7Jours(
 
     d.setDate(d.getDate() - i);
 
-    const cle = d.toISOString().split('T')[0];
+    const cle = jourLocal(d);
 
     resultat.push({
       jour: ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'][d.getDay()],

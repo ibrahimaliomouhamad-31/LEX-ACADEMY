@@ -14,6 +14,7 @@ import { db } from '../config/firebaseConfig';
 import { saveCours, saveExercices, type Exercice } from './cacheHorsLigne';
 import { estEnLigneSync } from '../utils/reseau';
 import { getEconomieDonnees } from './economieDonnees';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 const CLE_DERNIER_AUTO = 'lex_dernier_pretelechargement';
 const MAX_COURS = 30;
@@ -137,7 +138,7 @@ export async function telechargerChapitresAuto(): Promise<ResultatPreTelechargem
     if (!resultat.fait) resultat.raison = 'rien-a-telecharger';
     return resultat;
   } catch (error) {
-    console.error('[telechargementAuto] Erreur :', error);
+    rapporterErreur('[telechargementAuto] Erreur :', error);
     resultat.raison = 'erreur';
     return resultat;
   }

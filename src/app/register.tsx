@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { db } from '../config/firebaseConfig';
 import { doc, setDoc } from 'firebase/firestore';
+import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 export default function Register() {
   const router = useRouter();
@@ -56,11 +57,12 @@ export default function Register() {
       Alert.alert("Bienvenue au LEX !", "Ton compte a été créé avec succès. Tu as 0 XP. Va faire des exercices pour grimper dans le classement !");
       router.push('/');
 
-    } catch (error: any) {
-      console.error("Erreur inscription : ", error);
-      if (error?.code === 'auth/email-already-in-use') {
+    } catch (error: unknown) {
+      rapporterErreur("Erreur inscription : ", error);
+      const code = typeof error === 'object' && error !== null && 'code' in error ? String((error as { code: unknown }).code) : '';
+      if (code === 'auth/email-already-in-use') {
         setErreur("Ce nom d'utilisateur est déjà pris. Choisis-en un autre.");
-      } else if (error?.code && String(error.code).startsWith('auth/')) {
+      } else if (code && code.startsWith('auth/')) {
         setErreur("Compte impossible à créer : vérifie ton mot de passe (8 caractères minimum) puis réessaie.");
       } else {
         setErreur("Une erreur est survenue. Vérifie ta connexion internet.");

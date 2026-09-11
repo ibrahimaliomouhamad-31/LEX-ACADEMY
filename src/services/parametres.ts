@@ -1,5 +1,6 @@
 // PARAMÈTRES : langue (FR/EN) et taille de police, persistés localement.
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { rapporterErreur } from '../utils/logger';
 
 export type Langue = 'fr' | 'en';
 export type TaillePolice = 'petit' | 'normal' | 'grand';
@@ -103,8 +104,12 @@ export async function bloquerSiExamen(router: { back: () => void }, outil: strin
   try {
     const { Alert } = await import('react-native');
     Alert.alert('🔒 Mode examen actif', `« ${outil} » est verrouillé pendant l'examen. Désactive le mode examen dans ⚙️ Paramètres.`);
-  } catch {}
-  try { router.back(); } catch {}
+  } catch (erreurSilencieuse) {
+      rapporterErreur('[audit] Erreur silencieuse', erreurSilencieuse);
+    }
+  try { router.back(); } catch (erreurSilencieuse) {
+      rapporterErreur('[audit] Erreur silencieuse', erreurSilencieuse);
+    }
   return true;
 }
 

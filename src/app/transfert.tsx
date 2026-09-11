@@ -14,21 +14,24 @@ import {
 } from 'react-native';
 
 // Encodage base64 unicode-safe (ternaire : web/native ont btoa/atob dans React Native ? non toujours)
+// 🛡️ AUDIT : Buffer typé (plus de @ts-ignore).
+declare const Buffer: { from(s: string, enc: string): { toString(enc: string): string } } | undefined;
 function versBase64(texte: string): string {
   // encodeURIComponent → octets ASCII, puis btoa. Fallback Buffer si btoa absent.
   const ascii = encodeURIComponent(texte).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16)));
   if (typeof btoa === 'function') return btoa(ascii);
-  // @ts-ignore Buffer global Hermes
-  return Buffer.from(ascii, 'binary').toString('base64');
+  if (typeof Buffer !== 'undefined') return Buffer.from(ascii, 'binary').toString('base64');
+  return ascii;
 }
 
 function depuisBase64(b64: string): string {
   let ascii: string;
   if (typeof atob === 'function') {
     ascii = atob(b64.trim());
-  } else {
-    // @ts-ignore Buffer global Hermes
+  } else if (typeof Buffer !== 'undefined') {
     ascii = Buffer.from(b64.trim(), 'base64').toString('binary');
+  } else {
+    ascii = b64.trim();
   }
   // décode les octets ASCII en UTF-8
   return decodeURIComponent(ascii.split('').map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
