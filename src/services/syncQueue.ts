@@ -20,7 +20,7 @@ import { doc, setDoc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
 import { getCurrentUserId } from './auth';
 import { estEnLigneSync, surChangementConnexion, verifierConnexion } from '../utils/reseau';
-import { genererIdUnique, parseEntier } from '../utils/correctifsAudit';
+import { genererIdUnique, parseEntier, parseTableauJSON } from '../utils/correctifsAudit';
 import { estErreurReseau } from '../utils/erreurs';
 import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
@@ -91,10 +91,16 @@ export class SyncQueue {
     await this.loadQueue();
     this.setupNetworkListener();
     // État réseau réel dès le démarrage (au lieu du défaut optimiste).
-    verifierConnexion().then((enLigne) => {
-      this.isOnline = enLigne;
-      if (enLigne && this.queue.length > 0) this.flush();
-    });
+    verifierConnexion()
+      .then((enLigne) => {
+        this.isOnline = enLigne;
+        if (enLigne && this.queue.length > 0) this.flush();
+      })
+      .catch(() => {
+        // Vérification impossible : on reste prudent (aucune tentative
+        // inutile hors-ligne ; la file attendra le retour du réseau).
+        this.isOnline = false;
+      });
   }
 
   private async loadQueue(): Promise<void> {
@@ -112,11 +118,23 @@ export class SyncQueue {
   }
 
   private async saveQueue(): Promise<void> {
-    try {
-      await AsyncStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(this.queue));
-    } catch (error) {
-      rapporterErreur('[SyncQueue] Erreur sauvegarde:', error);
+    // 🤸 ANTIFRAGILITÉ : un échec transitoire d'écriture (stockage occupé,
+    // flash plein) ne doit JAMAIS faire perdre la file — l'action pourrait
+    // être la seule copie de la progression d'un élève. 3 tentatives avec
+    // backoff court (100 ms / 200 ms / 300 ms).
+    let derniereErreur: unknown = null;
+    for (let tentative = 0; tentative < 3; tentative++) {
+      try {
+        await AsyncStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(this.queue));
+        return;
+      } catch (erreur) {
+        derniereErreur = erreur;
+        if (tentative < 2) {
+          await new Promise((resoudre) => setTimeout(resoudre, 100 * (tentative + 1)));
+        }
+      }
     }
+    rapporterErreur('[SyncQueue] Écriture impossible après 3 tentatives :', derniereErreur);
   }
 
   private setupNetworkListener(): void {
@@ -144,9 +162,10 @@ export class SyncQueue {
     await this.pret;
 
     if (!docId || docId === 'null' || docId === 'undefined') {
-      // La donnée n'est JAMAIS jetée : identifiant de rattrapage.
+      // La donnée n'est JAMAIS jetée : identifiant de rattrapage unique
+      // (🛡️ anti-collision : 2 actions la même ms partageaient le même docId).
       rapporterErreur('[SyncQueue] docId invalide, action sauvegardée en orphelin :', collection);
-      docId = `orphan_${Date.now()}`;
+      docId = `orphan_${genererIdUnique('o')}`;
     }
 
     const action: SyncAction = {
@@ -293,9 +312,7 @@ export class SyncQueue {
 
   private async recordConflict(action: SyncAction, error: unknown): Promise<void> {
     try {
-      const conflicts = JSON.parse(
-        (await AsyncStorage.getItem(SYNC_CONFLICTS_KEY)) || '[]'
-      );
+      const conflicts = parseTableauJSON(await AsyncStorage.getItem(SYNC_CONFLICTS_KEY));
       const conflict: SyncConflict = {
         id: action.id,
         collection: action.collection,
@@ -322,9 +339,7 @@ export class SyncQueue {
   }> {
     await this.pret;
     const lastSync = await AsyncStorage.getItem(LAST_SYNC_KEY);
-    const conflicts = JSON.parse(
-      (await AsyncStorage.getItem(SYNC_CONFLICTS_KEY)) || '[]'
-    );
+    const conflicts = parseTableauJSON(await AsyncStorage.getItem(SYNC_CONFLICTS_KEY));
     return {
       pending: this.queue.length,
       synced: this.queue.length === 0,
