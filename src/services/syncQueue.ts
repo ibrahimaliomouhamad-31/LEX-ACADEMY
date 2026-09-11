@@ -34,7 +34,7 @@ interface SyncAction {
   type: 'create' | 'update' | 'delete';
   collection: string;
   docId: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   timestamp: number;
   retries: number;
   maxRetries: number;
@@ -45,8 +45,8 @@ interface SyncConflict {
   id: string;
   collection: string;
   docId: string;
-  local: Record<string, any>;
-  remote: Record<string, any>;
+  local: Record<string, unknown>;
+  remote: Record<string, unknown>;
   timestamp: number;
 }
 
@@ -56,8 +56,8 @@ interface SyncConflict {
 export { estErreurReseau } from '../utils/erreurs';
 
 /** Remplace les deltas {__increment: n} par de vrais FieldValue au flush. */
-function resoudreDeltas(data: Record<string, any>): Record<string, any> {
-  const resultat: Record<string, any> = {};
+function resoudreDeltas(data: Record<string, unknown>): Record<string, unknown> {
+  const resultat: Record<string, unknown> = {};
   for (const [cle, valeur] of Object.entries(data)) {
     if (valeur && typeof valeur === 'object' && '__increment' in (valeur as object)) {
       resultat[cle] = increment(Number((valeur as ValeurDynamique).__increment));
@@ -137,7 +137,7 @@ export class SyncQueue {
     type: 'create' | 'update' | 'delete',
     collection: string,
     docId: string,
-    data: Record<string, any>
+    data: Record<string, unknown>
   ): Promise<string> {
     await this.pret;
 
@@ -365,6 +365,6 @@ export async function pousserCompteur(
   for (const [cle, valeur] of Object.entries(compteurs)) {
     data[cle] = { __increment: valeur };
   }
-  await syncQueue.add('update', collection, docId, data as unknown as Record<string, any>);
+  await syncQueue.add('update', collection, docId, data);
 }
 

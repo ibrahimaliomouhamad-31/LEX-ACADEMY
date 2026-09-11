@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ScrollView,
   StatusBar,
@@ -173,11 +173,14 @@ export default function BacBlanc() {
   }, [phase]);
 
   // Fin du temps → résultats
+  const terminerRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    terminerRef.current = terminer;
+  });
   useEffect(() => {
     if (phase === 'epreuve' && secondesRestantes <= 0) {
-      terminer();
+      terminerRef.current();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [secondesRestantes, phase]);
 
   // ---------- Construction de l'épreuve ----------
