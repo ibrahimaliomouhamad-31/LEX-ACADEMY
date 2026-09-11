@@ -5,6 +5,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { addDoc, collection } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
+import { parseTableauJSON } from '../utils/correctifsAudit';
 
 const CLE_FILE = 'lex_signalements_en_attente';
 
@@ -29,7 +30,8 @@ export async function signalerExercice(exoId: string, raison: string): Promise<b
   } catch {
     try {
       const brut = await AsyncStorage.getItem(CLE_FILE);
-      const file: Signalement[] = brut ? JSON.parse(brut) : [];
+      // 🛡️ AUDIT : parseTableauJSON → jamais de .push sur un objet corrompu.
+      const file = parseTableauJSON(brut);
       file.push(signalement);
       await AsyncStorage.setItem(CLE_FILE, JSON.stringify(file));
     } catch {

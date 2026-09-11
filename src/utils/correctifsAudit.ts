@@ -59,3 +59,45 @@ export function parseEntier(brut: string | null | undefined, defaut = 0): number
   const n = parseInt(String(brut), 10);
   return Number.isFinite(n) ? n : defaut;
 }
+
+export const estChaine = (v: unknown): v is string => typeof v === 'string';
+export const estNombre = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+
+/**
+ * 🛡️ Parse un tableau JSON avec VALIDATION D'ÉLÉMENTS.
+ * Un cast `as T[]` ne protège pas : un objet corrompu mais syntaxiquement
+ * valide casse au premier .map/.length. Ici chaque élément est validé par
+ * `estElement`; les invalides sont écartés (jamais de crash).
+ */
+export function lireTableau<T>(
+  brut: string | null | undefined,
+  defaut: readonly T[],
+  estElement: (v: unknown) => v is T
+): T[] {
+  if (!brut) return [...defaut];
+  try {
+    const v: unknown = JSON.parse(brut);
+    if (!Array.isArray(v)) return [...defaut];
+    return (v as unknown[]).filter(estElement);
+  } catch {
+    return [...defaut];
+  }
+}
+
+/**
+ * 🛡️ Parse un objet JSON avec validation de champs obligatoires.
+ * Un champ manquant ou du mauvais type → défaut (jamais de undefined surprise).
+ */
+export function lireObjet<T extends object>(
+  brut: string | null | undefined,
+  defaut: T,
+  champs: ReadonlyArray<{ cle: keyof T & string; type: 'string' | 'number' }>
+): T {
+  if (!brut) return defaut;
+  const base = parseObjetJSON(brut, defaut);
+  for (const { cle, type } of champs) {
+    const val = (base as Record<string, unknown>)[cle];
+    if (typeof val !== type) return defaut;
+  }
+  return base;
+}

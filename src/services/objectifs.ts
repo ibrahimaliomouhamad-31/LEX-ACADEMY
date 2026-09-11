@@ -5,6 +5,7 @@ import { addDoc, collection, setDoc, doc } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
 import { chargerContexte, type ContexteBadges } from './motivation';
 import { getStats } from './statsSuivi';
+import { parseTableauJSON } from '../utils/correctifsAudit';
 
 // ---------- 41 : Objectifs personnels ----------
 
@@ -21,7 +22,8 @@ const CLE_OBJECTIFS = 'lex_objectifs';
 export async function getObjectifs(): Promise<Objectif[]> {
   try {
     const brut = await AsyncStorage.getItem(CLE_OBJECTIFS);
-    return brut ? (JSON.parse(brut) as Objectif[]) : [];
+    // 🛡️ parseTableauJSON : objet corrompu → [] au lieu de crash
+    return parseTableauJSON<Objectif>(brut, []);
   } catch {
     return [];
   }
@@ -81,7 +83,7 @@ const CLE_FILE = 'lex_file_sync_globale';
 export async function ajouterALaFile(type: ElementFile['type'], donnees: Record<string, unknown>): Promise<void> {
   try {
     const brut = await AsyncStorage.getItem(CLE_FILE);
-    const file: ElementFile[] = brut ? JSON.parse(brut) : [];
+    const file: ElementFile[] = parseTableauJSON<ElementFile>(brut, []);
     file.push({ type, donnees, dateISO: new Date().toISOString() });
     await AsyncStorage.setItem(CLE_FILE, JSON.stringify(file));
   } catch {
@@ -92,7 +94,7 @@ export async function ajouterALaFile(type: ElementFile['type'], donnees: Record<
 export async function compterFile(): Promise<number> {
   try {
     const brut = await AsyncStorage.getItem(CLE_FILE);
-    return brut ? (JSON.parse(brut) as ElementFile[]).length : 0;
+    return parseTableauJSON<ElementFile>(brut, []).length;
   } catch {
     return 0;
   }
@@ -104,7 +106,7 @@ export async function viderFileGlobale(): Promise<number> {
   try {
     const brut = await AsyncStorage.getItem(CLE_FILE);
     if (!brut) return 0;
-    const file: ElementFile[] = JSON.parse(brut);
+    const file: ElementFile[] = parseTableauJSON<ElementFile>(brut, []);
     const restants: ElementFile[] = [];
     for (const element of file) {
       try {
@@ -148,7 +150,8 @@ export async function ajouterAnnotation(chapitreId: string, chapitreTitre: strin
 export async function getAnnotations(): Promise<Annotation[]> {
   try {
     const brut = await AsyncStorage.getItem(CLE_NOTES);
-    return brut ? (JSON.parse(brut) as Annotation[]) : [];
+    // 🛡️ parseTableauJSON : objet corrompu → [] au lieu de crash
+    return parseTableauJSON<Annotation>(brut, []);
   } catch {
     return [];
   }

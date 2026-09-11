@@ -1,5 +1,6 @@
 // RÉCOMPENSES : coupons bien-être virtuels (amélioration 13)
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { tableauDeChaines } from '../utils/correctifsAudit';
 
 export interface Coupon {
   id: string;
@@ -22,7 +23,8 @@ export const CATALOGUE_COUPONS: Coupon[] = [
 
 export async function getCouponsObtenus(): Promise<string[]> {
   const brut = await AsyncStorage.getItem(CLE_COUPONS);
-  return brut ? (JSON.parse(brut) as string[]) : [];
+  // 🛡️ tableauDeChaines : filtre les éléments non-string (jamais de crash .includes)
+  return tableauDeChaines(brut);
 }
 
 /** Échange des jetons contre un coupon. Retourne false si solde insuffisant ou déjà obtenu. */
