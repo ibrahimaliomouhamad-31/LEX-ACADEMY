@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { getAllCoursCache, getExercices, saveExercices, saveCours, type Exercice } from '../services/cacheHorsLigne';
+import { parseObjetJSON, tableauDeChaines } from '../utils/correctifsAudit';
 
 function versBase64(texte: string): string {
   const ascii = encodeURIComponent(texte).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16)));
@@ -75,13 +76,19 @@ export default function Partage() {
       return;
     }
     try {
-      const paquet = JSON.parse(depuisBase64(texte.slice(PREFIXE.length))) as {
-        chapitreId: string;
-        exos: Exercice[];
-        cours: { id: string; titre: string; theorie?: string; methode_content?: string } | null;
-      };
+      // 🛡️ AUDIT : parseObjetJSON + validation de forme — un paquet corrompu
+      // (venant de WhatsApp) → alerte propre, jamais de crash. La validation
+      // est SYNCHRONE (avant l'IIFE) pour que le catch externe la traite.
+      const paquet = parseObjetJSON(depuisBase64(texte.slice(PREFIXE.length)), {
+        chapitreId: '',
+        exos: [] as Exercice[],
+        cours: null as { id: string; titre: string; theorie?: string; methode_content?: string } | null,
+      });
+      if (typeof paquet.chapitreId !== 'string' || paquet.chapitreId === '' || !Array.isArray(paquet.exos)) {
+        throw new Error('forme invalide');
+      }
       (async () => {
-        if (paquet.exos && paquet.exos.length > 0) {
+        if (paquet.exos.length > 0) {
           await saveExercices(paquet.chapitreId, paquet.exos);
         }
         if (paquet.cours) {

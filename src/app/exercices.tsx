@@ -16,6 +16,7 @@ import { classifierErreur } from '../utils/erreurs';
 import Confettis from '../components/confettis';
 import { db } from '../config/firebaseConfig';
 import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
+import { parseObjetJSON, tableauDeChaines } from '../utils/correctifsAudit';
 
 export { estJuste, normaliser, versNombre };
 
@@ -117,7 +118,7 @@ export default function Exercices() {
         // A-t-on déjà résolu cet exercice (anti-farm persistant) ?
         try {
           const stockage = await AsyncStorage.getItem('lex_exos_resolus');
-          const resolus: string[] = stockage ? JSON.parse(stockage) : [];
+          const resolus: string[] = tableauDeChaines(stockage);
           setDejaResolu(resolus.includes(exoId));
         } catch {
           setDejaResolu(false);
@@ -134,7 +135,7 @@ export default function Exercices() {
   const marquerResolu = async () => {
     try {
       const stockage = await AsyncStorage.getItem('lex_exos_resolus');
-      const resolus: string[] = stockage ? JSON.parse(stockage) : [];
+      const resolus: string[] = tableauDeChaines(stockage);
       if (!resolus.includes(exoId)) {
         resolus.push(exoId);
         await AsyncStorage.setItem('lex_exos_resolus', JSON.stringify(resolus));

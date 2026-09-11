@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { QCM_SVT, themesSvt, type QcmSvt } from '../services/qcmSvt';
+import { parseObjetJSON, tableauDeChaines } from '../utils/correctifsAudit';
 
 const CLE_SCORES = 'lex_qcm_svt_scores';
 
@@ -35,7 +36,7 @@ export default function QcmSvtEcran() {
       try {
         const brut = await AsyncStorage.getItem(CLE_SCORES);
         if (brut) {
-          const s = JSON.parse(brut) as { [theme: string]: number };
+          const s = parseObjetJSON<Record<string, number>>(brut, {});
           setMeilleur(Object.values(s).reduce((a, b) => Math.max(a, b), 0));
         }
       } catch {
@@ -73,7 +74,7 @@ export default function QcmSvtEcran() {
       setMeilleur(nouveauMeilleur);
       try {
         const brut = await AsyncStorage.getItem(CLE_SCORES);
-        const s = brut ? JSON.parse(brut) : {};
+        const s = parseObjetJSON<Record<string, number>>(brut, {});
         s[filtre] = Math.max(s[filtre] || 0, total);
         await AsyncStorage.setItem(CLE_SCORES, JSON.stringify(s));
       } catch {

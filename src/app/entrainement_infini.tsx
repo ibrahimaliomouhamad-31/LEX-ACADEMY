@@ -23,6 +23,7 @@ import { getCours } from '../services/cacheHorsLigne';
 import { gagnerXp, validerStreakDuJour } from '../services/xpLocal';
 import { bloquerSiExamen } from '../services/parametres';
 import { rapporterErreur } from '../utils/logger';
+import { parseObjetJSON, tableauDeChaines } from '../utils/correctifsAudit';
 
 const CLE_MAITRISE = 'lex_maitrise_notions';
 
@@ -68,7 +69,7 @@ export default function EntrainementInfini() {
         // Charge la maîtrise depuis le stockage local
         const maitriseStr = await AsyncStorage.getItem(`${CLE_MAITRISE}_${chapitreId}`);
         if (maitriseStr) {
-          const maitriseMap = JSON.parse(maitriseStr);
+          const maitriseMap = parseObjetJSON<Record<string, number>>(maitriseStr, {});
           n.forEach(notion => {
             if (maitriseMap[notion.id]) {
               notion.maitrise = maitriseMap[notion.id];
@@ -141,7 +142,7 @@ export default function EntrainementInfini() {
       setNotions([...notions]);
       
       const maitriseStr = await AsyncStorage.getItem(`${CLE_MAITRISE}_${chapitreId}`);
-      const maitriseMap = maitriseStr ? JSON.parse(maitriseStr) : {};
+      const maitriseMap = parseObjetJSON<Record<string, number>>(maitriseStr, {});
       maitriseMap[notionId] = maitrise;
       await AsyncStorage.setItem(`${CLE_MAITRISE}_${chapitreId}`, JSON.stringify(maitriseMap));
     }

@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { activite7Jours, getStats, type LexStats } from '../services/statsSuivi';
+import { parseObjetJSON, tableauDeChaines } from '../utils/correctifsAudit';
 
 export default function StatsDetail() {
   const router = useRouter();
@@ -14,7 +15,7 @@ export default function StatsDetail() {
       setStats(await getStats());
       try {
         const brut = await AsyncStorage.getItem('lex_exos_resolus');
-        if (brut) setResolus((JSON.parse(brut) as string[]).length);
+        if (brut) setResolus(tableauDeChaines(brut).length);
       } catch {
         // ignore
       }
