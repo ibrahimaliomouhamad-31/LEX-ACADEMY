@@ -33,7 +33,12 @@ const ENCOURAGEMENTS = [
   "❌ Raté. Normal : c'est comme ça qu'on apprend. Demande un indice !",
   "❌ Pas ça. Respire, prends ton temps, et attaque l'exercice étape par étape.",
 ];
-const alea = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
+const alea = (arr: string[]) => {
+  if (arr.length === 0) return '';
+  const array = new Uint32Array(1);
+  crypto.getRandomValues(array);
+  return arr[array[0] % arr.length];
+};
 
 // 7 — XP selon la difficulté : ★=50, ★★=75, ★★★=100
 function xpPourDifficulte(diff: unknown): number {

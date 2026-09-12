@@ -37,21 +37,28 @@ export interface ParcoursPersonnalise {
 }
 
 /** Score de priorité : plus petit = à faire en premier (faibles d'abord). */
+const PRIORITE_FAIBLE = 100;
+const PRIORITE_NON_COMMENCE = 200;
+const PRIORITE_MOYEN = 300;
+const PRIORITE_MAITRISE = 400;
+const PRIORITE_DEFAUT = 500;
 function scorePriorite(niveau: EtapeParcours['niveau'], taux: number): number {
   switch (niveau) {
-    case 'faible': return 100 + taux; // 100-139 : urgents, les plus faibles en premier
-    case 'non_commence': return 200; // à découvrir
-    case 'moyen': return 300 + taux; // 300-369 : progression
-    case 'maitrise': return 400 + taux; // maintien en dernier
-    default: return 500;
+    case 'faible': return PRIORITE_FAIBLE + taux;
+    case 'non_commence': return PRIORITE_NON_COMMENCE;
+    case 'moyen': return PRIORITE_MOYEN + taux;
+    case 'maitrise': return PRIORITE_MAITRISE + taux;
+    default: return PRIORITE_DEFAUT;
   }
 }
 
 /** Seuil de maîtrise pour catégoriser un chapitre. */
+const SEUIL_FAIBLE = 40;
+const SEUIL_MOYEN = 70;
 function categoriser(taux: number, aDesTentatives: boolean): EtapeParcours['niveau'] {
   if (!aDesTentatives) return 'non_commence';
-  if (taux < 40) return 'faible';
-  if (taux < 70) return 'moyen';
+  if (taux < SEUIL_FAIBLE) return 'faible';
+  if (taux < SEUIL_MOYEN) return 'moyen';
   return 'maitrise';
 }
 

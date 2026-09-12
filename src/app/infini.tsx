@@ -107,9 +107,12 @@ RÈGLES STRICTES D'EXERCICE :
 5. SI LA RÉPONSE EST FAUSSE (2ème erreur sur la même question) : C'est le fail. Donne la solution détaillée étape par étape. Dis un truc style "C'est pas grave, on va le retenir pour le bac. On passe à la suite." et pose un NOUVEAU problème.
 6. Ne fais JAMAIS de longs paragraphes. Sois direct, utile et un peu taquin.`;
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
       const response = await fetch(urlChat(), {
         method: 'POST',
         headers: headersIA(),
+        signal: controller.signal,
         body: JSON.stringify({
           model: "openai/gpt-oss-120b",
           temperature: 0.5,
@@ -126,8 +129,13 @@ RÈGLES STRICTES D'EXERCICE :
           ]
         })
       });
+      clearTimeout(timeoutId);
 
       const data = await response.json();
+      if (!data || typeof data !== 'object') {
+        setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Erreur : réponse invalide de l\'IA.' }]);
+        return;
+      }
 
       const aiResponse = data.choices?.[0]?.message?.content;
       if (aiResponse && aiResponse.trim() !== '') {

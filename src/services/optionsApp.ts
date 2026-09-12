@@ -39,8 +39,8 @@ export async function appliquerRappel(): Promise<string> {
     // 🛡️ ANNULATION CIBLÉE : avant, cancelAllScheduledNotificationsAsync()
     // supprimait AUSSI les rappels contextuels (défi 19h, série 20h) gérés par
     // notifications.ts. On n'annule que nos deux identifiants connus.
-    try { await Notifications.cancelScheduledNotificationAsync(ID_RAPPEL); } catch {}
-    try { await Notifications.cancelScheduledNotificationAsync(ID_RAPPEL + '_matin'); } catch {}
+    try { await Notifications.cancelScheduledNotificationAsync(ID_RAPPEL); } catch { /* déjà annulé */ }
+    try { await Notifications.cancelScheduledNotificationAsync(ID_RAPPEL + '_matin'); } catch { /* déjà annulé */ }
     const actif = await getRappelActif();
     if (!actif) return 'Rappel désactivé ✅';
 

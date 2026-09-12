@@ -34,7 +34,7 @@ export default function PhotoExo() {
       return;
     }
     const photo = await ImagePicker.launchCameraAsync({ quality: 0.6, base64: true });
-    if (!photo.canceled && photo.assets[0].base64) {
+    if (!photo.canceled && photo.assets.length > 0 && photo.assets[0].base64) {
       setImage(photo.assets[0].base64);
       analyser(photo.assets[0].base64);
     }
@@ -42,7 +42,7 @@ export default function PhotoExo() {
 
   const choisirGalerie = async () => {
     const photo = await ImagePicker.launchImageLibraryAsync({ quality: 0.6, base64: true, mediaTypes: ['images'] });
-    if (!photo.canceled && photo.assets[0].base64) {
+    if (!photo.canceled && photo.assets.length > 0 && photo.assets[0].base64) {
       setImage(photo.assets[0].base64);
       analyser(photo.assets[0].base64);
     }
@@ -52,9 +52,12 @@ export default function PhotoExo() {
     setChargement(true);
     setGuidage([]);
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
       const reponse = await fetch(urlChat(), {
         method: 'POST',
         headers: headersIA(),
+        signal: controller.signal,
         body: JSON.stringify({
           model: MODELE_VISION,
           max_tokens: 800,
@@ -73,7 +76,12 @@ export default function PhotoExo() {
           ],
         }),
       });
+      clearTimeout(timeoutId);
       const data = await reponse.json();
+      if (!data || typeof data !== 'object') {
+        setGuidage(['⚠️ Erreur : réponse invalide de l\'IA.']);
+        return;
+      }
       const texte = data.choices?.[0]?.message?.content;
       if (texte && texte.trim() !== '') {
         setGuidage(texte.split(/\n(?=📖|💡)/).filter((s: string) => s.trim() !== ''));

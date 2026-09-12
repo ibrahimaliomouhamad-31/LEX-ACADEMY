@@ -43,7 +43,7 @@ export default function Revisions() {
     if (!exo || reponse.trim() === '') return;
     const juste = estJuste(reponse, exo.bonne_reponse);
     setIsCorrect(juste);
-    setFeedback(juste ? '✅ PARFAIT ! Cette notion est consolidée.' : `❌ La bonne réponse était : ${exo.bonne_reponse.split('|')[0]}`);
+    setFeedback(juste ? '✅ PARFAIT ! Cette notion est consolidée.' : `❌ La bonne réponse était : ${(exo.bonne_reponse?.split('|')[0] ?? 'N/A')}`);
     try {
       await enregistrerTentative(exo, juste);
       await planifierRevision(exo, juste);

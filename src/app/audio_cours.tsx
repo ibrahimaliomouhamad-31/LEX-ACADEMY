@@ -88,7 +88,7 @@ export default function AudioCours() {
                 <Text style={styles.carteEmoji}>{enLecture === c.id ? '⏸️' : '▶️'}</Text>
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text style={styles.carteTitre} numberOfLines={2}>{c.titre}</Text>
-                  <Text style={styles.carteDetail}>~{Math.max(1, Math.round(c.texte.split(' ').length / 150))} min d'écoute</Text>
+                  <Text style={styles.carteDetail}>~{Math.max(1, Math.round((c.texte || '').split(' ').length / 150))} min d'écoute</Text>
                 </View>
               </TouchableOpacity>
             ))

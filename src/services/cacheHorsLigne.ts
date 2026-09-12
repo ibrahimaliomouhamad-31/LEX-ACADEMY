@@ -92,7 +92,12 @@ export async function getExoById(id: string): Promise<Exercice | null> {
     await reconstruireIndexExo();
     const brutIndex2 = await AsyncStorage.getItem(CLE_INDEX_EXO);
     if (brutIndex2) {
-      const index2 = JSON.parse(brutIndex2) as Record<string, string>;
+      let index2: Record<string, string> = {};
+      try {
+        index2 = JSON.parse(brutIndex2) as Record<string, string>;
+      } catch {
+        index2 = {};
+      }
       const chapId = typeof index2[id] === 'string' ? index2[id] : null;
       if (chapId) {
         const exos = await getExercices(chapId);

@@ -52,7 +52,7 @@ export default function MiniJeux() {
     const nouveaux = [...scores];
     if (juste) nouveaux[tour] += 1;
     setScores(nouveaux);
-    setFeedback(juste ? '✅ EXACT !' : `❌ C'était : ${exo.bonne_reponse.split('|')[0]}`);
+    setFeedback(juste ? '✅ EXACT !' : `❌ C'était : ${(exo.bonne_reponse?.split('|')[0] ?? 'N/A')}`);
   };
 
   const passerAuJoueur = () => {

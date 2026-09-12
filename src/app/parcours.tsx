@@ -94,7 +94,7 @@ export default function Parcours() {
               </View>
               <View style={[styles.pastille, { backgroundColor: couleurNiveau(etape.niveau) }]}>
                 <Text style={styles.pastilleTexte}>
-                  {etape.statut === 'termine' ? 'OK' : etape.statut === 'en_cours' ? '..' : 'O'}
+                  {etape.statut === 'termine' ? 'OK' : etape.statut === 'en_cours' ? '..' : '○'}
                 </Text>
               </View>
             </View>

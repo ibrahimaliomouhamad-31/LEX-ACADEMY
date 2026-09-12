@@ -117,7 +117,7 @@ export default function Devoirs() {
     if (!exo || reponse.trim() === '' || feedback !== '') return;
     const juste = estJuste(reponse, exo.bonne_reponse);
     if (juste) setScore((s) => s + 1);
-    setFeedback(juste ? '✅ EXACT !' : `❌ Réponse : ${exo.bonne_reponse.split('|')[0]}\n📖 ${exo.explication}`);
+    setFeedback(juste ? '✅ EXACT !' : `❌ Réponse : ${(exo.bonne_reponse?.split('|')[0] ?? 'N/A')}\n📖 ${exo.explication}`);
   };
 
   const suivant = async () => {
