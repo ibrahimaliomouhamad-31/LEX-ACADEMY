@@ -143,7 +143,7 @@ export default function Cours() {
                 faux pour tous les chapitres d'autres matières/classes) */}
             <Text style={styles.subject}>
               {(coursData?.matiere || 'Cours').toUpperCase()}
-              {coursData?.classe ? ` - ${String(coursData.classe).toUpperCase()}` : ''}
+              {coursData?.classe ? ` - ${String(coursData.classe).toUpperCase()}` : ' - Cours'}
             </Text>
             <Text style={styles.chapterTitle}>{coursData?.titre}</Text>
           </View>

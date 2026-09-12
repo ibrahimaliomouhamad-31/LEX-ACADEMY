@@ -228,11 +228,15 @@ export default function BacBlanc() {
     const [niveauMin, niveauMax] =
       tauxGlobal < 0.5 ? [5, 40] : tauxGlobal <= 0.75 ? [35, 70] : [60, 100];
     while (resultat.length < nbExos) {
+      const randChap = new Uint32Array(1);
+      crypto.getRandomValues(randChap);
       const chap =
         chapitres.length > 0
-          ? chapitres[Math.floor(Math.random() * chapitres.length)]
+          ? chapitres[randChap[0] % chapitres.length]
           : null;
-      const niveau = niveauMin + Math.floor(Math.random() * (niveauMax - niveauMin + 1));
+      const randNiveau = new Uint32Array(1);
+      crypto.getRandomValues(randNiveau);
+      const niveau = niveauMin + (randNiveau[0] % (niveauMax - niveauMin + 1));
       const gen = genererExercice(
         chap ? chap.id : '',
         chap ? chap.titre : 'Calcul rapide et équations',
@@ -608,7 +612,7 @@ export default function BacBlanc() {
                   <Text style={styles.ligneReponse}>
                     Bonne réponse :{' '}
                     <Text style={styles.valeurBonneReponse}>
-                      {e.bonne_reponse.split('|')[0].trim()}
+                      {(e.bonne_reponse?.split('|')[0] ?? 'N/A').trim()}
                     </Text>
                   </Text>
                 )}

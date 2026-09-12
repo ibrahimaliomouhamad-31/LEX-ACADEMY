@@ -39,7 +39,7 @@ export default function RevisionExpress() {
 
   const nouvelleQuestion = () => {
     const ex = genererExercice('chap-express', 'Révision express', 2);
-    setQuestion({ enonce: ex.enonce, reponse: ex.bonne_reponse.split('|')[0] });
+    setQuestion({ enonce: ex.enonce, reponse: (ex.bonne_reponse?.split('|')[0] ?? 'N/A') });
     setMontreRep(false);
     setScore((s) => ({ ...s, vues: s.vues + 1 }));
   };

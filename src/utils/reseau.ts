@@ -20,6 +20,7 @@ type Ecouteur = (enLigne: boolean) => void;
 let etatActuel: boolean | null = null; // null = pas encore vérifié
 const ecouteurs = new Set<Ecouteur>();
 let ecouteReseauDemarree = false;
+let intervalSondage: ReturnType<typeof setInterval> | null = null;
 
 /** Vérifie la connexion maintenant (et notifie les abonnés si changement). */
 export async function verifierConnexion(): Promise<boolean> {
@@ -88,10 +89,22 @@ export function demarrerEcouteReseau(): void {
     // Certains environnements (web ancien) n'ont pas de listener natif :
     // on retombe sur un sondage léger.
     avertirDev('[reseau] Listener natif indisponible, sondage 30 s :', error);
-    setInterval(() => {
-      verifierConnexion();
-    }, 30000);
+    if (intervalSondage === null) {
+      intervalSondage = setInterval(() => {
+        verifierConnexion();
+      }, 30000);
+    }
   }
+}
+
+/** Arrête le sondage réseau (cleanup pour tests/hot-reload). */
+export function arreterEcouteReseau(): void {
+  if (intervalSondage !== null) {
+    clearInterval(intervalSondage);
+    intervalSondage = null;
+  }
+  ecouteReseauDemarree = false;
+  ecouteurs.clear();
 }
 
 /**

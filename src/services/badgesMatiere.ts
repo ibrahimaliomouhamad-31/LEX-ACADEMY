@@ -1,5 +1,6 @@
 // BADGES PAR MATIÈRE (amélioration 11)
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { tableauDeChaines } from '../utils/correctifsAudit';
 
 export interface BadgeMatiere {
   id: string;
@@ -24,7 +25,7 @@ const CLE = '@lex/badgesMatieres';
 
 export async function getBadgesMatieresObtenus(): Promise<string[]> {
   const brut = await AsyncStorage.getItem(CLE);
-  return brut ? (JSON.parse(brut) as string[]) : [];
+  return tableauDeChaines(brut);
 }
 
 /** Appelle après chaque exercice réussi : débloque les badges de matière franchis. */

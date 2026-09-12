@@ -38,7 +38,7 @@ export default function Positionnement() {
     if (juste) setScore((s) => s + 1);
     const t = parTheme[q.theme] || { ok: 0, total: 0 };
     setParTheme({ ...parTheme, [q.theme]: { ok: t.ok + (juste ? 1 : 0), total: t.total + 1 } });
-    setFeedback(juste ? '✅ EXACT !' : `❌ C'était : ${q.exo.bonne_reponse.split('|')[0]}`);
+    setFeedback(juste ? '✅ EXACT !' : `❌ C'était : ${(q.exo.bonne_reponse?.split('|')[0] ?? 'N/A')}`);
   };
 
   const suivant = async () => {

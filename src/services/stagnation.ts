@@ -1,5 +1,6 @@
 // STAGNATION : détecte les matières non travaillées depuis trop longtemps (amélioration 9)
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { parseObjetJSON } from '../utils/correctifsAudit';
 
 const CLE = '@lex/derniereActivite';
 const SEUIL_JOURS = 5;
@@ -10,7 +11,7 @@ const MATIERES = ['Mathématiques', 'Physique-Chimie', 'SVT', 'Anglais', 'Philos
 export async function enregistrerActivite(matiere: string): Promise<void> {
   if (!matiere) return;
   const brut = await AsyncStorage.getItem(CLE);
-  const dates: Record<string, string> = brut ? JSON.parse(brut) : {};
+  const dates: Record<string, string> = parseObjetJSON<Record<string, string>>(brut, {});
   dates[matiere] = new Date().toISOString();
   await AsyncStorage.setItem(CLE, JSON.stringify(dates));
 }
@@ -23,7 +24,7 @@ export interface AlerteStagnation {
 /** Matières sans activité depuis ≥ SEUIL_JOURS jours (les plus urgentes d'abord). */
 export async function alertesStagnation(): Promise<AlerteStagnation[]> {
   const brut = await AsyncStorage.getItem(CLE);
-  const dates: Record<string, string> = brut ? JSON.parse(brut) : {};
+  const dates: Record<string, string> = parseObjetJSON<Record<string, string>>(brut, {});
   const maintenant = Date.now();
   return MATIERES.map((m) => {
     const dernier = dates[m] ? new Date(dates[m]).getTime() : 0;

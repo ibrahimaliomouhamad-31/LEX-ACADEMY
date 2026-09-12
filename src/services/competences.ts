@@ -1,6 +1,7 @@
 // COMPÉTENCES : auto-évaluation officielle + suggestions de chapitres (amélioration 3)
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { toutesCompetences, type CompetenceOfficielle } from './programmeOfficiel';
+import { parseObjetJSON } from '../utils/correctifsAudit';
 
 export interface EtatCompetence {
   competence: CompetenceOfficielle;
@@ -12,7 +13,7 @@ const CLE = '@lex/evalCompetences';
 
 export async function getEvaluations(): Promise<Record<string, number>> {
   const brut = await AsyncStorage.getItem(CLE);
-  return brut ? (JSON.parse(brut) as Record<string, number>) : {};
+  return parseObjetJSON<Record<string, number>>(brut, {});
 }
 
 /** L'élève s'auto-évalue (1 à 5) sur une compétence ; converti en % . */

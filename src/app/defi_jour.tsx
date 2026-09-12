@@ -70,7 +70,7 @@ export default function DefiJour() {
     const juste = estJuste(reponse, exo.bonne_reponse);
     if (juste) setScore((s) => s + 1);
     setFeedback(
-      juste ? '✅ EXACT !' : `❌ La réponse était : ${exo.bonne_reponse.split('|')[0]}\n📖 ${exo.explication}`
+      juste ? '✅ EXACT !' : `❌ La réponse était : ${exo.bonne_reponse?.split('|')[0] ?? 'N/A'}\n📖 ${exo.explication ?? ''}`
     );
   };
 

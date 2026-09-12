@@ -46,7 +46,7 @@ export async function viderFileSignalements(): Promise<void> {
   try {
     const brut = await AsyncStorage.getItem(CLE_FILE);
     if (!brut) return;
-    const file: Signalement[] = JSON.parse(brut);
+    const file = parseTableauJSON<Signalement>(brut);
     if (file.length === 0) return;
     const restants: Signalement[] = [];
     for (const s of file) {

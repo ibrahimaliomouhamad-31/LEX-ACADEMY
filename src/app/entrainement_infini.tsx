@@ -131,7 +131,7 @@ export default function EntrainementInfini() {
       setSerie(0);
     }
     
-    setFeedback(juste ? '✅ EXACT !' : `❌ Réponse : ${exo.bonne_reponse.split('|')[0]}\n📖 ${exo.explication}`);
+    setFeedback(juste ? '✅ EXACT !' : `❌ Réponse : ${(exo.bonne_reponse?.split('|')[0] ?? 'N/A')}\n📖 ${exo.explication}`);
   };
 
   // Met à jour la maîtrise d'une notion

@@ -30,9 +30,12 @@ export default function LexAI() {
     setLoading(true);
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
       const response = await fetch(urlChat(), {
         method: 'POST',
         headers: headersIA(),
+        signal: controller.signal,
         body: JSON.stringify({
           model: "openai/gpt-oss-120b",
           temperature: 0.5,
@@ -45,6 +48,7 @@ export default function LexAI() {
           ]
         })
       });
+      clearTimeout(timeoutId);
 
       const data = await response.json();
 

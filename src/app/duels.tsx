@@ -101,7 +101,7 @@ export default function Duels() {
     const juste = estJuste(reponse, exo.bonne_reponse);
     const nouveauScore = score + (juste ? 1 : 0);
     setScore(nouveauScore);
-    setFeedback(juste ? '✅ YES ! Continue comme ça !' : `❌ Rate ! La réponse était : ${exo.bonne_reponse.split('|')[0]}`);
+    setFeedback(juste ? '✅ YES ! Continue comme ça !' : `❌ Rate ! La réponse était : ${(exo.bonne_reponse?.split('|')[0] ?? 'N/A')}`);
   };
 
   const suivant = async () => {
