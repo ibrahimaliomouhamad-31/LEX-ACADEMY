@@ -48,3 +48,14 @@ export async function deconnecter(): Promise<void> {
 export function estConnecteAuth(): boolean {
   return auth.currentUser !== null;
 }
+
+// 🎓 Nomenclature du lycée : logique PURE, ré-exportée ici pour que les écrans
+// continuent d'importer depuis ce module (une seule source de vérité).
+export {
+  CLASSES,
+  NIVEAUX_FILTRAGE,
+  classeCanonique,
+  libelleNiveau,
+  niveauPourClasse,
+} from '../utils/nomenclatureLycee';
+export type { ClasseOption } from '../utils/nomenclatureLycee';

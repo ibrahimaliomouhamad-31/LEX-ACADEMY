@@ -1,22 +1,22 @@
-// CONFIG IA — point UNIQUE de configuration des appels Groq.
+// CONFIG IA — point UNIQUE de configuration de l'appel Groq.
 //
-// 🔒 SÉCURITÉ (corrigé) : tous les appels IA passent désormais par le proxy
-// Firebase Functions `lexaiChat` — la clé Groq ne vit QUE côté serveur
-// (functions:secrets:set GROQ_API_KEY). L'ancienne clé en dur dans l'APK a
-// été supprimée : plus aucune clé IA dans l'application.
+// 🔒 SÉCURITÉ : l'appel IA passe par le proxy Firebase Functions `lexaiChat` —
+// la clé Groq ne vit QUE côté serveur (functions:secrets:set GROQ_API_KEY).
+// L'ancienne clé en dur dans l'APK a été supprimée : plus aucune clé IA dans
+// l'application.
 //
-// Si la Function n'est pas encore déployée, les écrans IA affichent un
-// message clair (pas de crash) — voir le message d'erreur de lexai.tsx.
+// ⚠️ SI LA FUNCTION N'EST PAS DÉPLOYÉE : l'URL répond **404 en HTML** (pas du
+// JSON) → c'est le cas rencontré en production. `lexai.tsx` teste
+// explicitement `response.status === 404` pour afficher « assistant non
+// activé » au lieu d'accuser à tort la connexion de l'élève.
+//
+// (Contrat de réponse : `{ reponse: "..." }` — voir functions/index.js.)
 
 export const URL_PROXY: string =
   'https://us-central1-lex-academy-10eef.cloudfunctions.net/lexaiChat';
 
 export function urlChat(): string {
   return URL_PROXY;
-}
-
-export function urlTranscription(): string {
-  return URL_PROXY.replace('lexaiChat', 'lexaiTranscrire');
 }
 
 export function headersIA(): { [cle: string]: string } {

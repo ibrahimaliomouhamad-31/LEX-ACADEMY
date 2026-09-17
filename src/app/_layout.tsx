@@ -88,7 +88,6 @@ export default function Layout() {
         <Stack.Screen name="classes_exos" />
         <Stack.Screen name="matieres_exos" />
         <Stack.Screen name="chapitres_exos" />
-        <Stack.Screen name="infini" />
       </Stack>
       {dortoir && (
         <View style={{ flex: 1 }}>

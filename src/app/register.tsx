@@ -1,16 +1,17 @@
-import { creerCompte } from '../services/authFirebase';
+import { creerCompte, CLASSES, niveauPourClasse } from '../services/authFirebase';
 import { hacherMotDePasse } from '../services/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { db } from '../config/firebaseConfig';
 import { doc, setDoc } from 'firebase/firestore';
 import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
 export default function Register() {
   const router = useRouter();
-  const [nom, setNom] = useState('');
+    const [nom, setNom] = useState('');
   const [classe, setClasse] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -44,15 +45,17 @@ export default function Register() {
       // Profil : UNIQUEMENT les champs publics.
       // 🔒 Le mot de passe ne vit QUE dans Firebase Auth, jamais dans
       // Firestore (les règles de sécurité l'interdisent formellement).
-      await setDoc(doc(db, "utilisateurs", uid), {
+            await setDoc(doc(db, "utilisateurs", uid), {
         nom: nom.trim(),
         classe: classe.trim(),
+        niveau: niveauPourClasse(classe.trim()),
         xp: 0
       });
 
       // 3. Connexion automatique (mémoire locale + session)
       await AsyncStorage.setItem('lex_user_nom', nom.trim());
       await AsyncStorage.setItem('lex_user_id', uid);
+      await AsyncStorage.setItem('lex_user_niveau', niveauPourClasse(classe));
 
       Alert.alert("Bienvenue au LEX !", "Ton compte a été créé avec succès. Tu as 0 XP. Va faire des exercices pour grimper dans le classement !");
       router.push('/');
@@ -95,14 +98,22 @@ export default function Register() {
           onChangeText={setNom}
         />
 
-        <Text style={styles.label}>Ta classe</Text>
-        <TextInput 
-          style={styles.input} 
-          placeholder="Ex: 1ère C" 
-          placeholderTextColor="#64748B"
-          value={classe}
-          onChangeText={setClasse}
-        />
+                <Text style={styles.label}>Ta classe</Text>
+        <View style={styles.pickerContainer}>
+          <Picker
+            selectedValue={classe}
+            onValueChange={setClasse}
+                        style={styles.picker}
+            prompt="Choisis ta classe"
+            dropdownIconColor="#CBD5E1"
+            itemStyle={{ backgroundColor: '#1E293B', color: '#F8FAFC' }}
+          >
+            <Picker.Item label="Sélectionne ta classe" value="" color="#94A3B8" />
+            {CLASSES.map((c) => (
+              <Picker.Item key={c.valeur} label={c.label} value={c.valeur} />
+            ))}
+          </Picker>
+        </View>
 
         <Text style={styles.label}>Mot de passe</Text>
         <TextInput 
@@ -148,7 +159,9 @@ const styles = StyleSheet.create({
   title: { color: '#F8FAFC', fontSize: 28, fontWeight: 'bold', marginBottom: 10, textAlign: 'center' },
   subtitle: { color: '#94A3B8', fontSize: 14, textAlign: 'center', marginBottom: 30, lineHeight: 20 },
   label: { color: '#CBD5E1', fontSize: 14, fontWeight: 'bold', marginBottom: 8, marginLeft: 5 },
-  input: { backgroundColor: '#1E293B', borderWidth: 1, borderColor: '#334155', borderRadius: 10, padding: 15, color: '#F8FAFC', fontSize: 16, marginBottom: 20 },
+    input: { backgroundColor: '#1E293B', borderWidth: 1, borderColor: '#334155', borderRadius: 10, padding: 15, color: '#F8FAFC', fontSize: 16, marginBottom: 20 },
+  pickerContainer: { backgroundColor: '#1E293B', borderWidth: 1, borderColor: '#334155', borderRadius: 10, marginBottom: 20, overflow: 'hidden' },
+  picker: { color: '#F8FAFC', fontSize: 16 },
   erreurBox: { backgroundColor: '#2A1010', padding: 15, borderRadius: 8, marginBottom: 20, borderWidth: 1, borderColor: '#EF4444' },
   erreurText: { color: '#FCA5A5', fontSize: 14 },
   btn: { backgroundColor: '#10B981', padding: 15, borderRadius: 10, alignItems: 'center', marginTop: 10 },

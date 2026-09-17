@@ -11,7 +11,6 @@ export interface ContexteBadges {
   qcmRecord: number; // record QCM éclair
   chapitresTelecharges: number; // chapitres en cache
   flashcardsRevues: number; // decks de flashcards faits
-  bacsBlancs: number; // bacs blancs terminés
 }
 
 export async function chargerContexte(): Promise<ContexteBadges> {
@@ -21,7 +20,6 @@ export async function chargerContexte(): Promise<ContexteBadges> {
     qcmRecord: 0,
     chapitresTelecharges: 0,
     flashcardsRevues: 0,
-    bacsBlancs: 0,
   };
   try {
     // 🔄 BUG CORRIGÉ : ce service lisait les ANCIENNES clés globales
@@ -29,12 +27,11 @@ export async function chargerContexte(): Promise<ContexteBadges> {
     // utilisateur depuis la migration (lex_user_<UID>_...). Résultat :
     // badges et quêtes affichaient 0 pour les élèves migrés. On lit les
     // clés utilisateur, avec repli sur l'ancienne clé globale.
-    const [resolus, infini, qcm, fc, bb] = await Promise.all([
+    const [resolus, infini, qcm, fc] = await Promise.all([
       getUserItem('exos_resolus'),
       getUserItem('infini_stats'),
       getUserItem('qcm_meilleur'),
       getUserItem('flashcards_scores'),
-      getUserItem('bac_blanc_scores'),
     ]);
 
     const resolusBrut = resolus ?? (await AsyncStorage.getItem('lex_exos_resolus'));
@@ -63,11 +60,6 @@ export async function chargerContexte(): Promise<ContexteBadges> {
       ctx.flashcardsRevues = obj && typeof obj === 'object' ? Object.keys(obj).length : 0;
     }
 
-    const bbBrut = bb ?? (await AsyncStorage.getItem('lex_bac_blanc_scores'));
-    if (bbBrut) {
-      const arr = JSON.parse(bbBrut);
-      ctx.bacsBlancs = Array.isArray(arr) ? arr.length : 0;
-    }
   } catch {
     // valeurs par défaut
   }
@@ -96,9 +88,7 @@ export const BADGES: BadgeDef[] = [
   { id: 'hors_ligne_5', titre: 'Prévoyant', emoji: '📱', description: 'Télécharger 5 chapitres', objectif: 5, mesurer: (c) => c.chapitresTelecharges },
   { id: 'hors_ligne_15', titre: 'Survivaliste', emoji: '🎒', description: 'Télécharger 15 chapitres', objectif: 15, mesurer: (c) => c.chapitresTelecharges },
   { id: 'flash_3', titre: 'Mémoire Vive', emoji: '🃏', description: 'Réviser 3 decks de flashcards', objectif: 3, mesurer: (c) => c.flashcardsRevues },
-  { id: 'bac_1', titre: 'Candidat', emoji: '📝', description: 'Terminer 1 BAC blanc', objectif: 1, mesurer: (c) => c.bacsBlancs },
-  { id: 'bac_5', titre: 'Vétéran du BAC', emoji: '🎓', description: 'Terminer 5 BAC blancs', objectif: 5, mesurer: (c) => c.bacsBlancs },
-  { id: 'tous_terrains', titre: 'Tous Terrains', emoji: '🌟', description: 'Faire au moins 1 de chaque activité (exo, infini, QCM, flashcards, BAC)', objectif: 5, mesurer: (c) => [c.exosResolus > 0, c.infiniTotal > 0, c.qcmRecord > 0, c.flashcardsRevues > 0, c.bacsBlancs > 0].filter(Boolean).length },
+  { id: 'tous_terrains', titre: 'Tous Terrains', emoji: '🌟', description: 'Faire au moins 1 de chaque activité (exo, infini, QCM, flashcards)', objectif: 4, mesurer: (c) => [c.exosResolus > 0, c.infiniTotal > 0, c.qcmRecord > 0, c.flashcardsRevues > 0].filter(Boolean).length },
 ];
 
 export function evaluerBadges(ctx: ContexteBadges): { badge: BadgeDef; progres: number; debloque: boolean }[] {
@@ -153,7 +143,6 @@ const TOUTES_QUETES: Quete[] = [
   { id: 'q_infini_30', titre: 'Fais 30 exercices infinis', emoji: '♾️', objectif: 30, mesurer: (c) => c.infiniTotal },
   { id: 'q_qcm_5', titre: 'Atteins 5 au QCM Éclair', emoji: '⚡', objectif: 5, mesurer: (c) => c.qcmRecord },
   { id: 'q_flash_2', titre: 'Révise 2 decks de flashcards', emoji: '🃏', objectif: 2, mesurer: (c) => c.flashcardsRevues },
-  { id: 'q_bac_1', titre: 'Termine un BAC blanc', emoji: '📝', objectif: 1, mesurer: (c) => c.bacsBlancs },
   { id: 'q_tel_3', titre: 'Télécharge 3 chapitres', emoji: '📥', objectif: 3, mesurer: (c) => c.chapitresTelecharges },
 ];
 

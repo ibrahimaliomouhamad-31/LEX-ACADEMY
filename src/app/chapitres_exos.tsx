@@ -177,10 +177,7 @@ export default function ChapitresExos() {
 
                   <TouchableOpacity
                     style={styles.lexAiBtn}
-                    onPress={() => router.push({
-                      pathname: '/infini',
-                      params: { id: chapitre.id, titre: chapitre.titre, classe: classe, matiere: matiere }
-                    })}
+                    onPress={() => router.push({ pathname: '/lexai' })}
                   >
                     <Text style={styles.lexAiBtnText}>🤖 LEX.AI</Text>
                   </TouchableOpacity>

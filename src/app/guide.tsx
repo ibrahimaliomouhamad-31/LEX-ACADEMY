@@ -18,7 +18,7 @@ const SECTIONS: Section[] = [
     entrees: [
       { q: 'C\'est quoi LEX ACADEMY ?', r: 'Ton professeur de poche : cours, exercices infinis, révisions intelligentes et jeux — faits pour le Lycée d\'Excellence de Tessaoua, et pensés pour vivre SANS internet toute la semaine.' },
       { q: 'Première fois ici ? Fais ceci :', r: '1) Connecte-toi ou crée ton compte (pour les XP). 2) Fais le 🧪 Test de positionnement (🎯 Plus). 3) Télécharge tes chapitres au wifi (voir section Hors-ligne). 4) Fixe-toi un objectif dans 🎯 Objectifs.' },
-      { q: 'Les XP, ça sert à quoi ?', r: 'À grimper au classement du LEX 🏆, monter de ligue (Bronze → Légende 👑) et gagner des crédits 💰 (5 par bonne réponse) pour la 🛍️ Boutique (thèmes, titres).' },
+      { q: 'Les XP, ça sert à quoi ?', r: 'À grimper au classement du LEX 🏆, monter de ligue (Bronze → Légende 👑) et gagner des crédits 💰 (5 par bonne réponse) pour la 🛍️ Boutique (titres, boosters, streak-freezes). Les thèmes de couleur sont gratuits dans ⚙️ Réglages 🎨.' },
       { q: 'Mot de passe oublié ?', r: 'Sur l\'écran de connexion, touche « Mot de passe oublié ? » : ta demande part à l\'administrateur, va le voir au lycée pour le récupérer.' },
     ],
   },
@@ -38,8 +38,6 @@ const SECTIONS: Section[] = [
       { q: '🧠 Révisions du jour : c\'est quoi ?', r: 'La répétition espacée : chaque exercice raté revient 1, 3, 7, 16, 35, 70 puis 140 jours plus tard — exactement quand ton mémoire commence à lâcher. 10 minutes par jour suffisent. C\'EST la méthode la plus prouvée scientifiquement.' },
       { q: 'Comment marche l\'Entraînement Infini ?', r: 'Choisis une micro-notion du chapitre et un niveau de 1 (base) à 100 (olympiade). L\'app crée des millions d\'exercices différents, calculés juste sur ton téléphone. Niveau 2 ≈ 3× plus dur que 1, etc.' },
       { q: 'J\'ai tout trop facile / trop dur', r: 'Trop facile : monte au niveau 60-100 puis va aux 🏅 Olympiades. Trop dur : 📊 Ma maîtrise montre tes chapitres faibles, et 🧠 Pièges du BAC t\'explique tes erreurs récurrentes.' },
-      { q: '📝 BAC Blanc', r: 'Une épreuve chronométrée (30 min à 2 h), notée sur 20, avec corrigé. Ton niveau s\'adapte automatiquement à tes stats : plus tu es fort, plus l\'épreuve est dure.' },
-      { q: '📅 Planning', r: 'Ton programme de la semaine, construit sur tes points faibles réels : 30 minutes par jour, un chapitre par jour.' },
       { q: '🎧 et 🃏 ?', r: 'Cours en audio (révise en marchant) et Flashcards (cartes question/réponse générées de tes cours, mode « je savais / à revoir »).' },
     ],
   },
@@ -47,7 +45,6 @@ const SECTIONS: Section[] = [
     emoji: '🎮', titre: '4. Jouer et rester motivé',
     entrees: [
       { q: '📰 Défi du jour', r: 'Chaque jour, 3 questions IDENTIQUES pour toute ta classe : qui sera le plus rapide ? Le classement de la classe se met à jour en direct. En mode 👥 Duo, jouez à deux sur le même téléphone.' },
-      { q: '🏆 Coupe inter-classes', r: 'La moyenne des défis de la semaine oppose les 5 classes du LEX. Faites participer un maximum de camarades !' },
       { q: '⚔️ Duels, 🎮 Mini-jeux, 🗺️ Conquête', r: 'Duel : bats le fantôme (ton record). Mini-jeux : course de calcul à 2 + memory des formules. Conquête : chaque chapitre maîtrisé à 70 % devient un territoire 🏰 à toi.' },
       { q: '🏅 Badges, quêtes, ligues', r: 'Des quêtes changent chaque semaine, 15 badges à débloquer, 6 ligues selon tes XP. La régularité rapporte plus que le farming.' },
     ],

@@ -1,0 +1,29 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "classement_public",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "niveau", "order": "ASCENDING" },
+        { "fieldPath": "xp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "classement_public",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "niveau", "order": "ASCENDING" },
+        { "fieldPath": "xp", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "classement_public",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "niveau", "order": "ASCENDING" },
+        { "fieldPath": "xp_semaine", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

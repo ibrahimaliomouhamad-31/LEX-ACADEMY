@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, limit, orderBy, query } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDoc, getDocs, limit, orderBy, query, setDoc } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
 import { syncQueue } from '../services/syncQueue';
 import { lireXpNonSync } from '../services/xpLocal';
@@ -65,7 +65,21 @@ export default function Admin() {
     try {
       const snap = await getDocs(collection(db, 'admins'));
       const liste: Admin[] = [];
-      snap.forEach((d) => liste.push({ id: d.id, nom: (d.data() as { nom?: string }).nom || d.id, ajouteLe: (d.data() as { ajouteLe?: string }).ajouteLe || '' }));
+      // ⚠️ `userId` DOIT être lu : c'est le SEUL lien entre un doc de `admins`
+      // et un élève. Il était jeté ici, d'où deux conséquences graves :
+      //   1. `liste.some((a) => a.userId === uidEleve)` était TOUJOURS faux →
+      //      `estAdmin = false` même pour le proviseur → l'écran d'administration
+      //      (et tout son dashboard) était inutilisable par TOUT LE MONDE ;
+      //   2. la « migration » ci-dessous se relançait à chaque chargement.
+      snap.forEach((d) => {
+        const data = d.data() as { nom?: string; ajouteLe?: string; userId?: string };
+        liste.push({
+          id: d.id,
+          nom: data.nom || d.id,
+          ajouteLe: data.ajouteLe || '',
+          userId: data.userId,
+        });
+      });
 
       // 71 — ANTI-USURPATION + ANTI-COURSE : l'admin est identifié par userId.
       // Le bootstrap « premier arrivé = proviseur » était une prise de contrôle
@@ -80,16 +94,28 @@ export default function Admin() {
       // Migration : un admin hérité par nom est rélié à ton userId à ta 1re visite
       for (const adm of liste) {
         if (!adm.userId && nomEleve !== '' && uidEleve !== '' && adm.nom.toLowerCase() === nomEleve.toLowerCase()) {
-          await addDoc(collection(db, 'admins'), { nom: adm.nom, userId: uidEleve, ajouteLe: jourLocal() });
-          adm.id = 'migre';
+          // ⚠️ Convention serveur = `docId == uid` : indispensable car les
+          // regles Firestore ne savent pas faire de « where », elles ne peuvent
+          // tester qu'un CHEMIN : `exists(admins/$(request.auth.uid))`.
+          // On cree donc le doc a l'ID de l'eleve (l'ancien doc, sans ID
+          // d'eleve, ne compte plus pour isAdmin()).
+          await setDoc(doc(db, 'admins', uidEleve), {
+            nom: adm.nom,
+            userId: uidEleve,
+            ajouteLe: adm.ajouteLe || jourLocal(),
+          });
+          adm.id = uidEleve;
+          adm.userId = uidEleve;
         }
       }
 
       liste.sort((a, b) => a.nom.localeCompare(b.nom));
       setAdmins(liste);
-      setEstAdmin(uidEleve !== '' && liste.some((a) => a.userId === uidEleve));
+      const estAdmin =
+        uidEleve !== '' && liste.some((a) => a.id === uidEleve || a.userId === uidEleve);
+      setEstAdmin(estAdmin);
 
-      if (uidEleve !== '' && liste.some((a) => a.userId === uidEleve)) {
+      if (estAdmin) {
         await chargerDashboard();
       }
     } catch {
@@ -125,7 +151,47 @@ export default function Admin() {
         await charger(nom, uid);
         return;
       }
-      await addDoc(collection(db, 'admins'), { nom, userId: uid, ajouteLe: jourLocal() });
+      // 🛡️ Le doc `admins/<uid>` porte l'ID de l'eleve (docId == uid) : c'est ce
+      // que teste `isAdmin()` cote serveur. Avant, `addDoc` generait un ID
+      // aleatoire -> les regles ne pouvaient pas retrouver l'admin.
+      await setDoc(doc(db, 'admins', uid), { nom, userId: uid, ajouteLe: jourLocal() });
+      // 🔑 Double écriture (best-effort). Depuis la refonte de `firestore.rules`,
+      // `isAdmin()` teste D'ABORD `admins/<uid>` (docId = uid) — donc l'appel
+      // ci-dessus suffit déjà — et garde `roles/{uid}.isAdmin` en REPLI pour ne
+      // verrouiller aucun admin déjà provisionné. Cette écriture est permise au
+      // premier proviseur tant que la sentinelle `config/initialise` n'existe
+      // pas (voir `adminInitialise()` dans les règles). Le try/catch garantit
+      // que le bootstrap ne dépend jamais d'une écriture secondaire.
+      try {
+        await setDoc(
+          doc(db, 'roles', uid),
+          {
+            userId: uid,
+            nom,
+            role: 'admin',
+            isAdmin: true,
+            classe: '',
+            actif: true,
+            isDeleted: false,
+            dateAttribution: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+      } catch (error) {
+        rapporterErreur('[admin] Écriture roles/{uid} du proviseur (best-effort):', error);
+      }
+      // 🚩 SENTINELLE (best-effort) : verrouille definitivement l'auto-promotion
+      // (`!adminInitialise()` dans les regles). Ecrite EN DERNIER, apres les
+      // ecritures qui exigent la porte encore ouverte.
+      try {
+        await setDoc(
+          doc(db, 'config', 'initialise'),
+          { par: uid, nom, le: jourLocal() },
+          { merge: true }
+        );
+      } catch (error) {
+        rapporterErreur('[admin] Sentinelle config/initialise (best-effort):', error);
+      }
       setCodeProviseur('');
       await charger(nom, uid);
     } catch {
@@ -352,6 +418,15 @@ export default function Admin() {
             <Text style={styles.nomAdmin}>👤 {a.nom}{a.ajouteLe ? ` (ajouté le ${a.ajouteLe})` : ' — proviseur 👑'}</Text>
           </View>
         ))}
+        {/* Roles des eleves : ce bouton est le SEUL lien vers admin_roles.
+            Sans lui, l'ecran (473 l.) etait atteignable par personne — c'est
+            pourquoi le module a pu rester casse sans que personne ne le voie. */}
+        <TouchableOpacity
+          style={[styles.boutonAjout, { alignItems: 'center', marginBottom: 10 }]}
+          onPress={() => router.push('/admin_roles')}
+        >
+          <Text style={styles.boutonAjoutText}>🔧 Gérer les rôles des élèves</Text>
+        </TouchableOpacity>
         <View style={styles.rowAjout}>
           <TextInput style={styles.inputAjout} placeholder="Nom d'un élève à promouvoir" placeholderTextColor="#64748B" value={nouvelAdmin} onChangeText={setNouvelAdmin} />
           <TouchableOpacity style={styles.boutonAjout} onPress={ajouterAdmin}>

@@ -109,7 +109,7 @@ export default function BienEtre() {
               <View style={styles.jourCreneaux}>
                 <View style={styles.creneau}><Text style={styles.creneauTemps}>08h-10h</Text><Text style={styles.creneauMatiere}>{['Maths', 'Physique', 'SVT', 'Maths', 'Physique', 'SVT', 'Revision'][i]}</Text></View>
                 <View style={styles.creneau}><Text style={styles.creneauTemps}>14h-16h</Text><Text style={styles.creneauMatiere}>{['Physique', 'SVT', 'Maths', 'SVT', 'Maths', 'Physique', 'Repos'][i]}</Text></View>
-                <View style={styles.creneau}><Text style={styles.creneauTemps}>19h-21h</Text><Text style={styles.creneauMatiere}>{['Exos', 'Exos', 'Exos', 'Exos', 'BAC Blanc', 'Exos', 'Libre'][i]}</Text></View>
+                <View style={styles.creneau}><Text style={styles.creneauTemps}>19h-21h</Text><Text style={styles.creneauMatiere}>{['Exos', 'Exos', 'Exos', 'Exos', 'Révisions', 'Exos', 'Libre'][i]}</Text></View>
               </View>
             </View>
           ))}

@@ -63,7 +63,7 @@ describe('Sauvegarde — sélection des clés (sauvegardeCompte)', () => {
       // Clés oubliées par l'ancien filtrage → sauvegarde incomplète (anti-farm
       // réinitialisé, historique perdu).
       const oubliees = [
-        'lex_exos_resolus', 'lex_bac_blanc_scores', 'lex_flashcards_scores',
+        'lex_exos_resolus', 'lex_flashcards_scores',
         'lex_qcm_meilleur', 'lex_infini_stats', 'lex_srs', 'lex_srs_sm2',
         'lex_srs_faits', 'lex_objectifs', 'lex_positionnement', 'lex_credits',
         'lex_booster_double_xp_fin', 'lex_badges_debloques',

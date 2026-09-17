@@ -3,12 +3,19 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { depenserCredits, getCredits } from '../services/statsSuivi';
-import { couleurTheme, getTheme, setTheme, type Theme } from '../services/parametres';
+import { couleurTheme, getTheme, type Theme } from '../services/parametres';
 import { bloquerSiExamen } from '../services/parametres';
 import { ajouterStreakFreezes, activerBoosterDoubleXp, lireStreakFreezes } from '../services/xpLocal';
 
 // 50 — BOUTIQUE : les crédits se gagnent en résolvant des exercices
-// (+5 par bonne réponse) et s'échangent contre des thèmes, titres et emojis.
+// (+5 par bonne réponse) et s'échangent contre des TITRES et des BOOSTERS.
+//
+// 🧹 Les 4 THÈMES payants (bleu/vert/violet/rose) ont été RETIRÉS : ils étaient
+// offerts gratuitement dans les Réglages (`parametres.tsx` propose les 5
+// thèmes) — vendre 900 crédits ce qu'on donne ailleurs n'avait aucun sens.
+// Les thèmes restent donc gratuits dans 🎨 Réglages. Les articles déjà achetés
+// restent en base (identifiants inertes) et le thème choisi reste appliqué
+// (`lex_theme`) : personne ne perd son affichage.
 
 interface Article {
   id: string;
@@ -16,15 +23,11 @@ interface Article {
   titre: string;
   description: string;
   prix: number;
-  type: 'theme' | 'titre' | 'avatar' | 'boost';
+  type: 'titre' | 'boost';
   valeur: string;
 }
 
 const CATALOGUE: Article[] = [
-  { id: 'theme_bleu', emoji: '🔵', titre: 'Thème Bleu Océan', description: 'Accent bleu sur l\'écran d\'accueil', prix: 200, type: 'theme', valeur: 'bleu' },
-  { id: 'theme_vert', emoji: '🟢', titre: 'Thème Vert Excellence', description: 'Accent vert sur l\'écran d\'accueil', prix: 200, type: 'theme', valeur: 'vert' },
-  { id: 'theme_violet', emoji: '🟣', titre: 'Thème Violet Nuit', description: 'Accent violet sur l\'écran d\'accueil', prix: 200, type: 'theme', valeur: 'violet' },
-  { id: 'theme_rose', emoji: '🩷', titre: 'Thème Rose Aurore', description: 'Accent rose sur l\'écran d\'accueil', prix: 300, type: 'theme', valeur: 'rose' },
   { id: 'titre_gardien', emoji: '🛡️', titre: 'Titre : Gardien du LEX', description: 'Ton titre s\'affiche dans ton profil', prix: 500, type: 'titre', valeur: '🛡️ Gardien du LEX' },
   { id: 'titre_strategie', emoji: '♟️', titre: 'Titre : Stratège du BAC', description: 'Pour les cerveaux tactiques', prix: 800, type: 'titre', valeur: '♟️ Stratège du BAC' },
   { id: 'titre_legende', emoji: '👑', titre: 'Titre : Légende de Tessaoua', description: 'Le titre ultime, très cher', prix: 2500, type: 'titre', valeur: '👑 Légende de Tessaoua' },
@@ -100,11 +103,8 @@ export default function Boutique() {
     }
 
     if (achats.includes(article.id)) {
-      // Déjà possédé : on l'active
-      if (article.type === 'theme') {
-        setT(article.valeur as Theme);
-        await setTheme(article.valeur as Theme);
-      } else if (article.type === 'titre') {
+      // Déjà possédé : on l'active (seuls les titres ont un état « actif »)
+      if (article.type === 'titre') {
         setTitreActif(article.valeur);
         const { setUserItem } = await import('../services/userStorage');
         await setUserItem(CLE_TITRE_ACTIF, article.valeur);
@@ -121,10 +121,7 @@ export default function Boutique() {
       const { setUserItem } = await import('../services/userStorage');
       await setUserItem(CLE_ACHATS, JSON.stringify(nouveaux));
       setCredits(await getCredits());
-      if (article.type === 'theme') {
-        setT(article.valeur as Theme);
-        await setTheme(article.valeur as Theme);
-      } else if (article.type === 'titre') {
+      if (article.type === 'titre') {
         setTitreActif(article.valeur);
         await setUserItem(CLE_TITRE_ACTIF, article.valeur);
       }
@@ -153,7 +150,7 @@ export default function Boutique() {
       <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
         {CATALOGUE.map((article) => {
           const possede = achats.includes(article.id);
-          const actif = (article.type === 'theme' && theme === article.valeur) || (article.type === 'titre' && titreActif === article.valeur);
+          const actif = article.type === 'titre' && titreActif === article.valeur;
           return (
             <TouchableOpacity
               key={article.id}

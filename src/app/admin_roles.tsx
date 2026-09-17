@@ -1,6 +1,6 @@
 /**
  * 🔧 ADMIN PANEL - ATTRIBUTION DE RÔLES
- * Interface pour attribuer des postes aux élèves < 14 ans
+ * Attribution des rôles de responsabilité (moniteur, chef de classe, délégué)
  */
 
 import React, { useState, useEffect } from 'react';
@@ -11,26 +11,21 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  FlatList,
   TextInput,
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { collection, query, where, getDocs, DocumentData } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
-import { getCurrentUserId, getSessionValide } from '../services/auth';
+import { getCurrentUserId } from '../services/auth';
 import {
   UserRole,
-  UserPermissions,
   attribuerRoleEtudiant,
   getRolesClasse,
   revoquerRole,
-  getPermissionsUtilisateur,
-  peutEffectuerAction,
+  estAdminActuel,
 } from '../services/rolesPermissions';
-import { t } from '../services/traductions';
-import { getLangue } from '../services/parametres';
-import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
+import { rapporterErreur } from '../utils/logger';
 
 const ROLES_DISPONIBLES: { id: UserRole; label: string; icon: string; description: string }[] = [
   {
@@ -63,7 +58,6 @@ interface StudentWithRole {
 
 export default function AdminPanel() {
   const router = useRouter();
-  const [langue, setLangue] = useState<'fr' | 'en'>('fr');
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [classe, setClasse] = useState('');
@@ -86,7 +80,14 @@ export default function AdminPanel() {
 
       setCurrentUserId(userId);
 
-      const isAdminUser = await peutEffectuerAction(userId, 'modifierRoles');
+      // 🛡️ GARDE D'ACCES — deleguee a estAdminActuel() : lit la collection
+      // `admins` (source de verite, remplie par le bootstrap "code proviseur"
+      // de admin.tsx) PUIS `roles/{uid}`. Avant, le test etait
+      // `peutEffectuerAction(userId, 'modifierRoles')`, qui ne lit QUE
+      // `roles/{uid}` : le proviseur bootstrappe n'a pas de doc `roles` ->
+      // "Acces refuse" a l'administrateur lui-meme, et aucun role ne pouvait
+      // donc JAMAIS etre attribue.
+      const isAdminUser = await estAdminActuel();
       if (!isAdminUser) {
         Alert.alert('❌ Accès refusé', 'Vous n\'êtes pas autorisé à accéder à cette page');
         router.back();
@@ -94,8 +95,6 @@ export default function AdminPanel() {
       }
 
       setIsAdmin(true);
-      const lang = await getLangue();
-      setLangue(lang);
       setLoading(false);
     } catch (error) {
       rapporterErreur('[admin]:', error);
@@ -133,6 +132,7 @@ export default function AdminPanel() {
       setStudents(students);
       setLoading(false);
     } catch (error) {
+      rapporterErreur('[admin_roles] Chargement des eleves:', error);
       Alert.alert('Erreur', String(error));
       setLoading(false);
     }
@@ -163,6 +163,7 @@ export default function AdminPanel() {
         Alert.alert('❌ Erreur', result.error || 'Impossible d\'attribuer le rôle');
       }
     } catch (error) {
+      rapporterErreur('[admin_roles] Attribution du role:', error);
       Alert.alert('Erreur', String(error));
     }
   };
@@ -178,7 +179,7 @@ export default function AdminPanel() {
           onPress: async () => {
             const result = await revoquerRole(userId);
             if (result.success) {
-              Alert.alert('✅ Succès', 'Rôle révoké');
+              Alert.alert('✅ Succès', 'Rôle révoqué');
               chargerEtudiantsClasse();
             } else {
               Alert.alert('❌ Erreur', result.error);

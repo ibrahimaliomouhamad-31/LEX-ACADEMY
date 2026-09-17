@@ -1,4 +1,5 @@
 import { connecter } from '../services/authFirebase';
+import { niveauPourClasse } from '../services/authFirebase';
 import { hacherMotDePasse } from '../services/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
@@ -19,6 +20,8 @@ const CLE_COMPTES_LOCAUX = 'lex_comptes_locaux';
 interface CompteLocal {
   hash: string;
   uid: string;
+  /** Niveau scolaire mémorisé : permet le filtre du classement hors-ligne. */
+  niveau?: string;
 }
 
 async function lireComptesLocaux(): Promise<Record<string, CompteLocal>> {
@@ -30,10 +33,15 @@ async function lireComptesLocaux(): Promise<Record<string, CompteLocal>> {
   }
 }
 
-async function sauvegarderCompteLocal(nom: string, hash: string, uid: string): Promise<void> {
+async function sauvegarderCompteLocal(
+  nom: string,
+  hash: string,
+  uid: string,
+  niveau?: string
+): Promise<void> {
   try {
     const comptes = await lireComptesLocaux();
-    comptes[nom.trim().toLowerCase()] = { hash, uid };
+    comptes[nom.trim().toLowerCase()] = { hash, uid, niveau };
     await AsyncStorage.setItem(CLE_COMPTES_LOCAUX, JSON.stringify(comptes));
   } catch {
     // ignore : jamais bloquant
@@ -89,6 +97,10 @@ export default function Login() {
         if (compte && compte.hash === hashSaisi) {
           await AsyncStorage.setItem('lex_user_nom', nomNettoye);
           await AsyncStorage.setItem('lex_user_id', compte.uid);
+          // 🎓 Niveau mémorisé : le filtre du classement reste actif hors-ligne.
+          if (compte.niveau) {
+            await AsyncStorage.setItem('lex_user_niveau', compte.niveau);
+          }
           Alert.alert(
             "Bienvenue !",
             `Connecté hors-ligne en tant que ${nomNettoye}.\nTa progression se synchronisera au retour du wifi.`
@@ -107,10 +119,17 @@ export default function Login() {
       const uid = await connecter(nomNettoye, hashSaisi);
       if (uid) {
         const docSnap = await getDoc(doc(db, "utilisateurs", uid));
-        await AsyncStorage.setItem('lex_user_nom', docSnap.exists() ? (docSnap.data().nom || nomNettoye) : nomNettoye);
+        const profil = docSnap.exists() ? docSnap.data() : null;
+        await AsyncStorage.setItem('lex_user_nom', (profil && profil.nom) || nomNettoye);
         await AsyncStorage.setItem('lex_user_id', uid);
+        // 🎓 Niveau scolaire : recalculé si le profil est ancien (texte libre)
+        // → le classement se filtre sur SA classe dès la première connexion.
+        const niveau = niveauPourClasse(profil ? profil.classe : undefined);
+        if (niveau && niveau !== 'inconnu') {
+          await AsyncStorage.setItem('lex_user_niveau', niveau);
+        }
         // Mémoire des identifiants pour les prochaines connexions hors-ligne
-        await sauvegarderCompteLocal(nomNettoye, hashSaisi, uid);
+        await sauvegarderCompteLocal(nomNettoye, hashSaisi, uid, niveau || undefined);
         Alert.alert("Bienvenue !", `Connecté en tant que ${nomNettoye}.`);
         router.push('/');
         return;
@@ -125,6 +144,10 @@ export default function Login() {
       if (compte && compte.hash === hashSaisi) {
         await AsyncStorage.setItem('lex_user_nom', nomNettoye);
         await AsyncStorage.setItem('lex_user_id', compte.uid);
+        // 🎓 Niveau mémorisé lors d'une connexion en ligne précédente.
+        if (compte.niveau) {
+          await AsyncStorage.setItem('lex_user_niveau', compte.niveau);
+        }
         Alert.alert(
           "Bienvenue !",
           `Connecté hors-ligne en tant que ${nomNettoye}.\nTa progression se synchronisera au retour du wifi.`
