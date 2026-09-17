@@ -1,13 +1,61 @@
 /**
  * 👥 GESTION DES RÔLES & PERMISSIONS
- * Pour les élèves de moins de 14 ans ayant des responsabilités
+ * Rôles de responsabilité (moniteur, chef de classe, délégué) attribués par le
+ * proviseur depuis l'ecran admin_roles. La source de verite de l'admin est la
+ * collection `admins` (voir estAdminActuel).
  */
 
 import { doc, setDoc, getDoc, query, collection, where, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
 import { getCurrentUserId } from './auth';
-import { syncQueue } from './syncQueue';
-import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
+import { rapporterErreur } from '../utils/logger';
+
+/**
+ * L'utilisateur courant est-il administrateur ?
+ *
+ * Priorité à la collection `admins` : c'est la SEULE réellement alimentée par
+ * l'écran 🏛️ `admin.tsx` (bootstrap « code proviseur » → `setDoc(doc(db,'admins',uid))`).
+ * Convention `docId == uid` : c'est le CHEMIN testé par `isAdmin()` dans
+ * `firestore.rules` (les règles ne savent pas faire de « where »).
+ * Repli sur `roles/{uid}.isAdmin`, pour ne pas casser un admin provisionné
+ * selon l'ancien modèle.
+ *
+ * ⚠️ Ce test REMPLACE l'ancien `getDoc(doc(db,'roles',uid))` seul : comme le
+ * proviseur n'existe que dans `admins`, ce test échouait toujours → l'écran
+ * d'attribution des rôles affichait « Permissions insuffisantes » au proviseur
+ * lui-même, même après un bootstrap réussi.
+ */
+export async function estAdminActuel(): Promise<boolean> {
+  const uid = await getCurrentUserId();
+  if (!uid) return false;
+
+  try {
+    // 📌 Convention serveur : le doc d'admin porte l'ID de l'eleve
+    // (`admins/<uid>`) — c'est ce CHEMIN exact que teste `isAdmin()` dans
+    // `firestore.rules` (les regles ne savent pas faire de « where »).
+    // 1 seule lecture, et plus fiable qu'un champ.
+    const snapDirect = await getDoc(doc(db, 'admins', uid));
+    if (snapDirect.exists()) return true;
+
+    // Repli : anciens documents a ID aleatoire (crees avant la convention).
+    const snapAdmin = await getDocs(query(collection(db, 'admins'), where('userId', '==', uid)));
+    if (!snapAdmin.empty) return true;
+  } catch (error) {
+    rapporterErreur('[roles] Erreur lecture collection admins:', error);
+  }
+
+  try {
+    const snapRole = await getDoc(doc(db, 'roles', uid));
+    if (snapRole.exists()) {
+      const d = snapRole.data() as { isAdmin?: boolean; role?: string; isDeleted?: boolean };
+      if (!d.isDeleted && (d.isAdmin === true || d.role === 'admin')) return true;
+    }
+  } catch (error) {
+    rapporterErreur('[roles] Erreur lecture role admin:', error);
+  }
+
+  return false;
+}
 
 export type UserRole = 'etudiant' | 'moniteur' | 'chef_classe' | 'delegue' | 'admin';
 
@@ -53,14 +101,11 @@ export async function attribuerRoleEtudiant(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // 🔒 CONTRÔLE ADMIN RÉEL : on exige soit le flag isAdmin du doc de rôle,
-    // soit le rôle 'admin' (les deux modèles coexistent dans l'app). Avant,
-    // seul isAdmin était testé → un admin créé avec role='admin' était rejeté.
-    const adminId = await getCurrentUserId();
-    if (!adminId) return { success: false, error: 'Pas de session admin' };
-
-    const adminDoc = await getDoc(doc(db, 'roles', adminId));
-    const d = adminDoc.exists() ? (adminDoc.data() as { isAdmin?: boolean; role?: string }) : null;
-    if (!d || (d.isAdmin !== true && d.role !== 'admin')) {
+    // soit le rôle 'admin'. La vérification elle-même est déléguée à
+    // estAdminActuel() : `admins` (source de vérité) PUIS `roles/{uid}`.
+    // Avant, seul `roles/{uid}` était lu → le proviseur bootstrappé était
+    // toujours refusé, et un admin créé avec role='admin' l'était aussi.
+    if (!(await estAdminActuel())) {
       return { success: false, error: 'Permissions insuffisantes' };
     }
 
@@ -77,8 +122,39 @@ export async function attribuerRoleEtudiant(
       dateExpiration: options?.dateExpiration,
     };
 
-    // Sauvegarder dans Firestore
-    await syncQueue.add('create', 'roles', userId, userRole as unknown as Record<string, unknown>);
+    // 💾 ÉCRITURE DIRECTE — et non via `syncQueue` : le `docId` DOIT être le
+    // userId de l'élève. Or `syncQueue.syncAction()` injecte `userId` = UID de
+    // la SESSION dans le document (`...action.data, userId`) → le champ `userId`
+    // du rôle devenait celui de l'ADMIN. Comme `getRolesClasse` indexe par
+    // `r.userId`, le rôle attribué (« ✅ Succès ») n'apparaissait JAMAIS.
+    await setDoc(doc(db, 'roles', userId), {
+      ...userRole,
+      userId,
+      classe,
+      nom,
+      isDeleted: false,
+      actif: true,
+    });
+
+    // 👑 Un rôle 'admin' doit aussi apparaître dans la collection `admins` :
+    // c'est elle qui fait autorité (écran d'administration ET `isAdmin()` des
+    // règles serveur). Best-effort : l'attribution du rôle reste valide via
+    // `roles` même si cette seconde écriture échoue.
+    if (role === 'admin') {
+      try {
+        // 📌 docId == uid (convention serveur) + `merge` => idempotent, donc
+        // aucun test d'existence préalable. Avant, `addDoc` créait un ID
+        // aléatoire que `isAdmin()` ne pouvait PAS retrouver : le promu
+        // n'obtenait jamais l'accès.
+        await setDoc(
+          doc(db, 'admins', userId),
+          { nom, userId, ajouteLe: new Date().toISOString().slice(0, 10) },
+          { merge: true }
+        );
+      } catch (error) {
+        rapporterErreur('[roles] Promotion admins/ impossible (best-effort):', error);
+      }
+    }
 
     return { success: true };
   } catch (error) {
@@ -151,7 +227,14 @@ function genererPermissions(role: UserRole): UserPermissions['permissions'] {
 export async function getPermissionsUtilisateur(userId: string): Promise<UserPermissions | null> {
   try {
     const doc_snap = await getDoc(doc(db, 'roles', userId));
-    return doc_snap.exists() ? (doc_snap.data() as UserPermissions) : null;
+    if (!doc_snap.exists()) return null;
+    const data = doc_snap.data() as UserPermissions & { isDeleted?: boolean };
+    if (data.isDeleted) return null; // rôle révoqué : plus aucune permission
+    // ️ Normalisation : un doc écrit hors de ce service (bootstrap proviseur,
+    // console Firestore) peut ne pas contenir le champ `permissions` — et
+    // `peutEffectuerAction` faisait alors `perms.permissions[action]` → crash.
+    // Les permissions sont donc TOUJOURS régénérées depuis le rôle.
+    return { ...data, userId, permissions: genererPermissions(data.role) };
   } catch (error) {
     rapporterErreur('[roles] Erreur lecture permissions:', error);
     return null;
@@ -172,7 +255,17 @@ export async function getRolesClasse(classe: string): Promise<UserPermissions[]>
   try {
     const q = query(collection(db, 'roles'), where('classe', '==', classe));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => doc.data() as UserPermissions);
+    const roles: UserPermissions[] = [];
+    snapshot.forEach((d) => {
+      const data = d.data() as UserPermissions & { isDeleted?: boolean };
+      if (data.isDeleted) return; // rôle révoqué : on ne l'affiche plus
+      // 🔑 `docId === userId` : on force le champ depuis l'identifiant du
+      // document. Avant on lisait `data.userId` — or syncQueue y écrivait l'UID
+      // de l'ADMIN (syncAction injecte le userId de la session) → la liste des
+      // rôles attribués restait vide à l'écran.
+      roles.push({ ...data, userId: d.id });
+    });
+    return roles;
   } catch (error) {
     rapporterErreur('[roles] Erreur liste rôles:', error);
     return [];
@@ -182,16 +275,15 @@ export async function getRolesClasse(classe: string): Promise<UserPermissions[]>
 // ✅ REVOQUER UN RÔLE
 export async function revoquerRole(userId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const adminId = await getCurrentUserId();
-    if (!adminId) return { success: false, error: 'Pas de session admin' };
-
-    const adminDoc = await getDoc(doc(db, 'roles', adminId));
-    const d = adminDoc.exists() ? (adminDoc.data() as { isAdmin?: boolean; role?: string }) : null;
-    if (!d || (d.isAdmin !== true && d.role !== 'admin')) {
+    if (!(await estAdminActuel())) {
       return { success: false, error: 'Permissions insuffisantes' };
     }
 
-    await syncQueue.add('delete', 'roles', userId, {});
+    await setDoc(
+      doc(db, 'roles', userId),
+      { isDeleted: true, actif: false, revoqueLe: new Date().toISOString() },
+      { merge: true }
+    );
     return { success: true };
   } catch (error) {
     return { success: false, error: String(error) };

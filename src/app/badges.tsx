@@ -20,7 +20,6 @@ const BADGES_SECRETS: BadgeSecret[] = [
   { id: 'matinal', titre: 'Lève-tôt', emoji: '🌅', description: 'Réviser avant 7h du matin', condition: 'Exercice avant 7h', debloque: false, rarete: 'rare' },
   { id: 'nocturne', titre: 'Veilleur', emoji: '🌙', description: 'Réviser après 22h', condition: 'Exercice après 22h', debloque: false, rarete: 'rare' },
   { id: 'cent_exos', titre: 'Centurion', emoji: '💯', description: 'Résoudre 100 exercices', condition: '100 exercices', debloque: false, rarete: 'epique' },
-  { id: 'bac_blanc_15', titre: 'Aspiring BAC', emoji: '🎯', description: 'Avoir 15/20 à un BAC blanc', condition: 'BAC blanc >= 15', debloque: false, rarete: 'epique' },
   { id: 'zero_erreur', titre: 'Perfection', emoji: '💎', description: '20 exercices sans erreur', condition: '20/20', debloque: false, rarete: 'legendaire' },
   { id: 'tessaoua_champion', titre: 'Champion de Tessaoua', emoji: '🏆', description: 'Top 1 du classement', condition: 'Rang #1', debloque: false, rarete: 'legendaire' },
   { id: 'semaine_complete', titre: 'Assidu', emoji: '📅', description: 'Réviser 7 jours de suite', condition: 'Streak de 7', debloque: false, rarete: 'epique' },

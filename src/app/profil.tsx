@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../config/firebaseConfig';
 import { rapporterErreur } from '../utils/logger';
+import { getUserItem, setUserItem } from '../services/userStorage';
+import { lireAvatarLocal } from './avatars';
 
 /** Élève du classement public Firestore (champs connus typés). */
 interface EleveClassement {
@@ -35,6 +37,7 @@ export default function Profil() {
   
   const [streak, setStreak] = useState<number>(0);
   const [avatar, setAvatar] = useState<string>('🎓'); 
+  const [titreAchat, setTitreAchat] = useState<string>('');
   const [historiqueReel, setHistoriqueReel] = useState<LigneHistorique[]>([]);
 
   useEffect(() => {
@@ -43,6 +46,28 @@ export default function Profil() {
         const id = await AsyncStorage.getItem('lex_user_id');
         const nom = await AsyncStorage.getItem('lex_user_nom');
         if (nom) setUserNom(nom);
+
+        // ️ TITRE ACHETÉ EN BOUTIQUE (500 à 2 500 crédits) : la boutique
+        // l'écrivait dans `lex_titre_actif` et sa fiche promet « Ton titre
+        // s'affiche dans ton profil ». Or seul l'en-tête de la BOUTIQUE
+        // l'affichait : le profil — l'endroit exactement promis — ne le lisait
+        // pas. 2 500 crédits (≈ 500 bonnes réponses) s'achetaient donc pour un
+        // objet invisible là où l'élève s'attendait à le voir.
+        // Même clé que `boutique.tsx` (par utilisateur) + migration douce de
+        // l'ancien stockage global.
+        try {
+          let titre = await getUserItem('lex_titre_actif');
+          if (titre === null) {
+            const ancienTitre = await AsyncStorage.getItem('lex_titre_actif');
+            if (ancienTitre) {
+              await setUserItem('lex_titre_actif', ancienTitre);
+              titre = ancienTitre;
+            }
+          }
+          if (titre) setTitreAchat(titre);
+        } catch (e) {
+          rapporterErreur('app/profil.tsx titre boutique:', e);
+        }
 
         if (id) {
           const userRef = doc(db, "utilisateurs", id);
@@ -196,6 +221,7 @@ export default function Profil() {
 
               <View style={styles.profileInfo}>
                 <Text style={styles.userName}>{userNom || "Élève"}</Text>
+                {titreAchat !== '' && <Text style={styles.titreAchat}>{titreAchat}</Text>}
                 <Text style={styles.userClass}>{userClasse || "Non définie"}</Text>
                 <View style={[styles.rankBadge, { backgroundColor: '#0F172A80', borderColor: couleurLigue }]}>
                   <Text style={[styles.rankText, { color: couleurLigue }]}>💎 {ligue} · Ligue</Text>
@@ -381,6 +407,8 @@ const styles = StyleSheet.create({
   streakText: { color: '#FFFFFF', fontSize: 12, fontWeight: 'bold' },
   profileInfo: { flex: 1 },
   userName: { color: '#FFFFFF', fontSize: 22, fontWeight: 'bold' },
+  // 🏷️ Titre acheté en boutique (ex. « 👑 Légende de Tessaoua »).
+  titreAchat: { color: '#FBBF24', fontSize: 13, fontWeight: '800', marginTop: 2 },
   userClass: { color: '#FFFFFF99', fontSize: 14, marginBottom: 8 },
   rankBadge: { alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20, borderWidth: 1 },
   rankText: { fontSize: 13, fontWeight: 'bold' },

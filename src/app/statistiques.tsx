@@ -23,6 +23,7 @@ export default function Statistiques() {
   });
   const [activiteHebdo, setActiviteHebdo] = useState<ActiviteJour[]>([]);
   const [alertes, setAlertes] = useState<AlerteStagnation[]>([]);
+  const [parDiff, setParDiff] = useState<{ etoiles: string; taux: number; detail: string }[]>([]);
 
   useEffect(() => { chargerStats(); }, []);
 
@@ -51,6 +52,19 @@ export default function Statistiques() {
         tempsTotal: 0, joursActifs: Object.keys(vraies.activiteJour || {}).length,
         xpTotal: xpTotal, niveau: Math.floor(xpTotal / 100) + 1,
       });
+      // sauve depuis stats_detail.tsx (supprime) : repartition par difficulte,
+      // calculee depuis les memes vraies stats (parDifficulte de statsSuivi).
+      const diffs = [1, 2, 3].map((d) => {
+        let total = 0;
+        let reussis = 0;
+        for (const c of Object.values(vraies.chapitres)) {
+          const e = c.parDifficulte[d];
+          if (e) { total += e.total; reussis += e.reussis; }
+        }
+        const taux = total > 0 ? Math.round((reussis / total) * 100) : 0;
+        return { etoiles: '★'.repeat(d) + '☆'.repeat(3 - d), taux, detail: total > 0 ? `${taux}% (${reussis}/${total})` : '—' };
+      });
+      setParDiff(diffs);
       const semaine = activite7Jours(vraies);
       setActiviteHebdo(semaine.map((j) => ({ date: j.jour, exos: j.nb, temps: j.nb * 3 })));
     } catch (erreurSilencieuse) {
@@ -120,6 +134,16 @@ export default function Statistiques() {
             </View>
           ))}
         </View>
+        <Text style={styles.sectionTitle}>Par difficulte</Text>
+        {parDiff.map((d, i) => (
+          <View key={i} style={styles.ligneDiff}>
+            <Text style={styles.diffLabel}>{d.etoiles}</Text>
+            <View style={styles.barreFondH}>
+              <View style={[styles.barreH, { width: `${d.taux}%` }]} />
+            </View>
+            <Text style={styles.diffTaux}>{d.detail}</Text>
+          </View>
+        ))}
         <Text style={styles.sectionTitle}>Conseils</Text>
         <View style={styles.carteConseil}>
           <Text style={styles.conseilText}>
@@ -156,5 +180,10 @@ const styles = StyleSheet.create({
   remplissageActivite: { width: '100%', backgroundColor: '#10B981', borderRadius: 4 },
   jourExos: { color: '#D1D5DB', fontSize: 11, marginTop: 4 },
   carteConseil: { backgroundColor: '#111827', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#374151' },
+  ligneDiff: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  diffLabel: { color: '#FBBF24', fontSize: 13, width: 55 },
+  barreFondH: { flex: 1, height: 8, backgroundColor: '#1F2937', borderRadius: 4, overflow: 'hidden', marginHorizontal: 8 },
+  barreH: { height: '100%', backgroundColor: '#10B981', borderRadius: 4 },
+  diffTaux: { color: '#9CA3AF', fontSize: 11, width: 100, textAlign: 'right' },
   conseilText: { color: '#E5E7EB', fontSize: 14, lineHeight: 20 },
 });

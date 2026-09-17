@@ -21,6 +21,7 @@ import { syncQueue } from './syncQueue';
 import { pousserProgression } from './syncCloud';
 import { viderFileSignalements } from './signalementService';
 import { synchroniserXp, synchroniserStreak } from './xpLocal';
+import { publierMonProfilPublic } from './classementPublic';
 import { estEnLigneSync, verifierConnexion } from '../utils/reseau';
 import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
@@ -149,6 +150,11 @@ export async function toutSynchroniser(): Promise<ResultatSync> {
     const globale = await viderFileGlobale().catch(() => 0);
     await viderFileSignalements();
     resultat.divers = defis + globale;
+
+    // 6) 🏆 Miroir du classement : republie ma fiche publique avec l'XP à jour.
+    //    ⚠️ Indispensable : sans la Cloud Function (plan Spark), c'est la SEULE
+    //    façon d'alimenter `classement_public`. Best-effort, jamais bloquant.
+    await publierMonProfilPublic();
   } catch (error) {
     rapporterErreur('[syncOrchestrator] Erreur sync globale :', error);
   }

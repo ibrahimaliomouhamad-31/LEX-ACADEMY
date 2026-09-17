@@ -20,39 +20,30 @@ interface Fonctionnalite {
 // l'écran Plus. Désormais garde partagée via parametres.ts (bloquerSiExamen)
 // et appliquée dans chaque écran d'outil.
 const ROUTES_STRICT_EXAMEN: HrefApp[] = [
-  '/exercices', '/cours', '/annales', '/formulaire', '/calculatrice', '/flashcards',
-  '/recherche', '/figures', '/entrainement_infini', '/badges', '/boutique',
-  '/calcul_mental', '/journal_erreurs', '/solveur', '/photo_exo',
+  '/exercices', '/cours', '/formulaire', '/calculatrice', '/flashcards',
+  '/recherche', '/entrainement_infini', '/badges', '/boutique',
+  '/calcul_mental', '/journal_erreurs', '/solveur',
 ];
 
 const REVISER: Fonctionnalite[] = [
-  { emoji: '📚', titre: 'Annales BAC', titreEn: 'Past BAC exams', description: 'Vrais sujets du BAC à télécharger', descriptionEn: 'Real BAC papers to download', route: '/annales', couleur: '#B91C1C' },
-  { emoji: '🎯', titre: 'Mes Objectifs', titreEn: 'My Goals', description: 'Fixe-toi tes propres buts de révision', descriptionEn: 'Set your own revision goals', route: '/devoirs', couleur: '#F59E0B' },
-  { emoji: '📝', titre: 'BAC Blanc', titreEn: 'Mock exam', description: 'Épreuves chronométrées, note sur 20 et corrigé', descriptionEn: 'Timed exams, graded /20 with answers', route: '/bac_blanc', couleur: '#EF4444' },
   { emoji: '🧪', titre: 'Test de positionnement', titreEn: 'Placement test', description: '20 questions pour situer ton niveau exact', descriptionEn: '20 questions to find your exact level', route: '/positionnement', couleur: '#06B6D4' },
   { emoji: '🃏', titre: 'Flashcards', titreEn: 'Flashcards', description: 'Cartes de révision générées depuis tes cours', descriptionEn: 'Revision cards made from your lessons', route: '/flashcards', couleur: '#8B5CF6' },
   { emoji: '🧬', titre: 'QCM SVT', titreEn: 'Biology quiz', description: '40 questions à choix multiples, 2nde → Tle', descriptionEn: '40 multiple-choice questions', route: '/qcm_svt', couleur: '#84CC16' },
   { emoji: '🎧', titre: 'Cours en audio', titreEn: 'Audio lessons', description: 'Écoute tes cours à voix haute, hors-ligne', descriptionEn: 'Listen to your lessons, offline', route: '/audio_cours', couleur: '#8B5CF6' },
-  { emoji: '📅', titre: 'Planning', titreEn: 'Study plan', description: 'Ton programme de révision hebdomadaire', descriptionEn: 'Your weekly study plan', route: '/planning', couleur: '#0EA5E9' },
   { emoji: '📊', titre: 'Ma maîtrise', titreEn: 'My mastery', description: 'Progression par chapitre, du plus faible au plus fort', descriptionEn: 'Progress per chapter', route: '/maitrise', couleur: '#10B981' },
-  { emoji: '🗺️', titre: 'Mon parcours', titreEn: 'My path', description: 'Feuille de route perso : quoi réviser en premier', descriptionEn: 'Personal roadmap: what to revise first', route: '/parcours', couleur: '#8B5CF6' },
   { emoji: '📈', titre: 'Statistiques', titreEn: 'Statistics', description: 'Activité, taux de réussite, progression', descriptionEn: 'Activity, success rate, progress', route: '/statistiques', couleur: '#06B6D4' },
   { emoji: '🍃', titre: 'Exercices infinis', titreEn: 'Endless practice', description: 'Pratique sans fin ciblée sur chaque micro-notion', descriptionEn: 'Endless drilling on each sub-topic', route: '/entrainement_infini', couleur: '#10B981' },
   { emoji: '📓', titre: 'Journal d\'erreurs', titreEn: 'Error journal', description: 'Apprends de chaque faute, corrige tes automatismes', descriptionEn: 'Learn from every mistake', route: '/journal_erreurs', couleur: '#F59E0B' },
   { emoji: '🧠', titre: 'Pièges du BAC', titreEn: 'BAC traps', description: 'Tes points noirs détectés + pièges classiques', descriptionEn: 'Your weak spots + classic traps', route: '/pieges', couleur: '#EF4444' },
   { emoji: '🎯', titre: 'Objectifs & Notes', titreEn: 'Goals & Notes', description: 'Fixe tes buts + notes attachées aux chapitres', descriptionEn: 'Set goals + chapter notes', route: '/objectifs', couleur: '#EC4899' },
-  { emoji: '🎓', titre: 'Auto-évaluation', titreEn: 'Self-assessment', description: 'Note tes compétences officielles du BAC, filière C/D', descriptionEn: 'Grade official BAC skills, C/D track', route: '/competences', couleur: '#10B981' },
-  { emoji: '⚡', titre: 'Révision express', titreEn: 'Express revision', description: '10 minutes chrono pour ancrer l\'essentiel', descriptionEn: '10 timed minutes to nail the basics', route: '/revision_express', couleur: '#F59E0B' },
   { emoji: '📖', titre: 'Glossaire', titreEn: 'Glossary', description: 'Vocabulaire scientifique expliqué simplement', descriptionEn: 'Scientific vocabulary explained', route: '/glossaire', couleur: '#0EA5E9' },
 ];
 
 const JOUER: Fonctionnalite[] = [
   { emoji: '📰', titre: 'Défi du jour', titreEn: 'Daily challenge', description: 'Le même défi pour toute ta classe (mode duo !)', descriptionEn: 'Same challenge for your class (duo mode!)', route: '/defi_jour', couleur: '#EC4899' },
-  { emoji: '🏆', titre: 'Coupe inter-classes', titreEn: 'Class cup', description: 'La classe championne de la semaine', descriptionEn: 'Weekly champion class', route: '/coupe', couleur: '#FBBF24' },
   { emoji: '⚡', titre: 'QCM Éclair', titreEn: 'Lightning quiz', description: '60 secondes pour un max de bonnes réponses', descriptionEn: '60 seconds, max correct answers', route: '/qcm_eclair', couleur: '#FBBF24' },
   { emoji: '⚔️', titre: 'Duels', titreEn: 'Duels', description: 'Bats le fantôme de ton meilleur score', descriptionEn: 'Beat your ghost score', route: '/duels', couleur: '#F97316' },
   { emoji: '🎮', titre: 'Mini-jeux', titreEn: 'Mini-games', description: 'Course de calcul à 2 joueurs + memory', descriptionEn: '2-player math race + memory', route: '/mini_jeux', couleur: '#F97316' },
-  { emoji: '🗺️', titre: 'Conquête du LEX', titreEn: 'LEX conquest', description: 'Conquis des territoires en maîtrisant les chapitres', descriptionEn: 'Conquer territories by mastering chapters', route: '/conquete', couleur: '#8B5CF6' },
   { emoji: '🏅', titre: 'Olympiades', titreEn: 'Olympiads', description: '20 problèmes de concours pour les génies', descriptionEn: '20 competition problems for geniuses', route: '/olympiades', couleur: '#F59E0B' },
 ];
 
@@ -61,10 +52,8 @@ const OUTILS: Fonctionnalite[] = [
   { emoji: '📐', titre: 'Formulaire', titreEn: 'Formula sheet', description: '118 formules Maths & PC, même hors-ligne', descriptionEn: '118 Math & Physics formulas, offline', route: '/formulaire', couleur: '#3B82F6' },
   { emoji: '🖩', titre: 'Calculatrice', titreEn: 'Calculator', description: 'Scientifique : sin, cos, ln, √, puissances...', descriptionEn: 'Scientific: sin, cos, ln, √, powers...', route: '/calculatrice', couleur: '#64748B' },
   { emoji: '🧮', titre: 'Solveur pas-à-pas', titreEn: 'Step-by-step solver', description: 'Tape une équation, chaque étape expliquée', descriptionEn: 'Type an equation, every step explained', route: '/solveur', couleur: '#3B82F6' },
-  { emoji: '🖼️', titre: 'Figures', titreEn: 'Figures', description: 'Traceur de fonctions et Pythagore visuel', descriptionEn: 'Function plotter & visual Pythagoras', route: '/figures', couleur: '#06B6D4' },
-  { emoji: '📸', titre: "Photo d'exercice", titreEn: 'Exercise photo', description: "Photographie un exo papier, l'IA te guide (wifi)", descriptionEn: 'Snap a paper exercise, AI guides you (wifi)', route: '/photo_exo', couleur: '#EC4899' },
   { emoji: '📡', titre: 'Partager', titreEn: 'Share', description: 'Envoie un chapitre à un camarade par code', descriptionEn: 'Send a chapter to a friend via code', route: '/partage', couleur: '#10B981' },
-  { emoji: '🛍️', titre: 'Boutique', titreEn: 'Shop', description: 'Dépense tes crédits : thèmes, boosters, streak-freezes', descriptionEn: 'Spend credits on themes, boosters, freezes', route: '/boutique', couleur: '#EC4899' },
+  { emoji: '🛍️', titre: 'Boutique', titreEn: 'Shop', description: 'Dépense tes crédits : titres, boosters, streak-freezes', descriptionEn: 'Spend credits on titles, boosters, freezes', route: '/boutique', couleur: '#EC4899' },
   { emoji: '🧺', titre: 'Mon cahier', titreEn: 'My notebook', description: 'Colle ton cahier LEX → micro-notions + cours enrichi', descriptionEn: 'Paste your LEX notebook → sub-topics + enriched course', route: '/mon_cahier', couleur: '#10B981' },
   { emoji: '⚡', titre: 'Calcul mental', titreEn: 'Mental math', description: 'Entraîne tes réflexes de calcul, 2 min par jour', descriptionEn: 'Train your calculation reflexes', route: '/calcul_mental', couleur: '#FBBF24' },
   { emoji: '🏆', titre: 'Badges', titreEn: 'Badges', description: 'Débloque des badges secrets et citations motivantes', descriptionEn: 'Unlock secret badges & quotes', route: '/badges', couleur: '#8B5CF6' },
@@ -72,8 +61,6 @@ const OUTILS: Fonctionnalite[] = [
 ];
 
 const REGLAGES: Fonctionnalite[] = [
-  { emoji: '🤝', titre: 'Groupes d\'entraide', titreEn: 'Study groups', description: 'Pose tes questions par matière, aide les autres', descriptionEn: 'Ask questions per subject, help others', route: '/groupes', couleur: '#8B5CF6' },
-  { emoji: '🎁', titre: 'Mes récompenses', titreEn: 'My rewards', description: 'Échange tes jetons contre des pauses bien-être', descriptionEn: 'Trade tokens for well-being breaks', route: '/recompenses', couleur: '#F59E0B' },
   { emoji: '📦', titre: 'Transfert', titreEn: 'Transfer', description: 'Sauvegarde tes données et restaure-les ailleurs', descriptionEn: 'Backup & restore your data', route: '/transfert', couleur: '#64748B' },
   { emoji: '⚙️', titre: 'Paramètres', titreEn: 'Settings', description: 'Langue, police, dortoir 🌙, rappel ⏰', descriptionEn: 'Language, font, dorm 🌙, reminder ⏰', route: '/parametres', couleur: '#475569' },
   { emoji: '🏛️', titre: 'Administration', titreEn: 'Administration', description: "Réservé au proviseur de l'app et aux admins", descriptionEn: 'App principal & admins only', route: '/admin', couleur: '#065F46' },

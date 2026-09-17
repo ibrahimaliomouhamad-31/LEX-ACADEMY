@@ -123,7 +123,7 @@ export default function Parametres() {
         <Text style={styles.note}>Redémarre l'application après le changement. / Restart the app after changing.</Text>
 
         {/* Thème */}
-        <Text style={styles.section}>🎨 Thème (boutique 🛍️ pour plus de couleurs)</Text>
+        <Text style={styles.section}>🎨 Thème — tous gratuits 🆓</Text>
         <View style={styles.row}>
           {(['jaune', 'bleu', 'vert', 'violet', 'rose'] as Theme[]).map((th) => (
             <TouchableOpacity
@@ -133,7 +133,7 @@ export default function Parametres() {
             />
           ))}
         </View>
-        <Text style={styles.note}>Bleu, vert et violet s'obtiennent aussi dans la Boutique avec tes crédits 💰</Text>
+        <Text style={styles.note}>Tous les thèmes sont gratuits : choisis ta couleur préférée 💫</Text>
 
         {/* Options */}
         <Text style={styles.section}>🧪 Options</Text>

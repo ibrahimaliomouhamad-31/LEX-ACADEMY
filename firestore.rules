@@ -12,10 +12,6 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
-    match /annales/{doc=**} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
 
     // ============ PROFILS ============
     // 🔒 SÉCURITÉ (durcie) : autrefois `read: if true` exposait email/hash/code
@@ -24,7 +20,7 @@ service cloud.firestore {
     // La lecture du profil complet est donc réservée au propriétaire + admin.
     match /utilisateurs/{userId} {
       allow read: if estSoiMeme(userId) || isAdmin();
-      allow create, update: if estSoiMeme(userId) && donneesUtilisateurPropres();
+      allow create, update: if estSoiMeme(userId) && donneesUtilisateurPropres() && profilScolaireValide();
       allow delete: if isAdmin();
     }
 
@@ -107,12 +103,16 @@ service cloud.firestore {
     }
 
     // ============ CLASSEMENT PUBLIC (données sûres, agrégées) ============
-    // Une Cloud Function remplit cette collection à partir de `utilisateurs` :
-    // nom, classe, xp, xp_semaine, avatar UNIQUEMENT — jamais email/hash/
-    // code. Lecture libre pour le classement, écriture par les fonctions admin.
+    // Nom, classe, niveau, xp, xp_semaine, avatar UNIQUEMENT — jamais email,
+    // hash de mot de passe ni code de transfert.
+    //
+    // ⚠️ Le projet est sur le plan SPARK : la Cloud Function d'agrégation ne
+    // peut pas être déployée. C'est donc le PROPRIÉTAIRE qui publie sa propre
+    // fiche depuis l'app (aucune autre écriture possible), avec une liste de
+    // champs fermée : même un client modifié ne peut rien y glisser d'autre.
     match /classement_public/{userId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isAdmin() || (estSoiMeme(userId) && fichePubliqueValide());
     }
 
     // ============ CONFIG APP (code prof, etc.) ============
@@ -128,14 +128,26 @@ service cloud.firestore {
 
     // ============ RÔLES ============
     match /roles/{userId} {
+      // 📌 docId == uid (même convention que `admins`, exposée par isAdmin()).
       allow read: if isAdmin() || estSoiMeme(userId);
-      allow write: if isAdmin();
+      // Un admin gère les rôles de tout le monde. Le cas `estSoiMeme` couvre
+      // le BOOTSTRAP : le premier proviseur doit pouvoir écrire son propre
+      // doc de rôle (une seule fois — voir adminInitialise()).
+      allow write: if isAdmin() || (estSoiMeme(userId) && !adminInitialise());
     }
 
     // ============ ADMINS (liste du proviseur) ============
-    match /admins/{docId} {
-      allow read: if true; // l'app vérifie l'appartenance
-      allow write: if isAdmin();
+    // 📌 CONVENTION : docId == userId. Les règles n'interrogent pas la base
+    // (pas de « where ») : elles ne testent que des CHEMINS. Sans cette
+    // convention, `exists(admins/$(request.auth.uid))` est impossible et le
+    // modèle `admins` devient invérifiable côté serveur — c'était le cas
+    // avant, d'où un écran d'administration que PERSONNE ne pouvait ouvrir.
+    match /admins/{userId} {
+      allow read: if true; // l'app vérifie l'appartenance ; contenus non sensibles
+      // create : un admin en place promeut qui il veut.
+      allow create: if isAdmin() || (estSoiMeme(userId) && !adminInitialise());
+      // update/delete : jamais en auto-promotion (ferme l'usurpation).
+      allow update, delete: if isAdmin();
     }
 
     // ============ HELPERS ============
@@ -146,15 +158,88 @@ service cloud.firestore {
       return request.auth != null;
     }
     function donneesUtilisateurPropres() {
-      // Interdit d'écrire les champs sensibles dans le profil public.
-      return !('mot_de_passe' in request.resource.data)
-        && !('email' in request.resource.data)
-        && !('codeTransfert' in request.resource.data);
+      // 🐞 CORRECTIF CRITIQUE : `request.resource.data` est le document
+      // RÉSULTANT, pas le patch. Or les profils créés avant l'audit contiennent
+      // ENCORE `mot_de_passe` (données réelles : 2 comptes sur 3). Interdire sa
+      // simple PRÉSENCE refusait donc TOUTE mise à jour de ces comptes — la
+      // synchronisation d'XP et la réparation du `niveau` échouaient en
+      // silence (`permission-denied`), et l'élève disparaissait du classement.
+      //
+      // On interdit désormais d'INTRODUIRE ou de MODIFIER ces champs : le
+      // nettoyage des anciens profils reste possible, jamais leur injection.
+      // `resource == null` identifie la création (aucun document existant).
+      return (!('mot_de_passe' in request.resource.data)
+          || (resource != null && 'mot_de_passe' in resource.data
+              && request.resource.data.mot_de_passe == resource.data.mot_de_passe))
+        && (!('email' in request.resource.data)
+          || (resource != null && 'email' in resource.data
+              && request.resource.data.email == resource.data.email))
+        && (!('codeTransfert' in request.resource.data)
+          || (resource != null && 'codeTransfert' in resource.data
+              && request.resource.data.codeTransfert == resource.data.codeTransfert));
+    }
+    // 🎓 Filtrer le classement repose sur `niveau` : une valeur libre (ex.
+    // « admin », « 2nde; », ou une classe de collège inexistante au LEX)
+    // fausserait le filtre et permettrait de se rendre invisible.
+    // Les valeurs autorisées sont STRICTEMENT celles du lycée.
+    function niveauLyceeValide(valeur) {
+      return valeur is string && valeur in ['2nde', '1ere', 'terminale'];
+    }
+    function classeLyceeValide(valeur) {
+      // On borne la taille sans imposer un libellé : les profils créés avant
+      // le modèle lycée conservent leur texte libre le temps de la migration.
+      return valeur is string && valeur.size() <= 30;
+    }
+    function profilScolaireValide() {
+      // Rétro-compatibilité offline-first : les profils ANCIENS (sans champ
+      // `niveau`) et les mises à jour partielles d'XP doivent continuer de
+      // fonctionner. Seule une valeur PRÉSENTE est contrôlée.
+      return (!('niveau' in request.resource.data) || niveauLyceeValide(request.resource.data.niveau))
+        && (!('classe' in request.resource.data) || classeLyceeValide(request.resource.data.classe));
+    }
+    // 🏆 Fiche de classement publiée par l'élève lui-même : liste de champs
+    // FERMÉE (hasOnly) + bornes de valeurs. Empêche d'y injecter un email, un
+    // hash, ou un XP négatif/absurde pour se placer premier.
+    function fichePubliqueValide() {
+      return request.resource.data.keys().hasOnly(
+          ['nom', 'classe', 'niveau', 'xp', 'xp_semaine', 'avatar', 'maj', 'majISO']
+        )
+        && request.resource.data.nom is string
+        && request.resource.data.nom.size() > 0
+        && request.resource.data.nom.size() <= 60
+        && (!('classe' in request.resource.data) || classeLyceeValide(request.resource.data.classe))
+        && (!('niveau' in request.resource.data) || niveauLyceeValide(request.resource.data.niveau))
+        && (!('xp' in request.resource.data)
+            || (request.resource.data.xp is int && request.resource.data.xp >= 0))
+        && (!('xp_semaine' in request.resource.data)
+            || (request.resource.data.xp_semaine is int && request.resource.data.xp_semaine >= 0))
+        && (!('avatar' in request.resource.data)
+            || (request.resource.data.avatar is string && request.resource.data.avatar.size() <= 8));
     }
     function isAdmin() {
-      return estAuth()
-        && exists(/databases/$(database)/documents/roles/$(request.auth.uid))
-        && get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.isAdmin == true;
+      // 🔑 SOURCE DE VÉRITÉ = collection `admins` (celle que lit réellement
+      // l'écran 🏛️ admin.tsx), avec docId == uid. Repli sur `roles/{uid}.isAdmin`
+      // (ancien modèle) pour ne verrouiller aucun admin déjà provisionné.
+      //
+      // ⚠️ Avant : `isAdmin()` ne regardait QUE `roles/{uid}.isAdmin`. Or le
+      // bootstrap du proviseur n'écrivait que dans `admins` → `isAdmin()` était
+      // faux pour tout le monde, y compris pour le proviseur, et les règles
+      // interdisaient jusqu'à sa propre création (poule et œuf).
+      return estAuth() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        || (exists(/databases/$(database)/documents/roles/$(request.auth.uid))
+            && get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.isAdmin == true)
+      );
+    }
+    function adminInitialise() {
+      // Sentinelle posée par le bootstrap du premier proviseur : elle verrouille
+      // DÉFINITIVEMENT l'auto-promotion. Si un admin légitime existait déjà
+      // (migration), le client la pose aussi à sa première visite.
+      //
+      // 🚀 Recommandation de déploiement : créer le premier admin depuis la
+      // console Firebase AVANT de distribuer l'app — la sentinelle existe
+      // alors d'office et cette porte n'est jamais ouverte.
+      return exists(/databases/$(database)/documents/config/initialise);
     }
 
     // Défaut : deny all

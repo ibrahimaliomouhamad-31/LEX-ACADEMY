@@ -37,7 +37,6 @@ jest.mock('../services/userStorage', () => ({
   getUserItem: jest.fn(async () => null),
 }));
 
-import { messageAutorise, GROUPES_DISPONIBLES } from '../services/groupesEntraide';
 import { modererFiche } from '../services/moderationFiches';
 import { compresserTexte, planifierPrechargement } from '../services/prechargement';
 import { streakAuthentique, scellerStreak, signalerAlteration } from '../services/integrite';
@@ -67,18 +66,6 @@ import {
   numeroSemaine,
 } from '../services/motivation';
 
-describe('Groupes d\'entraide', () => {
-  it('bloque le spam, les majuscules et les liens', () => {
-    expect(messageAutorise('hello, je bloque sur la limite en x=1, merci').ok).toBe(true);
-    expect(messageAutorise('a').ok).toBe(false);
-    expect(messageAutorise('va sur https://spam.com').ok).toBe(false);
-    expect(messageAutorise('QUELLE EST LA REPONSE DE L EXO 3 SVP').ok).toBe(false);
-    expect(messageAutorise('aaaaaaaaaaaaaaaaaa').ok).toBe(false);
-  });
-  it('a un groupe par matière du BAC', () => {
-    expect(GROUPES_DISPONIBLES.some((g) => g.matiere === 'Mathématiques')).toBe(true);
-  });
-});
 
 describe('Modération de fiches', () => {
   it('bloque les fiches suspectes', () => {
@@ -266,7 +253,6 @@ describe('Motivation & ligues (cycle F)', () => {
       qcmRecord: 0,
       chapitresTelecharges: 0,
       flashcardsRevues: 0,
-      bacsBlancs: 0,
     };
     const resultats = evaluerBadges(ctx);
     const debloques = resultats.filter((r) => r.debloque);

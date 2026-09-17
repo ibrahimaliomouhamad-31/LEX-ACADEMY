@@ -27,6 +27,12 @@ const { onRequest } = require('firebase-functions/v2/https');
 const CLE_GROQ = process.env.GROQ_API_KEY;
 // Clé côté SERVEUR uniquement (jamais embarquée dans l'APK).
 
+// 🔒 MODÈLE FIXÉ CÔTÉ SERVEUR : avant, `body.model` laissait le CLIENT choisir
+// n'importe quel modèle Groq (coût et abus possibles : un élève pouvait
+// demander un gros modèle). Un seul modèle suffit désormais — l'écran
+// photo-exo, qui réclamait un modèle de vision, a été retiré (cycle K).
+const MODELE_AUTORISE = 'openai/gpt-oss-120b';
+
 // --- Rate limiter avec purge (avant : Map infinie → fuite mémoire) ---
 const fenetres = new Map(); // cle -> { compte, debut }
 const FENETRE_MS = 600000; // 10 min
@@ -99,7 +105,7 @@ exports.lexaiChat = onRequest({ cors: true }, async (req, res) => {
         Authorization: `Bearer ${CLE_GROQ}`,
       },
       body: JSON.stringify({
-        model: body.model || 'openai/gpt-oss-120b',
+        model: MODELE_AUTORISE,
         temperature: Math.min(Math.max(Number(body.temperature ?? 0.5), 0), 1),
         max_tokens: Math.min(Number(body.max_tokens ?? 1200), 2000),
         reasoning_effort: 'low',
@@ -117,21 +123,10 @@ exports.lexaiChat = onRequest({ cors: true }, async (req, res) => {
   }
 });
 
-/**
- * Proxy transcription audio (pour la dictée vocale) — multipart renvoyé tel quel.
- * Idem déploiement : lexaiTranscrire. Le client envoie le FormData Groq sans
- * l'en-tête Authorization (la clé est ajoutée ici).
- */
-exports.lexaiTranscrire = onRequest({ cors: true }, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  if (req.method === 'OPTIONS') {
-    res.status(204).send('');
-    return;
-  }
-  res.status(501).json({ error: 'Pour la dictée : réutilise lexaiChat ou envoie le fichier en JSON base64.' });
-});
+// ❌ `lexaiTranscrire` a été SUPPRIMÉ (cycle K) : c'était un stub qui répondait
+// 501 sans jamais rien transcrire, et aucun écran ne l'appelait
+// (`urlTranscription()` n'avait plus de consommateur). La lecture audio des
+// cours passe par `expo-speech` — un TTS LOCAL, donc 100 % hors-ligne.
 
 // 72 — JOURNAL D'AUDIT : trace toutes les écritures de scores pour repérer
 // les anomalies (rafales, scores impossibles). Consultable dans Firestore.
@@ -149,48 +144,70 @@ exports.journalScores = onDocumentCreated('/defi_jour/{docId}', async (event) =>
   }).catch(() => null);
 });
 
-/**
- * 🏆 CLASSEMENT PUBLIC — collection dénormalisée et SANS données sensibles.
- *
- * Le classement (écran classement.tsx) lit actuellement `utilisateurs`, qui
- * contient email, hash de mot de passe et code de transfert → fuite si la
- * règle de lecture est trop ouverte. Ici on agrége POUR CHAQUE MISE À JOUR
- * d'XP d'un utilisateur une fiche publique (nom, classe, xp, xp_semaine,
- * avatar) dans `classement_public`, qui seule est lisible par les élèves.
- */
-const { onDocumentUpdated, onDocumentCreated: onDocCree } = require('firebase-functions/v2/firestore');
-exports.reflechirClassementPublic = onDocumentUpdated('utilisateurs/{userId}', async (event) => {
-  const db = require('firebase-admin').firestore();
-  const apres = event.data.after.data();
-  if (!apres) return null;
-  const uid = event.params.userId;
-  // N'expose JAMAIS l'email ni le hash : uniquement l'essentiel du classement.
-  return db.collection('classement_public').doc(uid).set({
-    nom: String(apres.nom || 'Élève'),
-    classe: String(apres.classe || ''),
-    xp: Number(apres.xp) || 0,
-    xp_semaine: Number(apres.xp_semaine) || 0,
-    avatar: String(apres.avatar || '🎓'),
-    majISO: new Date().toISOString(),
-  }, { merge: true }).catch(() => null);
-});
-exports.reflechirClassementCree = onDocCree('utilisateurs/{uid}', async (event) => {
-  // Rejoue la même logique à la création du profil (la 1re fois).
-  const db = require('firebase-admin').firestore();
-  const donnees = event.data ? event.data.data() : {};
-  const uid = event.params.uid;
-  return db.collection('classement_public').doc(uid).set({
-    nom: String(donnees.nom || 'Élève'),
-    classe: String(donnees.classe || ''),
-    xp: Number(donnees.xp) || 0,
-    xp_semaine: Number(donnees.xp_semaine) || 0,
-    avatar: String(donnees.avatar || '🎓'),
-    maj: new Date().toISOString(),
-  }, { merge: true }).catch(() => null);
-});
+/** Classement public : whitelist de champs, jamais de lecture des profils privés. */
+const { onDocumentUpdated, onDocumentCreated: onDocCree, onDocumentDeleted } = require('firebase-functions/v2/firestore');
+const { synchroniserProfil, migrerClassementPublic } = require('./classement');
+exports.reflechirClassementPublic = onDocumentUpdated(
+  { document: 'utilisateurs/{userId}', retry: true },
+  (event) => synchroniserProfil(admin.firestore(), event.params.userId, true)
+);
+exports.reflechirClassementCree = onDocCree(
+  { document: 'utilisateurs/{uid}', retry: true },
+  (event) => synchroniserProfil(admin.firestore(), event.params.uid, true)
+);
+exports.reflechirClassementSupprime = onDocumentDeleted(
+  { document: 'utilisateurs/{uid}', retry: true },
+  (event) => synchroniserProfil(admin.firestore(), event.params.uid)
+);
 
 /**
- * 🗓️ HORLOGE HEBDOMADAIRE — réinitialise les XP de la semaine pour les
+ * 🧹 MIGRATION DU CLASSEMENT (réservée à l'administrateur).
+ *
+ * Appel : POST/GET https://<region>-lex-academy-10eef.cloudfunctions.net/migrerClassementPublic
+ *   en-tête : Authorization: Bearer <jeton Firebase de l'admin>
+ *   paramètre : dryRun=1 (DÉFAUT) pour un simple rapport, dryRun=0 pour écrire.
+ *
+ * 🔒 Sans jeton valide ET sans appartenance à `admins` (ou roles.isAdmin),
+ * la fonction répond 403 : elle ne peut pas être déclenchée par un élève.
+ */
+async function estAdminAuthentifie(req) {
+  const entete = String((req.headers && req.headers.authorization) || '');
+  const jeton = entete.startsWith('Bearer ') ? entete.slice(7).trim() : '';
+  if (!jeton) return null;
+  try {
+    const decode = await admin.auth().verifyIdToken(jeton);
+    const db = admin.firestore();
+    // Même source de vérité que firestore.rules : `admins/{uid}`, repli `roles`.
+    const documentAdmin = await db.collection('admins').doc(decode.uid).get();
+    if (documentAdmin.exists) return decode.uid;
+    const documentRole = await db.collection('roles').doc(decode.uid).get();
+    if (documentRole.exists && documentRole.data().isAdmin === true) return decode.uid;
+    return null;
+  } catch (erreur) {
+    return null;
+  }
+}
+
+exports.migrerClassementPublic = onRequest(
+  { cors: true, timeoutSeconds: 540, memory: '512MiB' },
+  async (req, res) => {
+    const uid = await estAdminAuthentifie(req);
+    if (!uid) {
+      res.status(403).json({ error: "Réservé à l'administrateur du LEX." });
+      return;
+    }
+    const demande = String((req.query && req.query.dryRun) ?? (req.body && req.body.dryRun) ?? '1');
+    const dryRun = demande !== '0';
+    try {
+      const rapport = await migrerClassementPublic(admin.firestore(), { dryRun });
+      res.json({ ok: true, lancePar: uid, ...rapport });
+    } catch (erreur) {
+      res.status(500).json({ error: String((erreur && erreur.message) || erreur) });
+    }
+  }
+);
+
+/**
  * classements/ligues hebdo. Exécuté chaque lundi à 00:05 (heure serveur).
  * On rend aussi `classement_public.xp_semaine` à 0 : les ligues repartent
  * équitablement, les « gros » XP cumulés ne bloquent plus les nouveaux.
@@ -208,9 +225,9 @@ exports.resetXpSemaine = onSchedule('5 0 * * MON', { timeZone: 'Africa/Niamey' }
         xp_semaine: 0,
         xp_semaine_cle: FieldValue.delete(),
       });
-      await db.collection('classement_public').doc(d.id).update({
-        xp_semaine: 0,
-      }).catch(() => null);
+      // ✅ Une seule source de vérité pour la fiche publique (au lieu d'une
+      // mise à jour partielle qui laissait des champs diverger).
+      await synchroniserProfil(db, d.id);
       i++;
     } catch { /* continuer */ }
     // Petit respect des quotas (1 requête/élève à la fois, pas de ruée).

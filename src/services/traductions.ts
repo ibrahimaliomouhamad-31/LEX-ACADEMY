@@ -13,7 +13,7 @@ const DICO: { [cle: string]: { fr: string; en: string } } = {
   revisions_jour: { fr: '🧠 Révisions du jour', en: "🧠 Today's review" },
   classement: { fr: '🏆 Classement du LEX', en: '🏆 LEX Leaderboard' },
   lexai: { fr: '🤖 LEX.AI (Assistant)', en: '🤖 LEX.AI (Assistant)' },
-  plus: { fr: '🎯 Plus (BAC blanc, flashcards, duels, stats...)', en: '🎯 More (Mock exams, flashcards, duels, stats...)' },
+  plus: { fr: '🎯 Plus (flashcards, duels, stats...)', en: '🎯 More (flashcards, duels, stats...)' },
   // Hub
   boite_outils: { fr: 'BOÎTE À OUTILS', en: 'TOOLBOX' },
   plus_titre: { fr: '🎯 Plus de fonctionnalités', en: '🎯 More features' },

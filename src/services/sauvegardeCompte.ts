@@ -7,7 +7,7 @@
  * ni le cache de cours re-téléchargeable.
  *
  * 🛡️ AUDIT cycle J : avant, l'export filtrait explicitement ~6 clés et
- * OMETTAIT `lex_exos_resolus`, `lex_bac_blanc_scores`, `lex_flashcards_scores`,
+ * OMETTAIT `lex_exos_resolus`, `lex_flashcards_scores`,
  * `lex_qcm_meilleur`, `lex_infini_stats`, `lex_srs`… → restauration sur un
  * nouveau téléphone = anti-farm réinitialisé (re-farm illimité) + historique
  * perdu. Désormais : ALLOWLIST complète et vérifiée par tests.
@@ -19,7 +19,7 @@ export const CLES_GLOBALES_PROGRESSION: readonly string[] = [
   'lex_xp_local', 'lex_streak_local', 'lex_streak_freezes',
   'lex_exos_resolus', 'lex_booster_double_xp_fin',
   // Scores pédagogiques
-  'lex_bac_blanc_scores', 'lex_flashcards_scores', 'lex_qcm_meilleur',
+  'lex_flashcards_scores', 'lex_qcm_meilleur',
   'lex_qcm_svt_scores', 'lex_infini_stats', 'lex_olympiades_resolus',
   // Révisions planifiées (SM2)
   'lex_srs', 'lex_srs_sm2', 'lex_srs_faits',

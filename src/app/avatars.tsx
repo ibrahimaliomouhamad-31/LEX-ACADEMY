@@ -1,48 +1,76 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { doc, updateDoc } from 'firebase/firestore';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db } from '../config/firebaseConfig';
-import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
+import { getUserItem, setUserItem } from '../services/userStorage';
+import { rapporterErreur } from '../utils/logger';
+
+/** Clé locale de l'avatar (par utilisateur, via userStorage). */
+const CLE_AVATAR = 'lex_avatar_emoji';
+
+export const LISTE_AVATARS = [
+  { emoji: '🦊', nom: 'Renard Malin' },
+  { emoji: '🦉', nom: 'Hibou Sage' },
+  { emoji: '🦁', nom: 'Lion du LEX' },
+  { emoji: '🐺', nom: 'Loup Solitaire' },
+  { emoji: '🐉', nom: 'Dragon' },
+  { emoji: '🦅', nom: 'Aigle Royal' },
+  { emoji: '🐼', nom: 'Panda zen' },
+  { emoji: '🤖', nom: 'Robot IA' },
+  { emoji: '👻', nom: 'Fantôme' },
+  { emoji: '👑', nom: 'Roi/Reine' },
+  { emoji: '🧠', nom: 'Cerveau' },
+  { emoji: '⚡', nom: 'Éclair' },
+];
+
+export async function lireAvatarLocal(): Promise<string> {
+  try {
+    const local = await getUserItem(CLE_AVATAR);
+    if (local) return local;
+    const ancien = await AsyncStorage.getItem('lex_avatar');
+    if (ancien) {
+      await setUserItem(CLE_AVATAR, ancien);
+      return ancien;
+    }
+  } catch (e) {
+    rapporterErreur('avatars lireAvatarLocal:', e);
+  }
+  return '🎓';
+}
 
 export default function Avatars() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [actuel, setActuel] = useState('🎓');
 
-  const listeAvatars = [
-    { emoji: "🦊", nom: "Renard Malin" },
-    { emoji: "🦉", nom: "Hibou Sage" },
-    { emoji: "🦁", nom: "Lion du LEX" },
-    { emoji: "🐺", nom: "Loup Solitaire" },
-    { emoji: "🐉", nom: "Dragon" },
-    { emoji: "🦅", nom: "Aigle Royal" },
-    { emoji: "🐼", nom: "Panda zen" },
-    { emoji: "🤖", nom: "Robot IA" },
-    { emoji: "👻", nom: "Fantôme" },
-    { emoji: "👑", nom: "Roi/Reine" },
-    { emoji: "🧠", nom: "Cerveau" },
-    { emoji: "⚡", nom: "Éclair" },
-  ];
+  useEffect(() => {
+    lireAvatarLocal().then(setActuel).catch(() => undefined);
+  }, []);
 
   const choisirAvatar = async (emoji: string) => {
     setLoading(true);
+    // 1) LOCAL D'ABORD : marche hors-ligne, visible partout immédiatement.
+    try {
+      await setUserItem(CLE_AVATAR, emoji);
+    } catch (e) {
+      rapporterErreur('avatars setUserItem:', e);
+    }
+    setActuel(emoji);
+    // 2) DISTANT EN BEST-EFFORT : ne bloque jamais, ne fait jamais échouer.
     try {
       const id = await AsyncStorage.getItem('lex_user_id');
       if (id) {
-        // On enregistre l'avatar choisi dans Firebase
-        await updateDoc(doc(db, "utilisateurs", id), {
-          avatar: emoji
-        });
-        Alert.alert("Mis à jour !", "Ton nouvel avatar a été enregistré.");
-        router.push('/profil');
+        await updateDoc(doc(db, 'utilisateurs', id), { avatar: emoji });
       }
-    } catch (error) {
-      rapporterErreur("Erreur avatar : ", error);
-      Alert.alert("Erreur", "Impossible de mettre à jour l'avatar.");
+    } catch (e) {
+      rapporterErreur('avatars sync distante (best-effort):', e);
     } finally {
       setLoading(false);
     }
+    Alert.alert('Mis à jour !', 'Ton nouvel avatar est enregistré sur ce téléphone.');
+    router.push('/profil');
   };
 
   if (loading) {
@@ -67,10 +95,10 @@ export default function Avatars() {
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.grid}>
-          {listeAvatars.map((avatar, index) => (
-            <TouchableOpacity 
-              key={index} 
-              style={styles.avatarCard} 
+          {LISTE_AVATARS.map((avatar) => (
+            <TouchableOpacity
+              key={avatar.emoji}
+              style={[styles.avatarCard, actuel === avatar.emoji && styles.avatarCardActif]}
               onPress={() => choisirAvatar(avatar.emoji)}
             >
               <Text style={styles.avatarEmoji}>{avatar.emoji}</Text>
@@ -104,5 +132,9 @@ const styles = StyleSheet.create({
     borderColor: '#334155'
   },
   avatarEmoji: { fontSize: 40, marginBottom: 10 },
-  avatarName: { color: '#F8FAFC', fontSize: 12, fontWeight: 'bold', textAlign: 'center' }
+  avatarName: { color: '#F8FAFC', fontSize: 12, fontWeight: 'bold', textAlign: 'center' },
+  avatarCardActif: {
+    borderColor: '#FBBF24',
+    borderWidth: 2,
+  },
 });
