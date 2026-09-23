@@ -64,7 +64,7 @@ export default function EntrainementInfini() {
       rapporterErreur('[audit] Erreur silencieuse', erreurSilencieuse);
     }
         }
-        const n = await chargerNotionsChapitre(chapitreId, cours as unknown as Record<string, unknown>, contenuFB as unknown as Record<string, unknown> | null);
+        const n = await chargerNotionsChapitre(chapitreId, cours as unknown as Record<string, unknown>, contenuFB as unknown as Record<string, unknown> | null, matiere);
         
         // Charge la maîtrise depuis le stockage local
         const maitriseStr = await AsyncStorage.getItem(`${CLE_MAITRISE}_${chapitreId}`);
@@ -89,7 +89,9 @@ export default function EntrainementInfini() {
   // Génère un exercice pour la notion actuelle
   const genererExo = (notion: MicroNotion, niv: number) => {
     const graine = Date.now() + Math.random() * 1000;
-    return genererExercicePourNotion(notion, niv, graine);
+    // La matière est transmise pour éviter tout exercice hors-sujet
+    // (une notion de SVT ne doit jamais recevoir une équation du 2nd degré).
+    return genererExercicePourNotion(notion, niv, graine, matiere);
   };
 
   // Sélectionne une notion et génère un exercice
@@ -232,7 +234,29 @@ export default function EntrainementInfini() {
       <StatusBar barStyle="light-content" backgroundColor="#0B1120" />
       {header}
       <View style={styles.barreInfo}>
-        <Text style={styles.infoTexte}>{notions.length} micro-notions • Choisis une notion</Text>
+        <Text style={styles.infoTexte}>
+          {notions.length > 0 ? (
+            <>
+              🎯 Notions vues : <Text style={{ color: '#FBBF24', fontWeight: 'bold' }}>{notions.filter(n => n.maitrise > 0).length}</Text>/{notions.length}
+              {" · "}
+              {totalResolus} exercices résolus
+            </>
+          ) : (
+            'Choisis une micro-notion pour commencer'
+          )}
+        </Text>
+        {notions.length > 0 && notionActuelle === null && (
+          <TouchableOpacity
+            onPress={() => {
+              setTotalResolus(0);
+              setSerie(0);
+              setNotions(prev => prev.map(n => ({ ...n, maitrise: 0 })));
+            }}
+            style={{ backgroundColor: '#1F2937', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, marginTop: 8 }}
+          >
+            <Text style={{ color: '#94A3AF', fontSize: 12 }}>🔄 Recommencer</Text>
+          </TouchableOpacity>
+        )}
       </View>
       <ScrollView contentContainerStyle={{ padding: 20 }}>
         {chargement ? (

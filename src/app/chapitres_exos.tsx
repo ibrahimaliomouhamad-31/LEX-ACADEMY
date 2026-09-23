@@ -141,10 +141,18 @@ export default function ChapitresExos() {
               <View key={chapitre.id} style={styles.chapterCard}>
                 <TouchableOpacity
                   style={styles.chapterMain}
-                  onPress={() => router.push({
-                    pathname: '/liste_exercices',
-                    params: { classe: classe, matiere: matiere, chapitre_id: chapitre.id, titre: chapitre.titre || '' }
-                  })}
+                  onPress={() =>
+                    // ♾️ UNIFICATION : un seul parcours d'exercices. Le tap sur
+                    // le chapitre ouvre directement la pratique infinie (TOUTES
+                    // les micro-notions). La liste fixe reste le repli pour une
+                    // éventuelle matière sans générateur local.
+                    generateurDisponible(matiere)
+                      ? goInfini(chapitre)
+                      : router.push({
+                          pathname: '/liste_exercices',
+                          params: { classe: classe, matiere: matiere, chapitre_id: chapitre.id, titre: chapitre.titre || '' }
+                        })
+                  }
                 >
                   <View style={styles.chapterNumber}>
                     <Text style={styles.chapterNumberText}>{index + 1}</Text>
@@ -152,7 +160,8 @@ export default function ChapitresExos() {
                   <View style={styles.chapterInfo}>
                     <Text style={styles.chapterTitle}>{chapitre.titre}</Text>
                     <Text style={styles.chapterHint}>
-                      {estTelecharge ? '📱 Hors-ligne prêt • ' : ''}📝 Exercices du chapitre
+                      {estTelecharge ? '📱 Hors-ligne prêt • ' : ''}
+                      {generateurDisponible(matiere) ? '♾️ Pratique infinie — toutes les micro-notions' : '📝 Exercices du chapitre'}
                     </Text>
                   </View>
                   <Text style={styles.arrow}>›</Text>
@@ -168,12 +177,6 @@ export default function ChapitresExos() {
                       {enCours === chapitre.id ? '⏳ Téléchargement...' : estTelecharge ? '✅ Hors-ligne' : '📥 Télécharger'}
                     </Text>
                   </TouchableOpacity>
-
-                  {generateurDisponible(matiere) && (
-                    <TouchableOpacity style={styles.aiBtn} onPress={() => goInfini(chapitre)}>
-                      <Text style={styles.aiBtnText}>🧠 Infini</Text>
-                    </TouchableOpacity>
-                  )}
 
                   <TouchableOpacity
                     style={styles.lexAiBtn}

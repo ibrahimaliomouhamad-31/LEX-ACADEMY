@@ -1,0 +1,56 @@
+# -*- coding: utf-8 -*-
+"""Notions curees - SVT : ecologie (ecosystemes, sols, environnement)."""
+
+SVT = ['svt']
+
+GROUPES = [
+    (SVT,
+     ['ecosystemes', 'relations trophiques', 'flux de matiere',
+      'biodiversite', 'production primaire', 'roles des vegetaux'],
+     'svt_ecosystemes',
+     'Ecosystemes et relations trophiques',
+     [
+         ("Ecosystemes et biotope",
+          "Un ecosysteme unit un milieu et les etres qui l'habitent : savane, mare ou foret du Niger.",
+          'ecosysteme biotope milieu savane'),
+         ("Chaines et reseaux trophiques",
+          "Producteurs, herbivores, carnivores et decompositeurs : la matiere circule de maillon en maillon.",
+          'chaines producteurs herbivores carnivores'),
+         ("Flux de matiere et d'energie",
+          "La production primaire capte l'energie solaire ; une partie se perd a chaque niveau trophique.",
+          'flux primaire solaire niveau pyramide'),
+         ("Biodiversite et impacts humains",
+          "Defrichement, surpaturage et pollution reduisent la biodiversite : parcs et aires protegees la preservent.",
+          'biodiversite defrichement parcs protegees'),
+     ]),
+    (SVT,
+     ['formation d un sol', 'proprietes d un sol', 'gestion des sols'],
+     'svt_sols',
+     'Sols : formation et gestion',
+     [
+         ("Formation et profil d'un sol",
+          "La roche mere s'altere, la matiere organique s'y mele : horizons A, B et C du profil.",
+          'profil horizons roche humus'),
+         ("Proprietes et fertilite",
+          "Texture, structure et pH conditionnent l'eau et les sels : un sol fertile nourrit bien la plante.",
+          'texture structure fertilite eau'),
+         ("Gestion et lutte contre l'erosion",
+          "Cordons pierreux, demi-lunes et fumure restaurent les sols degrades du Sahel.",
+          'cordons demi lunes fumure sahel'),
+     ]),
+    (SVT,
+     ['constituants de l environnement', 'degradations', 'gestion de l environnement'],
+     'svt_environnement',
+     'Environnement : protection et gestion',
+     [
+         ("Constituants de l'environnement",
+          "Air, eau, sol, faune et flore forment notre cadre de vie : chacun merite protection.",
+          'air eau sol faune flore'),
+         ("Degradations et pollutions",
+          "Dechets plastiques, eaux usees et coupe abusive : les villes du Niger subissent pressions croissantes.",
+          'dechets pollution coupe pression'),
+         ("Gestion durable et reboisement",
+          "Reboisement, assainissement et energies propres : gerer aujourd'hui pour demain.",
+          'reboisement assainissement durable demain'),
+     ]),
+]
