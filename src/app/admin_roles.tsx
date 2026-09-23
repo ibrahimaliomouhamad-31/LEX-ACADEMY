@@ -1,6 +1,9 @@
 /**
- * 🔧 ADMIN PANEL - ATTRIBUTION DE RÔLES
- * Attribution des rôles de responsabilité (moniteur, chef de classe, délégué)
+ * 🔧 GRILLE DE DÉLÉGATION DE POUVOIRS
+ * Le superadmin coche les permissions qu'un élève (devenu admin) pourra exercer.
+ * Les anciens rôles (moniteur / chef_classe / délégué) ont été retirés du modèle
+ * en février 2026 : désormais, un admin n'a pas de rôle pédagogique, juste les
+ * permissions que le superadmin lui a données via cette grille.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -21,7 +24,6 @@ import { getCurrentUserId } from '../services/auth';
 import {
   UserRole,
   PermissionKey,
-  attribuerRoleEtudiant,
   getRolesClasse,
   revoquerRole,
   estAdminActuel,
@@ -35,33 +37,11 @@ import {
 import { libellePermission, libelleRoleAdmin, variantesClasse } from '../services/adminUtils';
 import { rapporterErreur } from '../utils/logger';
 
-const ROLES_DISPONIBLES: { id: UserRole; label: string; icon: string; description: string }[] = [
-  {
-    id: 'moniteur',
-    label: '🎯 Moniteur',
-    icon: '👨‍🏫',
-    description: 'Aide les autres élèves, corrige les exercices',
-  },
-  {
-    id: 'chef_classe',
-    label: '📋 Chef de classe',
-    icon: '👑',
-    description: 'Gère la classe, crée défis, valide devoirs',
-  },
-  {
-    id: 'delegue',
-    label: '📣 Délégué',
-    icon: '📢',
-    description: 'Représente la classe, voit les stats, crée annonces',
-  },
-];
-
 interface StudentWithRole {
   userId: string;
   nom: string;
   classe: string;
   role?: UserRole;
-  selectedRole?: UserRole;
 }
 
 export default function AdminPanel() {
@@ -73,8 +53,6 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(true);
   const [classe, setClasse] = useState('');
   const [students, setStudents] = useState<StudentWithRole[]>([]);
-  const [selectedRole, setSelectedRole] = useState<UserRole>('moniteur');
-  const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   // 🎁 Délégation de pouvoirs : élève visé + cases cochées + état d'écriture.
   const [eleveCible, setEleveCible] = useState<StudentWithRole | null>(null);
@@ -97,10 +75,10 @@ export default function AdminPanel() {
       setCurrentUserId(userId);
 
       // 🛡️ GARDE D'ACCES — deleguee a estAdminActuel() : lit la collection
-      // `admins` (source de verite, remplie par le bootstrap "code proviseur"
+      // `admins` (source de verite, remplie par le bootstrap "code superadmin"
       // de admin.tsx) PUIS `roles/{uid}`. Avant, le test etait
       // `peutEffectuerAction(userId, 'modifierRoles')`, qui ne lit QUE
-      // `roles/{uid}` : le proviseur bootstrappe n'a pas de doc `roles` ->
+      // `roles/{uid}` : le superadmin bootstrappe n'a pas de doc `roles` ->
       // "Acces refuse" a l'administrateur lui-meme, et aucun role ne pouvait
       // donc JAMAIS etre attribue.
       const isAdminUser = await estAdminActuel();
@@ -182,36 +160,6 @@ export default function AdminPanel() {
       Alert.alert('Erreur', String(error));
     } finally {
       setLoading(false);
-    }
-  };
-
-  const attribuerRole = async (userId: string) => {
-    if (!selectedRole) {
-      Alert.alert('Sélectionnez un rôle');
-      return;
-    }
-
-    try {
-      const student = students.find((s) => s.userId === userId);
-      if (!student) return;
-
-      const result = await attribuerRoleEtudiant(
-        userId,
-        student.nom,
-        classe,
-        selectedRole
-      );
-
-      if (result.success) {
-        Alert.alert('✅ Succès', `${libelleRoleAdmin(selectedRole)} attribué à ${student.nom}`);
-        setEditingUserId(null);
-        chargerEtudiantsClasse();
-      } else {
-        Alert.alert('❌ Erreur', result.error || 'Impossible d\'attribuer le rôle');
-      }
-    } catch (error) {
-      rapporterErreur('[admin_roles] Attribution du role:', error);
-      Alert.alert('Erreur', String(error));
     }
   };
 
@@ -309,7 +257,7 @@ export default function AdminPanel() {
       <View style={styles.header}>
         <Text style={styles.title}>🔧 Admin Panel</Text>
         <Text style={styles.subtitle}>
-          {estSuper ? '👑 Superadmin — rôles et partage des pouvoirs' : 'Gestion des rôles et permissions'}
+          {estSuper ? '👑 Superadmin — grille de délégation de pouvoirs' : 'Délégation de pouvoirs'}
         </Text>
       </View>
 
@@ -329,29 +277,6 @@ export default function AdminPanel() {
         >
           <Text style={styles.btnText}>Charger élèves</Text>
         </TouchableOpacity>
-      </View>
-
-      {/* RÔLES DISPONIBLES */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>👥 Rôles disponibles</Text>
-        {ROLES_DISPONIBLES.map((role) => (
-          <TouchableOpacity
-            key={role.id}
-            style={[
-              styles.roleCard,
-              selectedRole === role.id && styles.roleCardSelected,
-            ]}
-            onPress={() => setSelectedRole(role.id)}
-          >
-            <View>
-              <Text style={styles.roleLabel}>{role.label}</Text>
-              <Text style={styles.roleDesc}>{role.description}</Text>
-            </View>
-            <View style={styles.checkbox}>
-              {selectedRole === role.id && <Text style={styles.checkmark}>✓</Text>}
-            </View>
-          </TouchableOpacity>
-        ))}
       </View>
 
       {/* 🎁 PARTAGE DE POUVOIRS — superadmin uniquement */}
@@ -461,51 +386,26 @@ export default function AdminPanel() {
                 )}
               </View>
 
-              {editingUserId === student.userId ? (
+              {student.role && (
                 <View style={styles.actionButtons}>
                   <TouchableOpacity
-                    style={styles.confirmBtn}
-                    onPress={() => attribuerRole(student.userId)}
+                    style={styles.deleteBtn}
+                    onPress={() => revoquerRoleEtudiant(student.userId, student.nom)}
                   >
-                    <Text style={styles.btnText}>✅ Confirmer</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.cancelBtn}
-                    onPress={() => setEditingUserId(null)}
-                  >
-                    <Text style={styles.btnText}>❌ Annuler</Text>
+                    <Text style={styles.btnText}>🗑️ Révoquer le rôle</Text>
                   </TouchableOpacity>
                 </View>
-              ) : (
-                <>
-                  <View style={styles.actionButtons}>
-                    <TouchableOpacity
-                      style={styles.editBtn}
-                      onPress={() => setEditingUserId(student.userId)}
-                    >
-                      <Text style={styles.btnText}>✏️ Modifier</Text>
-                    </TouchableOpacity>
-                    {student.role && (
-                      <TouchableOpacity
-                        style={styles.deleteBtn}
-                        onPress={() => revoquerRoleEtudiant(student.userId, student.nom)}
-                      >
-                        <Text style={styles.btnText}>🗑️ Révoquer</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                  {/* 🎁 Superadmin uniquement : ouvrir la grille des pouvoirs
-                      de CET élève (aucun rôle requis — un élève simple peut
-                      recevoir un pouvoir précis sans changer de statut). */}
-                  {estSuper && (
-                    <TouchableOpacity
-                      style={styles.pouvoirBtn}
-                      onPress={() => ouvrirPouvoirs(student)}
-                    >
-                      <Text style={styles.btnText}>🎁 Choisir ses pouvoirs</Text>
-                    </TouchableOpacity>
-                  )}
-                </>
+              )}
+              {/* 🎁 Superadmin uniquement : ouvrir la grille des pouvoirs
+                  de CET élève (aucun rôle requis — un élève simple peut
+                  recevoir un pouvoir précis sans changer de statut). */}
+              {estSuper && (
+                <TouchableOpacity
+                  style={styles.pouvoirBtn}
+                  onPress={() => ouvrirPouvoirs(student)}
+                >
+                  <Text style={styles.btnText}>🎁 Choisir ses pouvoirs</Text>
+                </TouchableOpacity>
               )}
             </View>
           ))}
@@ -568,44 +468,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 14,
   },
-  roleCard: {
-    backgroundColor: '#0F172A',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  roleCardSelected: {
-    borderColor: '#FBBF24',
-    backgroundColor: '#16233B',
-  },
-  roleLabel: {
-    color: '#F8FAFC',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  roleDesc: {
-    color: '#94A3B8',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: '#FBBF24',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkmark: {
-    color: '#FBBF24',
-    fontWeight: 'bold',
-  },
   studentCard: {
     backgroundColor: '#0F172A',
     padding: 12,
@@ -639,13 +501,6 @@ const styles = StyleSheet.create({
   actionButtons: {
     flexDirection: 'row',
     gap: 8,
-  },
-  editBtn: {
-    flex: 1,
-    backgroundColor: '#3B82F6',
-    padding: 8,
-    borderRadius: 6,
-    alignItems: 'center',
   },
   deleteBtn: {
     flex: 1,

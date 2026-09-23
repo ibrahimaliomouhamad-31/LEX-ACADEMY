@@ -2,7 +2,7 @@
  * 🏛️ OUTILS D'ADMINISTRATION — logique PURE (aucun accès réseau).
  *
  * Ces fonctions sont extraites de l'écran `admin.tsx` pour être testables sans
- * Firestore : normalisation des noms saisis par le proviseur, détection d'un
+ * Firestore : normalisation des noms saisis par le superadmin, détection d'un
  * identifiant technique, gestion des homonymes, garde-fous de retrait d'admin
  * et construction des traces du journal d'audit.
  *
@@ -128,14 +128,10 @@ export function traceAdmin(
 /** Libellé lisible d'un rôle de responsabilité (affichage admin). */
 export function libelleRoleAdmin(role?: string): string {
   switch (role) {
+    case 'superadmin':
+      return '👑 Superadmin';
     case 'admin':
-      return '👑 Administrateur';
-    case 'moniteur':
-      return '🎯 Moniteur';
-    case 'chef_classe':
-      return '📋 Chef de classe';
-    case 'delegue':
-      return '📣 Délégué';
+      return '🛡️ Administrateur';
     case 'etudiant':
       return '🎓 Élève';
     default:
@@ -203,6 +199,8 @@ export const LIBELLES_PERMISSIONS: Record<PermissionKey, string> = {
   forcerSync: '🔄 Forcer la synchronisation',
   voirSanteSync: '❤️ Voir l’état de la synchronisation',
   gererModeExamen: '🕵️ Gérer le mode examen',
+  creerCompte: '👤 Créer un compte élève',
+  promouvoirEleve: '⬆️ Promouvoir un élève admin',
 };
 
 /** Libellé d'une permission, avec repli lisible si le catalogue évolue. */

@@ -63,7 +63,7 @@ const OUTILS: Fonctionnalite[] = [
 const REGLAGES: Fonctionnalite[] = [
   { emoji: '📦', titre: 'Transfert', titreEn: 'Transfer', description: 'Sauvegarde tes données et restaure-les ailleurs', descriptionEn: 'Backup & restore your data', route: '/transfert', couleur: '#64748B' },
   { emoji: '⚙️', titre: 'Paramètres', titreEn: 'Settings', description: 'Langue, police, dortoir 🌙, rappel ⏰', descriptionEn: 'Language, font, dorm 🌙, reminder ⏰', route: '/parametres', couleur: '#475569' },
-  { emoji: '🏛️', titre: 'Administration', titreEn: 'Administration', description: "Réservé au proviseur de l'app et aux admins", descriptionEn: 'App principal & admins only', route: '/admin', couleur: '#065F46' },
+  { emoji: '🏛️', titre: 'Administration', titreEn: 'Administration', description: "Réservé au superadmin et aux admins", descriptionEn: 'App principal & admins only', route: '/admin', couleur: '#065F46' },
 ];
 
 const ONGLETS = [

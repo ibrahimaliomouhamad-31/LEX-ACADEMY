@@ -122,26 +122,26 @@ service cloud.firestore {
       allow write: if isAdmin() || (estSoiMeme(userId) && fichePubliqueValide());
     }
 
-    // ============ CONFIG APP (code proviseur, sentinelle bootstrap) ============
-    // 🛡️ BOOTSTRAP PROVISEUR — avant, `write: if isAdmin()` seul rendait le
+    // ============ CONFIG APP (code superadmin, sentinelle bootstrap) ============
+    // 🛡️ BOOTSTRAP SUPERADMIN — avant, `write: if isAdmin()` seul rendait le
     // premier bootstrap IMPOSSIBLE : personne n'est encore admin, donc
-    // `config/proviseur` (le code) et `config/initialise` (la sentinelle)
-    // ne pouvaient jamais être écrits depuis l'app. La porte reste
-    // strictement à usage unique : UNIQUEMENT si la sentinelle n'existe pas
-    // encore, UNIQUEMENT sur les deux docs connus, et UNIQUEMENT pour les
-    // créer (jamais les modifier ni les supprimer).
+    // `config/initialise` (la sentinelle) ne pouvait jamais être écrite depuis
+    // l'app. La porte reste strictement à usage unique : UNIQUEMENT si la
+    // sentinelle n'existe pas encore, UNIQUEMENT sur ce doc connu, et
+    // UNIQUEMENT pour le créer (jamais le modifier ni le supprimer).
     match /config/{docId} {
       // 🔒 `superadmin` est le SEUL document de config fermé en lecture : il
       // peut contenir l'empreinte du code de bootstrap (secret de fait). Le
-      // reste (proviseur, initialise) doit rester lisible AVANT connexion,
-      // sinon le tout premier proviseur ne peut pas amorcer l'app.
+      // reste (initialise) doit rester lisible AVANT connexion,
+      // sinon l'écran de bootstrap ne peut pas amorcer l'app.
       allow read: if docId != 'superadmin' || isAdmin();
       // 🔒 `superadmin` est EXCLU de toute écriture cliente : seul le SDK admin
-      // (console Firebase ou Cloud Function `devenirSuperAdmin`) le pose. Sans
+      // (console Firebase, `tmp/creer_superadmin.js` ou Cloud Function
+      // `devenirSuperAdmin`) le pose. Sans
       // cette exclusion, un admin pourrait planter SON PROPRE `codeHash` puis
       // s'auto-promouvoir superadmin — la hiérarchie n'aurait plus aucun sens.
       allow create: if docId != 'superadmin'
-        && (isAdmin() || (!adminInitialise() && docId in ['proviseur', 'initialise']));
+        && (isAdmin() || (!adminInitialise() && docId == 'initialise'));
       allow update, delete: if docId != 'superadmin' && isAdmin();
     }
 
@@ -155,7 +155,7 @@ service cloud.firestore {
       // 📌 docId == uid (même convention que `admins`, exposée par isAdmin()).
       allow read: if isAdmin() || estSoiMeme(userId);
       // Un admin gère les rôles de tout le monde. Le cas `estSoiMeme` couvre
-      // le BOOTSTRAP : le premier proviseur doit pouvoir écrire son propre
+      // le BOOTSTRAP : le premier admin doit pouvoir écrire son propre
       // doc de rôle (une seule fois — voir adminInitialise()).
       // Le superadmin est INTOUCHABLE sauf par lui-meme.
       allow write: if isSuperAdmin()
@@ -163,7 +163,7 @@ service cloud.firestore {
         || (estSoiMeme(userId) && !adminInitialise());
     }
 
-    // ============ ADMINS (liste du proviseur) ============
+    // ============ ADMINS (liste des admins) ============
     // 📌 CONVENTION : docId == userId. Les règles n'interrogent pas la base
     // (pas de « where ») : elles ne testent que des CHEMINS. Sans cette
     // convention, `exists(admins/$(request.auth.uid))` est impossible et le
@@ -268,8 +268,8 @@ service cloud.firestore {
       // (ancien modèle) pour ne verrouiller aucun admin déjà provisionné.
       //
       // ⚠️ Avant : `isAdmin()` ne regardait QUE `roles/{uid}.isAdmin`. Or le
-      // bootstrap du proviseur n'écrivait que dans `admins` → `isAdmin()` était
-      // faux pour tout le monde, y compris pour le proviseur, et les règles
+      // bootstrap initial n'écrivait que dans `admins` → `isAdmin()` était
+      // faux pour tout le monde, y compris pour son auteur, et les règles
       // interdisaient jusqu'à sa propre création (poule et œuf).
       return estAuth() && (
         exists(/databases/$(database)/documents/admins/$(request.auth.uid))
@@ -278,7 +278,7 @@ service cloud.firestore {
       );
     }
     function adminInitialise() {
-      // Sentinelle posée par le bootstrap du premier proviseur : elle verrouille
+      // Sentinelle posée par le bootstrap du premier admin : elle verrouille
       // DÉFINITIVEMENT l'auto-promotion. Si un admin légitime existait déjà
       // (migration), le client la pose aussi à sa première visite.
       //

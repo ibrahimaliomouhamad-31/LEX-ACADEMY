@@ -141,9 +141,7 @@ describe('variantesClasse', () => {
 describe('libelleRoleAdmin', () => {
   it('traduit chaque rôle en libellé lisible', () => {
     expect(libelleRoleAdmin('admin')).toContain('Administrateur');
-    expect(libelleRoleAdmin('chef_classe')).toContain('Chef de classe');
-    expect(libelleRoleAdmin('delegue')).toContain('Délégué');
-    expect(libelleRoleAdmin('moniteur')).toContain('Moniteur');
+    expect(libelleRoleAdmin('superadmin')).toContain('Superadmin');
     expect(libelleRoleAdmin('etudiant')).toContain('Élève');
     expect(libelleRoleAdmin(undefined)).toContain('Inconnu');
   });
