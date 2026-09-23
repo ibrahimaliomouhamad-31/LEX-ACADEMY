@@ -64,6 +64,13 @@ jest.mock('firebase/firestore', () => ({
 jest.mock('firebase/auth', () => ({ getAuth: jest.fn(() => ({})) }));
 jest.mock('../config/firebaseConfig', () => ({ db: {}, auth: { currentUser: null } }));
 jest.mock('../services/auth', () => ({ getCurrentUserId: jest.fn(async () => mockUidCourant) }));
+// 🔇 Journal mocké : les tests ASSERTENT ce qui est (ou non) signalé comme
+// erreur — notamment le permission-denied attendu d'une visite non connectée.
+jest.mock('../utils/logger', () => ({
+  rapporterErreur: jest.fn(),
+  logDev: jest.fn(),
+  avertirDev: jest.fn(),
+}));
 
 
 import {
@@ -81,6 +88,8 @@ import {
   type UserRole,
   type PermissionKey,
 } from '../services/rolesPermissions';
+import { getDoc } from 'firebase/firestore';
+import { logDev, rapporterErreur } from '../utils/logger';
 
 /**
  * Les 12 clés HISTORIQUES : anciens rôles pédagogiques (moniteur, chef de
@@ -374,5 +383,61 @@ describe('🎁 Délégation de pouvoirs', () => {
       pouvoirsDelegues: ['gererContenu'],
     };
     await expect(getPermissionsUtilisateur('uid-eleve')).resolves.toBeNull();
+  });
+});
+
+// 🔇 SONDE SANS SESSION : ouvrir 🏛️ /admin sans être connecté fait échouer la
+// lecture `roles/{uid}` (règles `isAdmin() || estSoiMeme()` → `permission-
+// denied`). Ce refus est la réponse ATTENDUE — « tu n'es pas cette personne »
+// → false — pas une erreur : le signaler afficherait une erreur en dev à
+// CHAQUE visite d'un non-connecté et créerait un faux crash en prod.
+describe('🔇 Sonde roles sans session (permission-denied)', () => {
+  /** Erreur telle que renvoyée par Firestore (FirebaseError.code). */
+  const refus = (): Error =>
+    Object.assign(new Error('Missing or insufficient permissions.'), {
+      code: 'permission-denied',
+    });
+
+  const snapVide = async () => ({ exists: () => false, data: () => undefined });
+
+  beforeEach(() => {
+    (rapporterErreur as jest.Mock).mockClear();
+    (logDev as jest.Mock).mockClear();
+  });
+
+  it('estSuperAdminActuel() retombe sur false SANS signaler d’erreur', async () => {
+    (getDoc as jest.Mock).mockImplementationOnce(async () => {
+      throw refus();
+    });
+
+    await expect(estSuperAdminActuel()).resolves.toBe(false);
+    expect(rapporterErreur).not.toHaveBeenCalled();
+    expect(logDev).toHaveBeenCalled();
+  });
+
+  it('estAdminActuel() retombe sur false SANS signaler d’erreur', async () => {
+    // 1re lecture = admins/{uid} (publique) : trou vide ; 2e = roles/{uid} : refus.
+    (getDoc as jest.Mock)
+      .mockImplementationOnce(snapVide)
+      .mockImplementationOnce(async () => {
+        throw refus();
+      });
+
+    await expect(estAdminActuel()).resolves.toBe(false);
+    expect(rapporterErreur).not.toHaveBeenCalled();
+    expect(logDev).toHaveBeenCalled();
+  });
+
+  it('une VRAIE erreur de lecture reste signalée (aucun étouffement)', async () => {
+    (getDoc as jest.Mock).mockImplementationOnce(async () => {
+      throw new Error('reseau indisponible');
+    });
+
+    await expect(estSuperAdminActuel()).resolves.toBe(false);
+    expect(rapporterErreur).toHaveBeenCalledWith(
+      '[roles] Erreur lecture superadmin:',
+      expect.any(Error)
+    );
+    expect(logDev).not.toHaveBeenCalled();
   });
 });

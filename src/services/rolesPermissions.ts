@@ -9,7 +9,7 @@
 import { doc, setDoc, getDoc, query, collection, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../config/firebaseConfig';
 import { getCurrentUserId } from './auth';
-import { rapporterErreur } from '../utils/logger';
+import { logDev, rapporterErreur } from '../utils/logger';
 
 /**
  * 👑 URL de la fonction de bootstrap superadmin (même projet/region que
@@ -32,6 +32,20 @@ async function jetonIdentite(): Promise<string> {
     rapporterErreur('[roles] Jeton identite indisponible:', error);
   }
   return '';
+}
+
+/**
+ * 🔇 Une lecture `roles` refusée en `permission-denied` n'est PAS une panne :
+ * c'est la réponse normale des règles `isAdmin() || estSoiMeme()` quand la
+ * session n'existe pas ou ne correspond pas au document lu (visiteur non
+ * connecté sur 🏛️ /admin, uid local `invite_local`, session expirée…).
+ * Les sondes `estAdminActuel` / `estSuperAdminActuel` en déduisent alors
+ * `false` — trace `logDev` (silencieuse en prod) plutôt que
+ * `rapporterErreur`, qui afficherait une erreur à chaque visite et
+ * enregistrerait un faux crash. Toute AUTRE erreur reste signalée.
+ */
+function estRefusAttendu(error: unknown): boolean {
+  return (error as { code?: string } | null)?.code === 'permission-denied';
 }
 
 /**
@@ -85,7 +99,11 @@ export async function estAdminActuel(): Promise<boolean> {
       if (!d.isDeleted && (d.isAdmin === true || d.role === 'admin' || estSuper)) return true;
     }
   } catch (error) {
-    rapporterErreur('[roles] Erreur lecture role admin:', error);
+    if (estRefusAttendu(error)) {
+      logDev('[roles] Sonde role admin : roles refusée (session absente) → false');
+    } else {
+      rapporterErreur('[roles] Erreur lecture role admin:', error);
+    }
   }
 
   return false;
@@ -401,7 +419,11 @@ export async function estSuperAdminActuel(): Promise<boolean> {
       if (!d.isDeleted && (d.estSuperAdmin === true || d.role === 'superadmin')) return true;
     }
   } catch (error) {
-    rapporterErreur('[roles] Erreur lecture superadmin:', error);
+    if (estRefusAttendu(error)) {
+      logDev('[roles] Sonde superadmin : roles refusée (session absente) → false');
+    } else {
+      rapporterErreur('[roles] Erreur lecture superadmin:', error);
+    }
   }
   try {
     const snapAdmin = await getDoc(doc(db, 'admins', uid));
