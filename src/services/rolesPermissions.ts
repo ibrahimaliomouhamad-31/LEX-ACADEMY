@@ -1,8 +1,9 @@
 /**
  * 👥 GESTION DES RÔLES & PERMISSIONS
- * Rôles de responsabilité (moniteur, chef de classe, délégué) attribués par le
- * proviseur depuis l'ecran admin_roles. La source de verite de l'admin est la
- * collection `admins` (voir estAdminActuel).
+ * Deux niveaux : superadmin (pleins pouvoirs, délègue) et admin (élève avec
+ * permissions déléguées). Les anciens rôles (moniteur, chef_classe, délégué)
+ * ont été retirés du modèle en février 2026. La source de vérité de l'admin
+ * est la collection `admins` (voir `estAdminActuel`).
  */
 
 import { doc, setDoc, getDoc, query, collection, where, getDocs } from 'firebase/firestore';
@@ -37,15 +38,15 @@ async function jetonIdentite(): Promise<string> {
  * L'utilisateur courant est-il administrateur ?
  *
  * Priorité à la collection `admins` : c'est la SEULE réellement alimentée par
- * l'écran 🏛️ `admin.tsx` (bootstrap « code proviseur » → `setDoc(doc(db,'admins',uid))`).
+ * l'écran 🏛️ `admin.tsx` (bootstrap « code superadmin » → `setDoc(doc(db,'admins',uid))`).
  * Convention `docId == uid` : c'est le CHEMIN testé par `isAdmin()` dans
  * `firestore.rules` (les règles ne savent pas faire de « where »).
  * Repli sur `roles/{uid}.isAdmin`, pour ne pas casser un admin provisionné
  * selon l'ancien modèle.
  *
  * ⚠️ Ce test REMPLACE l'ancien `getDoc(doc(db,'roles',uid))` seul : comme le
- * proviseur n'existe que dans `admins`, ce test échouait toujours → l'écran
- * d'attribution des rôles affichait « Permissions insuffisantes » au proviseur
+ * superadmin bootstrappé n'existe que dans `admins`, ce test échouait toujours → l'écran
+ * de délégation des pouvoirs affichait « Permissions insuffisantes » au superadmin
  * lui-même, même après un bootstrap réussi.
  */
 export async function estAdminActuel(): Promise<boolean> {
@@ -90,7 +91,7 @@ export async function estAdminActuel(): Promise<boolean> {
   return false;
 }
 
-export type UserRole = 'etudiant' | 'moniteur' | 'chef_classe' | 'delegue' | 'admin' | 'superadmin';
+export type UserRole = 'etudiant' | 'admin' | 'superadmin';
 
 /**
  * 🔑 CATALOGUE DES 50 PERMISSIONS (12 historiques + 38 nouvelles).
@@ -131,6 +132,8 @@ export type PermissionKey =
   | 'gererOlympiades'
   // 👥 Comptes
   | 'voirListeEleves'
+  | 'creerCompte'
+  | 'promouvoirEleve'
   | 'promouvoirAdmin'
   | 'retrograderAdmin'
   | 'suspendreCompte'
@@ -188,6 +191,8 @@ export const TOUTES_PERMISSIONS: readonly PermissionKey[] = [
   'validerDefi',
   'gererOlympiades',
   'voirListeEleves',
+  'creerCompte',
+  'promouvoirEleve',
   'promouvoirAdmin',
   'retrograderAdmin',
   'suspendreCompte',
@@ -220,7 +225,7 @@ export const DOMAINES_PERMISSIONS: readonly { domaine: string; cles: readonly Pe
   { domaine: '🏫 Vie de classe', cles: ['gererAbsences', 'creerDefis', 'validerHomework', 'accesStatsClasse', 'creerAnnonces', 'gererPetitions'] },
   { domaine: '📖 Pédagogie', cles: ['voirCoursTousNiveaux', 'modifierCours', 'publierCours', 'creerExercice', 'modifierExercice', 'gererFichesSynthese', 'gererSchemas', 'gererAudioCours'] },
   { domaine: '📝 Devoirs & défis', cles: ['creerDevoir', 'corrigerDevoir', 'publierDevoir', 'validerDefi', 'gererOlympiades'] },
-  { domaine: '👥 Comptes', cles: ['voirListeEleves', 'promouvoirAdmin', 'retrograderAdmin', 'suspendreCompte', 'reinitialiserMotDePasse', 'exporterDonneesEleves', 'gererInscriptions'] },
+  { domaine: '👥 Comptes', cles: ['voirListeEleves', 'promouvoirEleve', 'promouvoirAdmin', 'retrograderAdmin', 'suspendreCompte', 'reinitialiserMotDePasse', 'exporterDonneesEleves', 'gererInscriptions', 'creerCompte'] },
   { domaine: '🛡️ Modération', cles: ['voirSignalements', 'traiterSignalement', 'bannirTemporaire', 'voirJournalAide', 'traiterDemandeAide'] },
   { domaine: '📊 Statistiques', cles: ['accesStatsEcole', 'exporterStatistiques', 'voirJournalAdmin', 'gererClassement'] },
   { domaine: '📣 Communication', cles: ['envoyerNotification', 'gererGroupes', 'creerSondage', 'gererCalendrierScolaire'] },
@@ -285,7 +290,7 @@ export async function attribuerRoleEtudiant(
     // 🔒 CONTRÔLE ADMIN RÉEL : on exige soit le flag isAdmin du doc de rôle,
     // soit le rôle 'admin'. La vérification elle-même est déléguée à
     // estAdminActuel() : `admins` (source de vérité) PUIS `roles/{uid}`.
-    // Avant, seul `roles/{uid}` était lu → le proviseur bootstrappé était
+    // Avant, seul `roles/{uid}` était lu → le superadmin bootstrappé était
     // toujours refusé, et un admin créé avec role='admin' l'était aussi.
     if (!(await estAdminActuel())) {
       return { success: false, error: 'Permissions insuffisantes' };
@@ -370,79 +375,15 @@ export function genererPermissions(role: UserRole): PermissionsCarte {
   // apparaissait jamais.
   const base = carteVide();
   switch (role) {
-    case 'moniteur':
-      return {
-        ...base,
-        peutAider: true,
-        peutCorriger: true,
-      };
-    case 'chef_classe':
-      return {
-        ...base,
-        gererAbsences: true,
-        creerDefis: true,
-        validerHomework: true,
-        accesStatsClasse: true,
-      };
-    case 'delegue':
-      return {
-        ...base,
-        accesStatsClasse: true,
-        creerAnnonces: true,
-        gererPetitions: true,
-      };
     case 'admin':
+      // Un admin reçoit TOUTES les permissions déléguables (sauf les réserves
+      // superadmin). Le catalogue est la seule source : ajouter une permission
+      // ailleurs ne change rien ici, et supprimer une permission la fera
+      // échouer à coup sûr (test d'intégrité).
       return {
         ...base,
-        peutAider: true,
-        peutCorriger: true,
-        gererAbsences: true,
-        creerDefis: true,
-        validerHomework: true,
-        accesStatsClasse: true,
-        creerAnnonces: true,
-        gererPetitions: true,
-        gererUtilisateurs: true,
-        gererContenu: true,
-        accesAudit: true,
-        modifierRoles: true,
-        voirCoursTousNiveaux: true,
-        modifierCours: true,
-        publierCours: true,
-        creerExercice: true,
-        modifierExercice: true,
-        gererFichesSynthese: true,
-        gererSchemas: true,
-        gererAudioCours: true,
-        creerDevoir: true,
-        corrigerDevoir: true,
-        publierDevoir: true,
-        validerDefi: true,
-        gererOlympiades: true,
-        voirListeEleves: true,
-        suspendreCompte: true,
-        reinitialiserMotDePasse: true,
-        exporterDonneesEleves: true,
-        gererInscriptions: true,
-        voirSignalements: true,
-        traiterSignalement: true,
-        bannirTemporaire: true,
-        voirJournalAide: true,
-        traiterDemandeAide: true,
-        accesStatsEcole: true,
-        exporterStatistiques: true,
-        voirJournalAdmin: true,
-        gererClassement: true,
-        envoyerNotification: true,
-        gererGroupes: true,
-        creerSondage: true,
-        gererCalendrierScolaire: true,
-        gererParametresApp: true,
-        gererSauvegardes: true,
-        forcerSync: true,
-        voirSanteSync: true,
-        gererModeExamen: true,
-      };
+        ...Object.fromEntries(PERMISSIONS_DELEGABLES.map((cle) => [cle, true])),
+      } as PermissionsCarte;
     case 'superadmin':
       return Object.fromEntries(TOUTES_PERMISSIONS.map((cle) => [cle, true])) as PermissionsCarte;
     default:
@@ -600,7 +541,7 @@ export async function getPermissionsUtilisateur(userId: string): Promise<UserPer
       pouvoirsDelegues?: PermissionKey[];
     };
     if (data.isDeleted) return null; // rôle révoqué : plus aucune permission
-    // ️ Normalisation : un doc écrit hors de ce service (bootstrap proviseur,
+    // ️ Normalisation : un doc écrit hors de ce service (bootstrap superadmin,
     // console Firestore) peut ne pas contenir le champ `permissions` — et
     // `peutEffectuerAction` faisait alors `perms.permissions[action]` → crash.
     // Les permissions sont donc TOUJOURS régénérées depuis le rôle.

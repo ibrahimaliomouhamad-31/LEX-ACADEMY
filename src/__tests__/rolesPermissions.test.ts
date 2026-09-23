@@ -83,9 +83,11 @@ import {
 } from '../services/rolesPermissions';
 
 /**
- * Les 12 clés HISTORIQUES : celles qu'un rôle pédagogique (moniteur, chef de
- * classe, délégué) peut porter. Elles servent d'univers de comparaison pour
- * ces rôles — les 38 clés ajoutées ne doivent JAMAIS leur être attribuées.
+ * Les 12 clés HISTORIQUES : anciens rôles pédagogiques (moniteur, chef de
+ * classe, délégué) retirés du modèle en février 2026. Elles restent dans ce test
+ * d'architecture pour garantir que les 38+ clés ajoutées ne sont jamais
+ * attribuées aux rôles pédagogiques — elles ne sont accessibles qu'aux admins
+ * délégués et au superadmin.
  */
 const CLES_HISTORIQUES = [
   'peutAider',
@@ -128,23 +130,6 @@ describe('genererPermissions : droits par rôle', () => {
     expect(actives('etudiant')).toEqual([]);
   });
 
-  it('un moniteur peut aider et corriger, rien de plus', () => {
-    expect(actives('moniteur')).toEqual(['peutAider', 'peutCorriger']);
-  });
-
-  it('un chef de classe gère la classe et voit ses statistiques', () => {
-    expect(actives('chef_classe')).toEqual([
-      'gererAbsences',
-      'creerDefis',
-      'validerHomework',
-      'accesStatsClasse',
-    ]);
-  });
-
-  it('un délégué représente la classe (stats, annonces, pétitions)', () => {
-    expect(actives('delegue')).toEqual(['accesStatsClasse', 'creerAnnonces', 'gererPetitions']);
-  });
-
   it('un administrateur cumule TOUS les droits sauf ceux réservés au superadmin', () => {
     const attendues = TOUTES_PERMISSIONS.filter((cle) => !PERMISSIONS_SUPERADMIN_SEUL.includes(cle));
     expect(actives('admin', TOUTES_PERMISSIONS)).toEqual([...attendues]);
@@ -157,14 +142,23 @@ describe('genererPermissions : droits par rôle', () => {
   it('un rôle inconnu retombe sur « aucun droit » (défaut sûr)', () => {
     expect(actives('role_invente' as UserRole)).toEqual([]);
   });
+
+  it('les nouvelles permissions (creerCompte, promouvoirEleve) sont déléguables à un admin', () => {
+    const permsAdmin = genererPermissions('admin') as Record<string, boolean>;
+    expect(permsAdmin.creerCompte).toBe(true);
+    expect(permsAdmin.promouvoirEleve).toBe(true);
+  });
+
+  it('creerCompte et promouvoirEleve sont TOUJOURS faux pour un élève', () => {
+    const permsEleve = genererPermissions('etudiant') as Record<string, boolean>;
+    expect(permsEleve.creerCompte).toBe(false);
+    expect(permsEleve.promouvoirEleve).toBe(false);
+  });
 });
 
 describe('genererPermissions : intégrité de la forme', () => {
   const roles: UserRole[] = [
     'etudiant',
-    'moniteur',
-    'chef_classe',
-    'delegue',
     'admin',
     'superadmin',
     'inconnu' as UserRole,
@@ -188,7 +182,7 @@ describe('genererPermissions : intégrité de la forme', () => {
 
   it('les droits d’administration restent réservés au rôle admin', () => {
     const sensibles = ['gererUtilisateurs', 'gererContenu', 'accesAudit', 'modifierRoles'];
-    for (const role of ['etudiant', 'moniteur', 'chef_classe', 'delegue'] as UserRole[]) {
+    for (const role of ['etudiant'] as UserRole[]) {
       const permissions = genererPermissions(role) as unknown as Record<string, boolean>;
       for (const cle of sensibles) {
         expect(permissions[cle]).toBe(false);
@@ -234,7 +228,7 @@ describe('📚 Catalogue des permissions', () => {
       (cle) => !(CLES_HISTORIQUES as readonly string[]).includes(cle)
     );
     expect(nouvelles.length).toBeGreaterThan(0);
-    for (const role of ['etudiant', 'moniteur', 'chef_classe', 'delegue'] as UserRole[]) {
+    for (const role of ['etudiant'] as UserRole[]) {
       const permissions = genererPermissions(role) as unknown as Record<string, boolean>;
       for (const cle of nouvelles) {
         expect(permissions[cle]).toBe(false);
@@ -304,7 +298,7 @@ describe('👑 Hiérarchie superadmin', () => {
     mockUidCourant = 'uid-eleve';
     mockMagasin['roles/uid-eleve'] = { role: 'etudiant' };
 
-    const resultat = await attribuerRoleEtudiant('uid-eleve', 'Eleve', '2nde', 'moniteur');
+    const resultat = await attribuerRoleEtudiant('uid-eleve', 'Eleve', '2nde', 'etudiant');
     expect(resultat.success).toBe(false);
     expect(resultat.error).toMatch(/insuffisantes/i);
   });
@@ -323,7 +317,7 @@ describe('👑 Hiérarchie superadmin', () => {
     mockMagasin['admins/uid-admin'] = { nom: 'Admin' };
     mockMagasin['roles/uid-super'] = { estSuperAdmin: true, role: 'superadmin' };
 
-    const resultat = await attribuerRoleEtudiant('uid-super', 'Chef', '2nde', 'moniteur');
+    const resultat = await attribuerRoleEtudiant('uid-super', 'Chef', '2nde', 'etudiant');
     expect(resultat.success).toBe(false);
     // Le rôle du superadmin est resté intact.
     expect(mockMagasin['roles/uid-super'].role).toBe('superadmin');

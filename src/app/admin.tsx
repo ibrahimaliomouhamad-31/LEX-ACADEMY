@@ -29,10 +29,15 @@ import {
 import { rapporterErreur } from '../utils/logger';
 import { jourLocal } from '../utils/correctifsAudit';
 
-// ADMINISTRATION — le créateur de l'app est le "proviseur" : le PREMIER nom
-// enregistré dans la collection 'admins' devient admin à vie. Il peut ensuite
-// ajouter d'autres élèves à l'administration (qui gardent leur rôle d'élève).
-// Retrait d'un admin : directement depuis la console Firestore (collection 'admins').
+// ADMINISTRATION — deux niveaux de droits :
+//   • superadmin (toi, Mouhamad Ibrahim Alio) : TOUS les pouvoirs, y compris
+//     promouvoir / rétrograder un admin (permissions réservées). Créé via le code
+//     superadmin (fonction Cloud `devenirSuperAdmin`, empreinte SHA-256 vérifiée côté serveur).
+//   • admin : un élève auquel le superadmin a donné certains pouvoirs (via 🔧 Rôles & pouvoirs).
+//     Son rôle d'élève reste inchangé, il gagne juste les permissions déléguées.
+//
+//   Quiconque n'appartient pas à l'administration voit un message clair quand il
+//   ouvre l'écran /admin : « Vous n'appartenez pas à l'administration. »
 
 interface Admin {
   id: string;
@@ -44,6 +49,7 @@ interface Admin {
 export default function Admin() {
   const router = useRouter();
   const [nom, setNom] = useState('');
+  const [uid, setUid] = useState('');
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [estAdmin, setEstAdmin] = useState(false);
   const [chargement, setChargement] = useState(true);
@@ -74,7 +80,7 @@ export default function Admin() {
   const [crashs, setCrashs] = useState<{ message: string; dateISO: string }[]>([]);
   // 🔒 LECTURE REFUSÉE (permission-denied) ≠ LISTE VIDE (pas d'admins).
   // Sans ce drapeau, un non-admin hors-ligne ou refusé par les règles voyait
-  // le formulaire « Devenir proviseur » et pouvait croire qu'un bootstrap
+  // le formulaire « Devenir superadmin (ancien modele) » et pouvait croire qu'un bootstrap
   // était encore possible, alors que la règle serveur le rejetterait.
   const [accesInterdit, setAccesInterdit] = useState(false);
 
@@ -97,7 +103,7 @@ export default function Admin() {
       // ⚠️ `userId` DOIT être lu : c'est le SEUL lien entre un doc de `admins`
       // et un élève. Il était jeté ici, d'où deux conséquences graves :
       //   1. `liste.some((a) => a.userId === uidEleve)` était TOUJOURS faux →
-      //      `estAdmin = false` même pour le proviseur → l'écran d'administration
+      //      `estAdmin = false` même pour le superadmin → l'écran d'administration
       //      (et tout son dashboard) était inutilisable par TOUT LE MONDE ;
       //   2. la « migration » ci-dessous se relançait à chaque chargement.
       snap.forEach((d) => {
@@ -111,14 +117,14 @@ export default function Admin() {
       });
 
       // 71 — ANTI-USURPATION + ANTI-COURSE : l'admin est identifié par userId.
-      // Le bootstrap « premier arrivé = proviseur » était une prise de contrôle
+      // Le bootstrap « premier arrivé = superadmin » était une prise de contrôle
       // ouverte : n'importe quel élève ouvrant l'écran en premier sur une base
       // fraîche devenait admin à vie. Désormais le bootstrap exige un CODE
-      // PROVISEUR (config/proviseur.codeBootstrap, saisi ci-dessous) et le
-      // proviseur est ensuite le seul à pouvoir promouvoir.
+      // PROVISEUR (config/superadmin.codeBootstrap, saisi ci-dessous) et le
+      // superadmin est ensuite le seul à pouvoir promouvoir.
       if (liste.length === 0) {
         setEstAdmin(false);
-        // Aucun admin : c'est le cas BOOTSTRAP (code proviseur ci-dessous).
+        // Aucun admin : c'est le cas BOOTSTRAP (code superadmin ci-dessous).
         return false;
       }
       // Migration : un admin hérité par nom est rélié à ton userId à ta 1re visite
@@ -169,12 +175,10 @@ export default function Admin() {
     }
   };
 
-  // 🛡️ BOOTSTRAP PROVISEUR : quand aucun admin n'existe, le créateur saisit le
-  // code proviseur (jamais stocké côté client) pour devenir proviseur.
-  // (Déclarée ici car elle utilise uid/nom ; le bouton apparaît quand
-  // admins.length === 0 — voir le rendu ci-dessous.)
-  const [codeProviseur, setCodeProviseur] = useState('');
-  const [uid, setUid] = useState('');
+  // 🛡️ BOOTSTRAP SUPERADMIN : le code est vérifié par la Cloud Function
+  // `devenirSuperAdmin` (SHA-256 côté serveur). Il n'existe NI dans ce fichier
+  // NI dans Firestore : impossible de le lire en décompilant l'APK.
+  // Le SUPERADMIN est Mouhamad Ibrahim Alio — seul à pouvoir créer des admins.
   // 👑 BOOTSTRAP SUPERADMIN : le code est vérifié par la Cloud Function
   // `devenirSuperAdmin` (SHA-256 côté serveur). Il n'existe NI dans ce fichier
   // NI dans Firestore : impossible de le lire en décompilant l'APK.
@@ -218,41 +222,41 @@ export default function Admin() {
       setReclamationSuper(false);
     }
   };
-  const devenirProviseur = async () => {
+  const devenirSuperAdminLegacy = async () => {
     // Retour silencieux auparavant : le créateur ne comprenait pas pourquoi
-    // « Devenir proviseur » ne faisait rien (uid ou nom non encore chargés).
+    // « Devenir superadmin (ancien modele) » ne faisait rien (uid ou nom non encore chargés).
     if (!uid || !nom) {
       Alert.alert(
         'Connexion requise',
-        'Crée d’abord ton compte élève (ou reconnecte-toi), puis reviens sur 🏛️ Administration pour devenir proviseur.'
+        'Crée d’abord ton compte élève (ou reconnecte-toi), puis reviens sur 🏛️ Administration pour devenir superadmin (ancien modèle).'
       );
       return;
     }
-    if (!codeProviseur.trim()) {
-      Alert.alert('Code requis', 'Saisis le code proviseur communiqué par le créateur de l’app.');
+    if (!codeSuper.trim()) {
+      Alert.alert('Code requis', 'Saisis le code superadmin (ancien modèle) communiqué par le créateur de l’app.');
       return;
     }
     setChargement(true);
     try {
-      const refProv = doc(db, 'config', 'proviseur');
-      // 🛡️ PREMIER DÉMARRAGE — `config/proviseur` n'existe pas encore : les
+      const refProv = doc(db, 'config', 'superadmin');
+      // 🛡️ PREMIER DÉMARRAGE — `config/superadmin` n'existe pas encore : les
       // règles (porte `create` à usage unique) autorisent le créateur à le
       // POSER lui-même. Avant, l'écran se contentait de lire : sans le code
       // écrit au préalable en console, « Code incorrect » apparaissait TOUJOURS
-      // et aucun proviseur ne pouvait naître depuis l'app.
+      // et aucun superadmin ne pouvait naître depuis l'app.
       const premierDemarrage = (await getDocs(collection(db, 'admins'))).empty;
       let snapProv = await getDoc(refProv);
-      if (!snapProv.exists() && premierDemarrage && codeProviseur.trim().length >= 4) {
+      if (!snapProv.exists() && premierDemarrage && codeSuper.trim().length >= 4) {
         // `create` à usage unique (règles `config`) : un second créateur
         // concurrent reçoit permission-denied → il retombe sur le chemin
         // « Déjà initialisé » ci-dessous, jamais sur une auto-promotion.
         try {
-          await setDoc(refProv, { codeBootstrap: codeProviseur.trim() });
+          await setDoc(refProv, { codeBootstrap: codeSuper.trim() });
           snapProv = await getDoc(refProv);
         } catch (poseCode: unknown) {
           const codePose = (poseCode as { code?: string } | null)?.code || '';
           if (codePose === 'permission-denied') {
-            Alert.alert('Déjà initialisé', 'Un proviseur existe déjà. Demande-lui de te promouvoir.');
+            Alert.alert('Déjà initialisé', 'Un superadmin existe deja. Demande-lui de te promouvoir.');
           } else {
             Alert.alert('Erreur', 'Vérifie ta connexion puis réessaie.');
           }
@@ -260,13 +264,13 @@ export default function Admin() {
         }
       }
       const attendu = snapProv.exists() ? (snapProv.data() as { codeBootstrap?: string }).codeBootstrap : undefined;
-      if (!attendu || codeProviseur.trim() !== attendu) {
-        Alert.alert('Code incorrect', 'Demande le code proviseur au créateur de l\'app.');
+      if (!attendu || codeSuper.trim() !== attendu) {
+        Alert.alert('Code incorrect', 'Demande le code superadmin (ancien modele) au createur de l\'app.');
         return;
       }
       const recheck = await getDocs(collection(db, 'admins'));
       if (!recheck.empty) {
-        Alert.alert('Déjà initialisé', 'Un proviseur existe déjà. Demande-lui de te promouvoir.');
+        Alert.alert('Déjà initialisé', 'Un superadmin existe deja. Demande-lui de te promouvoir.');
         await charger(nom, uid);
         return;
       }
@@ -278,7 +282,7 @@ export default function Admin() {
       // `isAdmin()` teste D'ABORD `admins/<uid>` (docId = uid) — donc l'appel
       // ci-dessus suffit déjà — et garde `roles/{uid}.isAdmin` en REPLI pour ne
       // verrouiller aucun admin déjà provisionné. Cette écriture est permise au
-      // premier proviseur tant que la sentinelle `config/initialise` n'existe
+      // premier superadmin tant que la sentinelle `config/initialise` n'existe
       // pas (voir `adminInitialise()` dans les règles). Le try/catch garantit
       // que le bootstrap ne dépend jamais d'une écriture secondaire.
       try {
@@ -297,7 +301,7 @@ export default function Admin() {
           { merge: true }
         );
       } catch (error) {
-        rapporterErreur('[admin] Écriture roles/{uid} du proviseur (best-effort):', error);
+        rapporterErreur('[admin] Écriture roles/{uid} du superadmin (best-effort):', error);
       }
       // 🚩 SENTINELLE (best-effort) : verrouille definitivement l'auto-promotion
       // (`!adminInitialise()` dans les regles). Ecrite EN DERNIER, apres les
@@ -311,7 +315,7 @@ export default function Admin() {
       } catch (error) {
         rapporterErreur('[admin] Sentinelle config/initialise (best-effort):', error);
       }
-      setCodeProviseur('');
+      setCodeSuper('');
       await charger(nom, uid);
     } catch {
       Alert.alert('Erreur', 'Vérifie ta connexion puis réessaie.');
@@ -431,7 +435,7 @@ export default function Admin() {
     if (!autorise) {
       Alert.alert(
         'Accès réservé',
-        'Cet écran est réservé au proviseur et aux admins désignés. Si tu es le créateur de l’app, saisis le CODE PROVISEUR ; sinon demande à l’administrateur de te promouvoir.'
+        'Cet écran est réservé au superadmin et aux admins désignés. Si tu es le créateur de l’app, saisis le CODE SUPERADMIN ; sinon demande à l\'élève administrateur de te promouvoir.'
       );
     }
   };
@@ -446,7 +450,7 @@ export default function Admin() {
   };
 
   // 👑 PROMOTION RÉELLE — avant, « + Ajouter » se contentait d'un `Alert`
-  // explicatif et n'écrivait RIEN : le proviseur devait passer par la console
+  // explicatif et n'écrivait RIEN : le superadmin devait passer par la console
   // Firestore, alors que les règles autorisent déjà `allow create: if isAdmin()`.
   const promouvoir = async (uidCible: string, nomCible: string) => {
     if (!uidCible) return;
@@ -643,9 +647,9 @@ export default function Admin() {
         <View style={styles.blocConnexion}>
           <Text style={styles.intro}>
             Ton compte n'a pas les droits d'administration : la liste des admins
-            ne t'est pas accessible et tu ne peux pas devenir proviseur depuis
+            ne t'est pas accessible et tu ne peux pas devenir superadmin depuis
             cet appareil. Si tu es le créateur de l'app, connecte-toi avec le
-            compte proviseur ; sinon demande à l'administrateur de te promouvoir.
+            compte superadmin ; sinon demande à l'administrateur de te promouvoir.
           </Text>
         </View>
       </View>
@@ -666,7 +670,7 @@ export default function Admin() {
     // 🚨 BOOTSTRAP INATTEIGNABLE (bug corrigé) : sur une base vierge la
     // collection `admins` est vide… donc PERSONNE n'est admin, donc `estAdmin`
     // est faux, donc le tableau de bord n'est jamais rendu — et le bloc
-    // « Devenir proviseur » qu'il contenait ne pouvait jamais s'afficher.
+    // « Devenir superadmin (ancien modele) » qu'il contenait ne pouvait jamais s'afficher.
     // L'administration était donc impossible à initialiser depuis l'app.
     // On rend ce bloc ICI, dans la branche « pas encore admin ».
     if (admins.length === 0) {
@@ -676,9 +680,9 @@ export default function Admin() {
           {header}
           <View style={styles.blocConnexion}>
             <Text style={styles.intro}>
-              Aucun administrateur n’existe encore.{'\n'}
-              Le créateur de l’app saisit ici le CODE PROVISEUR (communiqué par le LEX)
-              pour devenir le premier administrateur. Ce code n’est jamais enregistré
+              Aucun superadmin n’existe encore.{'\n'}
+              Le créateur de l’app saisit ici le CODE SUPERADMIN (communiqué par le créateur)
+              pour devenir le premier superadmin. Ce code n’est jamais enregistré
               sur le téléphone.
             </Text>
 
@@ -712,18 +716,18 @@ export default function Admin() {
             <Text style={styles.superTexte}>— ou, ancien modèle —</Text>
             <TextInput
               style={styles.input}
-              placeholder="Code proviseur"
+              placeholder="Code superadmin (ancien modele)"
               placeholderTextColor="#64748B"
-              value={codeProviseur}
-              onChangeText={setCodeProviseur}
+              value={codeSuper}
+              onChangeText={setCodeSuper}
               secureTextEntry
               autoCapitalize="none"
             />
-            <TouchableOpacity style={styles.bouton} onPress={devenirProviseur}>
-              <Text style={styles.boutonText}>Devenir proviseur</Text>
+            <TouchableOpacity style={styles.bouton} onPress={devenirSuperAdminLegacy}>
+              <Text style={styles.boutonText}>Devenir superadmin (ancien modele)</Text>
             </TouchableOpacity>
             <Text style={styles.listeActuelle}>
-              {nom ? `Compte utilisé : ${nom}` : 'Connecte-toi d’abord avec ton compte élève.'}
+              {nom ? `Compte utilisé : ${nom}` : 'Connecte-toi d’abord avec ton compte eleve.'}
             </Text>
           </View>
         </View>
@@ -735,8 +739,8 @@ export default function Admin() {
         {header}
         <View style={styles.blocConnexion}>
           <Text style={styles.intro}>
-            Écran réservé à l'administration (proviseur + admins désignés).{'\n'}
-            Le premier nom enregistré devient proviseur. Entre ton nom exact de compte élève.
+            Écran réservé a l'administration (superadmins + admins désignés).{'\n'}
+            Le premier nom enregistre devient superadmin. Entre ton nom exact de compte élève.
           </Text>
           <TextInput style={styles.input} placeholder="Ton nom d'élève" placeholderTextColor="#64748B" value={nom} onChangeText={setNom} />
           <TouchableOpacity style={styles.bouton} onPress={entrer}>
@@ -854,17 +858,17 @@ export default function Admin() {
         <Text style={styles.section}>👥 Administration ({admins.length})</Text>
         {admins.length === 0 && (
           <View style={{ backgroundColor: '#1E293B', borderRadius: 10, padding: 14, marginBottom: 10 }}>
-            <Text style={{ color: '#FBBF24', fontWeight: 'bold', marginBottom: 6 }}>Aucun proviseur. Initialise l'administration :</Text>
-            <TextInput style={styles.inputAjout} placeholder="Code proviseur" placeholderTextColor="#64748B" value={codeProviseur} onChangeText={setCodeProviseur} secureTextEntry autoCapitalize="none" />
-            <TouchableOpacity style={[styles.boutonAjout, { marginTop: 8, alignItems: 'center' }]} onPress={devenirProviseur}>
-              <Text style={styles.boutonAjoutText}>Devenir proviseur</Text>
+            <Text style={{ color: '#FBBF24', fontWeight: 'bold', marginBottom: 6 }}>Aucun superadmin. Initialise l'administration (ancien modele) :</Text>
+            <TextInput style={styles.inputAjout} placeholder="Code superadmin (ancien modele)" placeholderTextColor="#64748B" value={codeSuper} onChangeText={setCodeSuper} secureTextEntry autoCapitalize="none" />
+            <TouchableOpacity style={[styles.boutonAjout, { marginTop: 8, alignItems: 'center' }]} onPress={devenirSuperAdminLegacy}>
+              <Text style={styles.boutonAjoutText}>Devenir superadmin (ancien modele)</Text>
             </TouchableOpacity>
           </View>
         )}
         {admins.map((a) => (
-          <View key={a.id} style={[styles.ligneAdmin, { flexDirection: 'row', alignItems: 'center' }]}>
+          <View key={a.id} style={[styles.ligneAdmin, { flexDirection: "row", alignItems: "center" }]}>
             <Text style={[styles.nomAdmin, { flex: 1 }]}>
-              👤 {a.nom}{a.ajouteLe ? ` (ajouté le ${a.ajouteLe})` : ' — proviseur 👑'}
+              👤 {a.nom}{a.ajouteLe ? ` (ajouté le ${a.ajouteLe})` : ' — admin 👑'}
             </Text>
             <TouchableOpacity onPress={() => retirerAdmin(a)} style={{ paddingLeft: 10 }}>
               <Text style={{ color: '#EF4444', fontSize: 12, fontWeight: 'bold' }}>Retirer ✕</Text>
