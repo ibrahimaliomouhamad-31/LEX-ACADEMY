@@ -5,6 +5,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { getExoById, type Exercice } from '../services/cacheHorsLigne';
+import { generateurDisponible } from '../services/generateurLocal';
 import { estJuste, normaliser, versNombre } from '../services/outilsReponse';
 import { planifierRevision } from '../services/revisions';
 import { plafondTexteAudio } from '../services/economieDonnees';
@@ -345,12 +346,21 @@ export default function Exercices() {
             <View style={styles.bubbleAI}><Text style={styles.bubbleText}>{exoData?.explication}</Text></View>
           )}
 
-          <TouchableOpacity style={styles.aiBtn} onPress={demanderIndice}>
+                    <TouchableOpacity style={styles.aiBtn} onPress={demanderIndice}>
             <Text style={styles.aiBtnText}>
               {indiceActuel === 0 ? (tentativeFaite ? '💡 Demander un indice' : '💪 Essaie d\'abord, puis demande un indice') : indiceActuel < 3 ? "Demander l'indice suivant" : 'Voir tous les indices'}
             </Text>
           </TouchableOpacity>
         </View>
+
+        {generateurDisponible(exoData?.matiere || '') && exoData?.chapitre_id && (
+          <TouchableOpacity
+            style={[styles.checkBtn, { backgroundColor: '#3B82F6', marginTop: 0, marginBottom: 20 }]}
+            onPress={() => router.push({ pathname: '/entrainement_infini', params: { chapitre_id: exoData.chapitre_id, titre: exoData.chapitre || '', matiere: exoData.matiere || '' } })}
+          >
+            <Text style={styles.checkBtnText}>♾️ Exercice infini sur cette notion</Text>
+          </TouchableOpacity>
+        )}
 
         <View style={{ height: 30 }} />
       </ScrollView>

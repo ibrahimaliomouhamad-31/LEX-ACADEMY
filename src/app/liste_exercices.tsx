@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../config/firebaseConfig';
 import { getExercices, saveExercices } from '../services/cacheHorsLigne';
+import { generateurDisponible } from '../services/generateurLocal';
 import { getStats } from '../services/statsSuivi';
 import { prioriserExercices } from '../services/selectionAdaptive';
 import type { Exercice } from '../services/cacheHorsLigne';
@@ -158,7 +159,7 @@ export default function ListeExercices() {
         data={exercicesFiltres}
         keyExtractor={(exo) => exo.id}
         ListHeaderComponent={
-          chapitreId ? (
+          chapitreId && generateurDisponible(matiere) ? (
             <TouchableOpacity
               style={styles.cardGenerateur}
               onPress={() => router.push({

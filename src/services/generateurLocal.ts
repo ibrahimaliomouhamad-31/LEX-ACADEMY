@@ -70,6 +70,33 @@ function amplitude(niveau: number): number {
   return 4 + Math.round((niveau / 100) * 60); // 5 .. 64
 }
 
+// ---------- Correspondance mots-clés ↔ notion ----------
+
+export type MatiereExo = 'maths' | 'physique chimie' | 'svt';
+
+/**
+ * Vérifie qu'un mot-clé correspond RÉELLEMENT à la clé normalisée d'une notion.
+ *
+ * ⚠️ Un simple `includes` provoquait des exercices HORS-SUJET : « aire »
+ * matchait « nucléaire » (→ Pythagore en physique nucléaire !), « taux »
+ * matchait « génitaux », « système » matchait « écosystème », « gene »
+ * matchait « diagenèse », « newton » (Binôme de Newton) partait en mécanique.
+ *
+ * Règle retenue : un mot-clé d'un seul mot doit coïncider avec un MOT ENTIER de
+ * la clé, ou en être le préfixe s'il fait au moins 5 lettres (ce qui couvre les
+ * flexions françaises : « dériv » → dérivée/dérivation, « vector » →
+ * vectoriel). Une expression de plusieurs mots doit apparaître telle quelle,
+ * bornée par des espaces.
+ */
+function motCorrespond(cle: string, mot: string): boolean {
+  const m = normaliserCle(mot);
+  if (!m) return false;
+  if (m.includes(' ')) return ` ${cle} `.includes(` ${m} `);
+  return cle
+    .split(' ')
+    .some((tok) => tok === m || (m.length >= 5 && tok.startsWith(m)));
+}
+
 // ---------- GÉNÉRATEURS (Mathématiques) ----------
 
 function eqPremierDegre(rng: () => number, n: number): ExoGenere {
@@ -592,6 +619,69 @@ function poidsPesanteur(rng: () => number, n: number): ExoGenere {
   };
 }
 
+// ⚡ PHYSIQUE : énergie électrique (E = P × t)
+function energieElectrique(rng: () => number, n: number): ExoGenere {
+  const P = entier(rng, 2, 20) * 25; // 50 W .. 500 W
+  const t = entier(rng, 1, 12); // heures
+  const E = P * t;
+  return {
+    enonce: `Un appareil électrique de puissance P = ${P} W fonctionne pendant t = ${t} h. Calcule l'énergie consommée E (en Wh).`,
+    bonne_reponse: String(E),
+    indice1: 'Énergie (Wh) = puissance (W) × durée (h).',
+    indice2: `E = ${P} × ${t}.`,
+    explication: `E = P × t = ${P} × ${t} = ${E} Wh.`,
+  };
+}
+
+// 🌊 PHYSIQUE : ondes progressives (célérité v = λ × f)
+function ondeCelerite(rng: () => number, n: number): ExoGenere {
+  const lambda = choix(rng, [0.5, 1, 1.5, 2, 2.5, 4, 5]); // en mètres
+  const f = entier(rng, 1, 6 + Math.floor(n / 10)) * 10; // en Hz
+  const v = lambda * f;
+  return {
+    enonce: `Une onde progressive a une longueur d'onde λ = ${lambda} m et une fréquence f = ${f} Hz. Calcule sa célérité v (en m/s).`,
+    bonne_reponse: String(v),
+    indice1: 'Pour une onde progressive : v = λ × f.',
+    indice2: `v = ${lambda} × ${f}.`,
+    explication: `v = λ × f = ${lambda} × ${f} = ${v} m/s.`,
+  };
+}
+
+// 🧬 SVT : mitose (le nombre de cellules double à chaque division : 2^n)
+function svtMitose(rng: () => number, n: number): ExoGenere {
+  const k = entier(rng, 2, 8);
+  const total = Math.pow(2, k);
+  return {
+    enonce: `À partir d'une seule cellule, chaque mitose double le nombre de cellules. Combien de cellules obtient-on après ${k} mitoses successives ?`,
+    bonne_reponse: String(total),
+    indice1: 'Chaque division multiplie le nombre de cellules par 2.',
+    indice2: `Calcule 2^${k}.`,
+    explication: `Après ${k} mitoses : 2^${k} = ${total} cellules.`,
+  };
+}
+
+// 🧬 SVT : photosynthèse (6 CO₂ + 6 H₂O → C₆H₁₂O₆ + 6 O₂)
+function svtPhotosynthese(rng: () => number, n: number): ExoGenere {
+  const glucose = entier(rng, 1, 6);
+  const co2 = 6 * glucose;
+  if (rng() < 0.5) {
+    return {
+      enonce: `Photosynthèse : 6 CO₂ + 6 H₂O → C₆H₁₂O₆ + 6 O₂. Combien de molécules de CO₂ faut-il pour produire ${glucose} molécule(s) de glucose ?`,
+      bonne_reponse: String(co2),
+      indice1: 'Les coefficients de l’équation donnent les proportions : 6 CO₂ pour 1 glucose.',
+      indice2: `Multiplie 6 par ${glucose}.`,
+      explication: `Il faut 6 × ${glucose} = ${co2} molécules de CO₂.`,
+    };
+  }
+  return {
+    enonce: `Photosynthèse : 6 CO₂ + 6 H₂O → C₆H₁₂O₆ + 6 O₂. Combien de molécules de dioxygène O₂ sont libérées lorsqu'il se forme ${glucose} molécule(s) de glucose ?`,
+    bonne_reponse: String(co2),
+    indice1: 'L’équation est équilibrée : autant d’O₂ libéré que de CO₂ consommé.',
+    indice2: `Multiplie 6 par ${glucose}.`,
+    explication: `Il se forme 6 × ${glucose} = ${co2} molécules de O₂.`,
+  };
+}
+
 // 🧬 SVT : transmission du patrimoine génétique (croisement / pourcentage)
 function svtADN(rng: () => number, n: number): ExoGenere {
   const cas = choix<string[]>(rng, [
@@ -655,98 +745,148 @@ function inequationSimple(rng: () => number, n: number): ExoGenere {
 // ---------- MAPPING chapitre → générateurs ----------
 
 interface Sujet {
+  /** Matières pour lesquelles ce sujet est pertinent (garde-fou anti hors-sujet). */
+  matieres: MatiereExo[];
   motsCles: string[];
   generateurs: GenFonction[];
 }
 
 const SUJETS: Sujet[] = [
   {
-    motsCles: ['equation', 'inéquation', 'polynome', 'second degre', 'systeme'],
+    matieres: ['maths'],
+    motsCles: ['equation', 'inéquation', 'inequation', 'polynome', 'second degre', 'systeme', 'discriminant'],
     generateurs: [eqPremierDegre, eqSecondDegre, eqProduit, racineCarreeEq, factorisationIdentite, systemeDeuxEquations, inequationSimple],
   },
   {
+    matieres: ['maths'],
     motsCles: ['deriv', 'differ'], // couvre dérive, dérivation, dérivée, différentielle
     generateurs: [deriveePolynome],
   },
   {
-    motsCles: ['primitive', 'integrale', 'intÉgrale'],
+    matieres: ['maths'],
+    motsCles: ['primitive', 'integrale', 'integration'],
     generateurs: [primitivePuissance, deriveePolynome],
   },
   {
-    motsCles: ['limite', 'continuite'],
+    matieres: ['maths'],
+    motsCles: ['limite', 'continuite', 'asymptote'],
     generateurs: [limiteRationnelle],
   },
   {
-    motsCles: ['logarithme', 'ln ', ' neperien'],
+    matieres: ['maths'],
+    motsCles: ['logarithme', 'logarithmique', 'neperien', 'ln'],
     generateurs: [logarithmeExo, exponentielleExo],
   },
   {
-    motsCles: ['exponentiel'],
+    matieres: ['maths'],
+    motsCles: ['exponentiel', 'exponentielle'],
     generateurs: [exponentielleExo, logarithmeExo],
   },
   {
-    motsCles: ['suite'],
+    matieres: ['maths'],
+    motsCles: ['suite', 'recurrence', 'convergence'],
     generateurs: [suiteArithmetique, suiteGeometrique],
   },
   {
-    motsCles: ['probabil', 'statistiq', 'denombrement', 'arrangement', 'combinaison'],
+    matieres: ['maths'],
+    motsCles: ['probabil', 'statistiq', 'denombrement', 'arrangement', 'combinaison', 'binome', 'permutation'],
     generateurs: [probabiliteDe, arrangementCombinaison],
   },
   {
-    motsCles: ['trigonometri', 'angles oriente', 'cosinus', 'sinus'],
+    matieres: ['maths'],
+    motsCles: ['trigonometri', 'angles oriente', 'cosinus', 'sinus', 'tangente', 'radian'],
     generateurs: [trigoValeur],
   },
   {
-    motsCles: ['pgcd', 'ppcm', 'arithmetique', 'divisibilite', 'nombre premier'],
+    matieres: ['maths'],
+    motsCles: ['pgcd', 'ppcm', 'arithmetique', 'divisibilite', 'nombre premier', 'bezout', 'gauss'],
     generateurs: [pgcdExo, ppcmExo],
   },
   {
-    motsCles: ['puissance', 'exposant', 'radicaux', 'racine carree'],
+    matieres: ['maths'],
+    motsCles: ['puissance', 'exposant', 'radicaux', 'racine carree', 'racine cubique'],
     generateurs: [puissanceExo, racineCarreeEq],
   },
   {
-    motsCles: ['pourcentage', 'proportion', 'taux'],
+    matieres: ['maths'],
+    motsCles: ['pourcentage', 'proportion', 'proportionnalite', 'taux', 'echelle'],
     generateurs: [pourcentageExo],
   },
   {
-    motsCles: ['pythagore', 'geometrie', 'triangle', 'rectangle', 'aire', 'perimetre', 'espace', 'vector'],
+    matieres: ['maths'],
+    motsCles: ['pythagore', 'geometrie', 'triangle', 'rectangle', 'aire', 'perimetre', 'espace', 'vector', 'vecteur', 'barycentre', 'conique'],
     generateurs: [pythagore, airePerimetre],
   },
   {
-    motsCles: ['calcul', 'numerique', 'ensemble', 'ordre', 'algebrique'],
+    matieres: ['maths'],
+    motsCles: ['calcul', 'numerique', 'ensemble', 'ordre', 'algebrique', 'intervalle', 'encadrement'],
     generateurs: [calculMental, eqPremierDegre, puissanceExo],
   },
+  // ⚡ Énergie électrique AVANT la loi d'Ohm : « puissance électrique » ou
+  // « énergie consommée » appellent E = P × t, ni les exposants (2⁵) ni
+  // seulement U = R × I.
   {
-    motsCles: ['electricite', 'courant', 'tension', 'resistance', 'ohm', 'electrique', 'circuit'],
-    generateurs: [loiOhm],
+    matieres: ['physique chimie'],
+    motsCles: ['puissance electrique', 'energie electrique', 'energie consommee', 'kwh', 'watt', 'facture', 'compteur'],
+    generateurs: [energieElectrique, loiOhm],
   },
   {
-    motsCles: ['mecanique', 'mouvement', 'vitesse', 'force', 'energie', 'cinetique', 'dynamique', 'newton'],
+    matieres: ['physique chimie'],
+    motsCles: ['electricite', 'electrique', 'courant', 'tension', 'resistance', 'ohm', 'circuit', 'dipole', 'condensateur'],
+    generateurs: [loiOhm],
+  },
+  // 🌊 Ondes et vibrations : célérité v = λ × f.
+  {
+    matieres: ['physique chimie'],
+    motsCles: ['onde', 'ondes', 'frequence', 'longueur d onde', 'celerite', 'propagation', 'vibration', 'interference', 'spectre'],
+    generateurs: [ondeCelerite],
+  },
+  {
+    matieres: ['physique chimie'],
+    motsCles: ['mecanique', 'mouvement', 'vitesse', 'force', 'cinetique', 'dynamique', 'newton', 'acceleration', 'trajectoire', 'pendule', 'inertie', 'energie mecanique'],
     generateurs: [vitesseExo, energieCinetique],
   },
   {
-    motsCles: ['poids', 'pesanteur', 'gravite', 'poids et masse'],
+    matieres: ['physique chimie'],
+    motsCles: ['poids', 'pesanteur', 'gravite', 'chute libre', 'archimede'],
     generateurs: [poidsPesanteur],
   },
   {
-    motsCles: ['chimie', 'solution', 'concentration', 'mole', 'matiere', 'atome', 'reaction'],
+    matieres: ['physique chimie'],
+    motsCles: ['chimie', 'solution', 'concentration', 'mole', 'molecule', 'matiere', 'atome', 'reaction', 'acide', 'base', 'oxydation', 'reduction', 'dosage', 'titrage'],
     generateurs: [concentrationExo, moleQuantite, dilutionExo],
   },
   {
-    motsCles: ['quantite de matiere', 'masse molaire', 'mole', 'n=m/m'],
+    matieres: ['physique chimie'],
+    motsCles: ['quantite de matiere', 'masse molaire', 'molaire', 'avogadro'],
     generateurs: [moleQuantite, concentrationExo],
   },
   {
-    motsCles: ['dilution', 'diluer', 'concentration fille', 'facteur de dilution'],
+    matieres: ['physique chimie'],
+    motsCles: ['dilution', 'diluer', 'facteur de dilution'],
     generateurs: [dilutionExo, concentrationExo],
   },
   {
-    motsCles: ['svt', 'biologie', 'adn', 'chromosome', 'gene', 'mitose', 'cellule', 'patrimoine', 'genetique', 'heredite'],
-    generateurs: [svtADN],
+    matieres: ['physique chimie'],
+    motsCles: ['masse volumique', 'volumique', 'densite'],
+    generateurs: [masseVolumique, concentrationExo],
+  },
+  // 🧬 SVT : mitose (2^n) et photosynthèse (stoechiométrie) AVANT le sujet
+  // génétique généraliste, qui sert de dernier recours biologique.
+  {
+    matieres: ['svt'],
+    motsCles: ['mitose', 'division cellulaire', 'multiplication cellulaire'],
+    generateurs: [svtMitose, svtADN],
   },
   {
-    motsCles: ['masse', 'volumique', 'densite'],
-    generateurs: [masseVolumique, concentrationExo],
+    matieres: ['svt'],
+    motsCles: ['photosynthese', 'chlorophylle', 'echange gazeux', 'stomate', 'matiere organique', 'gaz carbonique'],
+    generateurs: [svtPhotosynthese],
+  },
+  {
+    matieres: ['svt'],
+    motsCles: ['svt', 'biologie', 'adn', 'chromosome', 'gene', 'genetique', 'meiose', 'cellule', 'patrimoine', 'heredite', 'allele', 'arn', 'proteine'],
+    generateurs: [svtADN],
   },
 ];
 
@@ -787,49 +927,61 @@ function arrangementCombinaison(rng: () => number, n: number): ExoGenere {
   };
 }
 
+// POOLS PAR MATIÈRE : garantissent un exercice AU MOINS dans la bonne matière
+// quand aucune notion précise n'est reconnue — fini les équations du second
+// degré distribuées dans un cours de SVT.
+const POOL_MATHS: GenFonction[] = [
+  eqPremierDegre,         // Équations du 1er degré
+  eqSecondDegre,          // Équations du 2de degré
+  systemeDeuxEquations,   // Systèmes d'équations
+  inequationSimple,       // Inéquations
+  pgcdExo,                // Divisibilité et PGCD
+  puissanceExo,           // Puissances et exposants
+  suiteArithmetique,      // Suites arithmétiques
+  suiteGeometrique,       // Suites géométriques
+  deriveePolynome,        // Dérivées
+  racineCarreeEq,         // Racines carrées
+  pythagore,              // Théorème de Pythagore
+  airePerimetre,          // Aires et périmètres
+  probabiliteDe,          // Probabilités (dés)
+  arrangementCombinaison, // Arrangements et combinaisons
+  calculMental,           // Calcul rapide
+  pourcentageExo,         // Pourcentages
+];
+
+const POOL_PHYSIQUE_CHIMIE: GenFonction[] = [
+  loiOhm,                 // Loi d'Ohm (électricité)
+  energieElectrique,      // Énergie électrique (E = P × t)
+  ondeCelerite,           // Ondes progressives (v = λ × f)
+  vitesseExo,             // Vitesse et mouvement
+  energieCinetique,       // Énergie cinétique
+  poidsPesanteur,         // Poids et pesanteur
+  concentrationExo,       // Concentrations
+  masseVolumique,         // Masse volumique
+  moleQuantite,           // Quantité de matière
+  dilutionExo,            // Dilution
+];
+
+const POOL_SVT: GenFonction[] = [
+  svtADN,                 // Transmission du patrimoine génétique
+  svtMitose,              // Division cellulaire (2^n)
+  svtPhotosynthese,       // Photosynthèse (stoechiométrie)
+];
+
 // POOL COMPLET : couvre TOUTES les notions du programme BAC C/D (>13 notions)
 const POOL_DEFAUT: GenFonction[] = [
-  // Algèbre (6 notions)
-  eqPremierDegre,        // Équations du 1er degré
-  eqSecondDegre,         // Équations du 2de degré
-  systemeDeuxEquations,  // Systèmes d'équations
-  inequationSimple,      // Inéquations
-  pgcdExo,               // Divisibilité et PGCD
-  puissanceExo,          // Puissances et exposants
-
-  // Analyse (4 notions)
-  suiteArithmetique,     // Suites arithmétiques
-  suiteGeometrique,      // Suites géométriques
-  deriveePolynome,       // Dérivées
-  racineCarreeEq,        // Racines carrées
-
-  // Géométrie (2 notions)
-  pythagore,             // Théorème de Pythagore
-  airePerimetre,         // Aires et périmètres
-
-  // Probabilités & Dénombrement (2 notions)
-  probabiliteDe,         // Probabilités (dés)
-  arrangementCombinaison,// Arrangements et combinaisons
-
-  // Physique (3 notions)
-  vitesseExo,            // Vitesse et mouvement
-  loiOhm,                // Loi d'Ohm (électricité)
-  energieCinetique,      // Énergie cinétique
-  poidsPesanteur,        // Poids et pesanteur
-
-  // Chimie (2 notions)
-  concentrationExo,      // Concentrations
-  masseVolumique,        // Masse volumique
-  moleQuantite,          // Quantité de matière
-  dilutionExo,           // Dilution
-
-  // SVT (1 notion)
-  svtADN,                // Transmission du patrimoine génétique
-
-  // Calcul & Applications (2 notions)
-  calculMental,          // Calcul rapide
-  pourcentageExo,        // Pourcentages
+  ...POOL_MATHS,
+  ...POOL_PHYSIQUE_CHIMIE,
+  ...POOL_SVT,
 ];
+
+/** Pool de secours cohérent avec la matière (jamais un exercice d'une autre matière). */
+function poolParMatiere(matiere: MatiereExo | null): GenFonction[] {
+  if (matiere === 'physique chimie') return POOL_PHYSIQUE_CHIMIE;
+  if (matiere === 'svt') return POOL_SVT;
+  if (matiere === 'maths') return POOL_MATHS;
+  return POOL_DEFAUT;
+}
 
 function normaliserCle(s: string): string {
   return s
@@ -841,14 +993,47 @@ function normaliserCle(s: string): string {
     .trim();
 }
 
+/**
+ * Devine la matière d'après un titre / un id de chapitre. Utilisé quand
+ * l'appelant ne fournit pas la matière (duels, QCM éclair, mini-jeux...).
+ * L'ordre compte : SVT et PC ont des mots-clés très spécifiques, les maths
+ * récupèrent tout le reste.
+ */
+function devinerMatiere(texte: string): MatiereExo | null {
+  const cle = normaliserCle(texte);
+  const svt = ['svt', 'biologie', 'geologie', 'cellulaire', 'genetique', 'ecosysteme', 'nerveux', 'immunit', 'vegetal', 'vegetaux', 'adn', 'reproduction'];
+  const physiqueChimie = ['physique', 'chimie', 'electric', 'mecanique', 'mouvement', 'optique', 'nucleaire', 'atome', 'moleculaire', 'thermique', 'onde', 'ondes', 'magnetiq', 'acide', 'energie', 'vitesse', 'force'];
+  const maths = ['mathematiq', 'algebre', 'analyse', 'geometrie', 'trigonometrie', 'probabilite', 'statistique', 'arithmetique', 'suite', 'fonction', 'vecteur', 'complexe', 'derive'];
+  if (svt.some((m) => motCorrespond(cle, m))) return 'svt';
+  if (physiqueChimie.some((m) => motCorrespond(cle, m))) return 'physique chimie';
+  if (maths.some((m) => motCorrespond(cle, m))) return 'maths';
+  return null;
+}
+
+/**
+ * Déduit la matière depuis l'id d'une notion curée :
+ * `cur_pc_...` → physique-chimie, `cur_svt_...` → SVT, tout autre `cur_...`
+ * (suites, polynomes, complexes, denombrements...) → mathématiques.
+ */
+function matiereDepuisIdNotion(id?: string): MatiereExo | null {
+  if (!id) return null;
+  if (id.includes('_pc_')) return 'physique chimie';
+  if (id.includes('_svt_')) return 'svt';
+  if (id.startsWith('cur_')) return 'maths';
+  return null;
+}
+
 function poolPourChapitre(chapitreId: string, titre: string): GenFonction[] {
   const cle = normaliserCle(`${chapitreId} ${titre}`);
+  const matiere = devinerMatiere(`${chapitreId} ${titre}`);
   for (const sujet of SUJETS) {
-    if (sujet.motsCles.some((mot) => cle.includes(normaliserCle(mot)))) {
+    // Garde-fou : on ne propose que les générateurs de la matière du chapitre.
+    if (matiere && !sujet.matieres.includes(matiere)) continue;
+    if (sujet.motsCles.some((mot) => motCorrespond(cle, mot))) {
       return sujet.generateurs;
     }
   }
-  return POOL_DEFAUT;
+  return poolParMatiere(matiere);
 }
 
 // ---------- API PUBLIQUE ----------
@@ -890,24 +1075,31 @@ export function generateurDisponible(matiere: string): boolean {
 // Génère un exercice ciblé sur une micro-notion spécifique.
 // C'est la fonction principale pour les exercices infinis par micro-notion.
 export function genererExercicePourNotion(
-  microNotion: { titre: string; motsCles: string[]; extrait: string },
+  microNotion: { id?: string; titre: string; motsCles: string[]; extrait: string },
   niveau: number,
-  graine?: number
+  graine?: number,
+  matiere?: string
 ): ExoGenere {
   const n = Math.max(1, Math.min(100, Math.round(niveau)));
   const rng = creerRng(graine);
+
+  // ⚠️ La matière est déduite de l'id de la notion (`cur_pc_...`, `cur_svt_...`)
+  // ou passée explicitement : on ne mélange JAMAIS les matières entre elles.
+  const matiereNotion =
+    devinerMatiere(matiere || '') ?? matiereDepuisIdNotion(microNotion.id);
   
   // Cherche le meilleur générateur basé sur les mots-clés de la micro-notion
   const cleNormalisee = normaliserCle(microNotion.titre + ' ' + microNotion.motsCles.join(' '));
   
   for (const sujet of SUJETS) {
-    if (sujet.motsCles.some((mot) => cleNormalisee.includes(normaliserCle(mot)))) {
+    if (matiereNotion && !sujet.matieres.includes(matiereNotion)) continue;
+    if (sujet.motsCles.some((mot) => motCorrespond(cleNormalisee, mot))) {
       const gen = choix(rng, sujet.generateurs);
       return gen(rng, n);
     }
   }
   
-  // Fallback : utilise le pool par défaut avec les mots-clés de la notion
-  const gen = choix(rng, POOL_DEFAUT);
+  // Fallback : pool de la bonne matière (jamais un exercice d'une autre matière)
+  const gen = choix(rng, poolParMatiere(matiereNotion));
   return gen(rng, n);
 }

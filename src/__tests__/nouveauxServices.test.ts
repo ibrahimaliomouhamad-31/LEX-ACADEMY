@@ -104,10 +104,18 @@ describe('Intégrité du streak', () => {
 });
 
 describe("Enrichissement des cours (morceau 1)", () => {
-  it("garde le titre des exemples en premier meme apres permutation", () => {
+  it("garde le titre des exemples en premier et numerote les exemples dans lordre", () => {
     for (let i = 0; i < 100; i++) {
       const sections = genererSectionsCours("Chapitre test " + i, "Mathematiques", "Contenu de test assez long pour faire varier la graine locale " + i);
       expect(sections[2].lignes[0]).toContain("Exemples");
+      // Les exemples sont numérotés : ils doivent rester dans l'ordre croissant
+      // (afficher « Exemple 15 » avant « Exemple 1 » était un défaut visible).
+      const numeros = sections[2].lignes
+        .slice(1)
+        .map((l) => Number((l.match(/^Exemple\s+(\d+)/) || [])[1]))
+        .filter((n) => !Number.isNaN(n));
+      expect(numeros.length).toBeGreaterThan(0);
+      expect(numeros).toEqual([...numeros].sort((a, b) => a - b));
     }
   });
   it("genere 6 sections pedagogiques minimum", () => {
