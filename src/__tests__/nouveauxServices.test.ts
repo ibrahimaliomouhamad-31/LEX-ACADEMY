@@ -40,7 +40,7 @@ jest.mock('../services/userStorage', () => ({
 import { modererFiche } from '../services/moderationFiches';
 import { compresserTexte, planifierPrechargement } from '../services/prechargement';
 import { streakAuthentique, scellerStreak, signalerAlteration } from '../services/integrite';
-import { genererSectionsCours } from "../services/enrichirCours";
+import { detecterTheme, genererSectionsCours } from "../services/enrichirCours";
 import { extraireMicroNotions, couvrirNotions } from "../services/microNotions";
 import { chiffrer, dechiffrer, estChiffre } from '../services/chiffrement';
 import { enregistrerActivite, alertesStagnation } from '../services/stagnation';
@@ -126,6 +126,83 @@ describe("Enrichissement des cours (morceau 1)", () => {
   it("ajoute un schema quand le titre du chapitre correspond", () => {
     const s2 = genererSectionsCours("Le theoreme de Pythagore", "Mathematiques", "x");
     expect(s2.some((sec) => sec.titre.toLowerCase().includes("sch"))).toBe(true);
+  });
+});
+
+// ========== GABARITS DE COURS CURÉS (cycle O) ==========
+// Chaque thème détecté par `detecterTheme` possède son propre contenu :
+// 30 objectifs, 12 méthodes, 15 exemples numérotés, 10 pièges, 10 points clés
+// et 10 questions d'auto-évaluation — tous SPÉCIFIQUES au thème.
+// Ce test verrouille trois régressions vécues :
+//   1. les libellés génériques (« concept approfondi », « exercice concret de ... »,
+//      « Auto-test 3 : maitrise de ... ») qui s'affichaient dans les cours ;
+//   2. les exemples inversés (une permutation déterministe affichait « Exemple 15 »
+//      avant « Exemple 1 ») ;
+//   3. les sections vides ou dupliquées.
+describe("Gabarits de cours curés par thème (cycle O)", () => {
+  const CAS: { theme: string; titre: string; matiere: string }[] = [
+    { theme: "mathematiques", titre: "Nombres et calcul dans l'ensemble des reels", matiere: "Mathematiques" },
+    { theme: "geometrie", titre: "Geometrie dans le plan et dans l'espace", matiere: "Mathematiques" },
+    { theme: "analyse", titre: "Etude des limites et des derivees", matiere: "Mathematiques" },
+    { theme: "trigonometrie", titre: "Angles et trigonometrie", matiere: "Mathematiques" },
+    { theme: "probabilites", titre: "Probabilites et statistiques", matiere: "Mathematiques" },
+    { theme: "complexes", titre: "Nombres complexes", matiere: "Mathematiques" },
+    { theme: "physique", titre: "Mecanique et energie", matiere: "Physique" },
+    { theme: "chimie", titre: "Solutions acido-basiques", matiere: "Chimie" },
+    { theme: "svt", titre: "La cellule et l'information genetique", matiere: "SVT" },
+    { theme: "general", titre: "Methodes et revisions generales", matiere: "General" },
+  ];
+
+  const LIBELLES_GENERIQUES = [
+    "concept approfondi",
+    "Etudier les concepts de",
+    "exercice concret de",
+    "Piege n°",
+    "Cle 1 pour",
+    "Auto-test",
+    "Objectif ",
+  ];
+
+  it("detecte bien le theme attendu pour chaque cas (garde-fou du test)", () => {
+    for (const c of CAS) {
+      expect(detecterTheme(c.titre, c.matiere)).toBe(c.theme);
+    }
+  });
+
+  it("ne contient aucun libelle generique et fournit le volume attendu", () => {
+    for (const c of CAS) {
+      const sections = genererSectionsCours(c.titre, c.matiere, "Contenu du chapitre.");
+      expect(sections.length).toBeGreaterThanOrEqual(6);
+      // 0 objectifs, 1 introduction + 12 methodes, 2 introduction + 15 exemples,
+      // 3 pieges, 4 points cles, 5 auto-evaluation.
+      expect(sections[0].lignes.length).toBeGreaterThanOrEqual(15);
+      expect(sections[1].lignes.length).toBeGreaterThanOrEqual(13);
+      expect(sections[2].lignes.length).toBeGreaterThanOrEqual(16);
+      expect(sections[3].lignes.length).toBeGreaterThanOrEqual(10);
+      expect(sections[4].lignes.length).toBeGreaterThanOrEqual(10);
+      expect(sections[5].lignes.length).toBeGreaterThanOrEqual(10);
+
+      const texte = sections.map((sec) => sec.lignes.join(" ")).join(" ");
+      for (const interdit of LIBELLES_GENERIQUES) {
+        expect(texte).not.toContain(interdit);
+      }
+      // Aucune ligne repetee : un gabarit generique recopiait 30 fois la meme phrase.
+      for (const section of sections) {
+        expect(new Set(section.lignes).size).toBe(section.lignes.length);
+      }
+    }
+  });
+
+  it("numerote les exemples de 1 a 15 dans l'ordre pour chaque theme", () => {
+    for (const c of CAS) {
+      const sections = genererSectionsCours(c.titre, c.matiere, "Contenu du chapitre.");
+      const numeros = sections[2].lignes
+        .slice(1)
+        .map((l) => Number((l.match(/^Exemple\s+(\d+)/) || [])[1]))
+        .filter((n) => !Number.isNaN(n));
+      expect(numeros).toEqual(Array.from({ length: numeros.length }, (_, i) => i + 1));
+      expect(numeros.length).toBe(15);
+    }
   });
 });
 
