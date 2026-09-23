@@ -4,7 +4,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
-import { db } from '../config/firebaseConfig';
+import { db, auth } from '../config/firebaseConfig';
 import { getCurrentUserId, getUserItem, setUserItem } from './userStorage';
 import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
 
@@ -117,6 +117,15 @@ export async function pousserProgression(): Promise<boolean> {
 
     if (!userId) return false;
 
+    // 🔒 Garde-fou permissions : un invité (ou un utilisateur non connecté à
+    // Firebase Auth) n'a AUCUN droit sur `progression/{userId}` (règle
+    // `estSoiMeme`). Interroger Firestore produirait une erreur
+    // "Missing or insufficient permissions" → on saute silencieusement.
+    if (userId.startsWith('invite') || !auth.currentUser) {
+      logDev('[syncCloud] Push ignoré (invité / non authentifié)');
+      return false;
+    }
+
     const snapshot = await collecterLocal();
 
     // Fusion avec le cloud existant pour ne rien perdre.
@@ -162,6 +171,16 @@ export async function restaurerProgressionSiVide(): Promise<boolean> {
     const userId = await getCurrentUserId();
 
     if (!userId) return false;
+
+    // 🔒 Garde-fou permissions : un invité (ou un utilisateur non connecté à
+    // Firebase Auth) n'a AUCUN droit de lecture sur `progression/{userId}`
+    // (règle `estSoiMeme`). Interroger Firestore produirait une erreur
+    // "Missing or insufficient permissions" → on saute silencieusement, la
+    // restauration n'a de sens que pour un compte connecté de toute façon.
+    if (userId.startsWith('invite') || !auth.currentUser) {
+      logDev('[syncCloud] Restauration ignorée (invité / non authentifié)');
+      return false;
+    }
 
     const local = await collecterLocal();
 
