@@ -6,9 +6,32 @@
  */
 
 import { doc, setDoc, getDoc, query, collection, where, getDocs } from 'firebase/firestore';
-import { db } from '../config/firebaseConfig';
+import { auth, db } from '../config/firebaseConfig';
 import { getCurrentUserId } from './auth';
 import { rapporterErreur } from '../utils/logger';
+
+/**
+ * 👑 URL de la fonction de bootstrap superadmin (même projet/region que
+ * `lexaiChat`, cf. configIA.ts). Elle n'accepte qu'un appel AUTHENTIFIÉ :
+ * l'app envoie le jeton Firebase de la session, la fonction en déduit l'uid
+ * (jamais transmis par le client → aucun risque d'usurpation d'uid).
+ */
+const URL_DEVENIR_SUPERADMIN =
+  'https://us-central1-lex-academy-10eef.cloudfunctions.net/devenirSuperAdmin';
+
+/** Jeton d'identité Firebase de la session — '' si non connecté. */
+async function jetonIdentite(): Promise<string> {
+  try {
+    const utilisateur = (auth as { currentUser?: { getIdToken?: () => Promise<string> } } | null)
+      ?.currentUser;
+    if (utilisateur && typeof utilisateur.getIdToken === 'function') {
+      return await utilisateur.getIdToken();
+    }
+  } catch (error) {
+    rapporterErreur('[roles] Jeton identite indisponible:', error);
+  }
+  return '';
+}
 
 /**
  * L'utilisateur courant est-il administrateur ?
@@ -47,8 +70,18 @@ export async function estAdminActuel(): Promise<boolean> {
   try {
     const snapRole = await getDoc(doc(db, 'roles', uid));
     if (snapRole.exists()) {
-      const d = snapRole.data() as { isAdmin?: boolean; role?: string; isDeleted?: boolean };
-      if (!d.isDeleted && (d.isAdmin === true || d.role === 'admin')) return true;
+      const d = snapRole.data() as {
+        isAdmin?: boolean;
+        role?: string;
+        isDeleted?: boolean;
+        estSuperAdmin?: boolean;
+      };
+      // 👑 Le superadmin passe TOUJOURS par la porte admin (hiérarchie
+      // stricte : superadmin ⊃ admin). Sans ce test, un superadmin dont le
+      // doc `admins/<uid>` manquerait (ou dont le rôle vaudrait 'superadmin'
+      // et non 'admin') se voyait refuser ses propres écrans d'administration.
+      const estSuper = d.estSuperAdmin === true || d.role === 'superadmin';
+      if (!d.isDeleted && (d.isAdmin === true || d.role === 'admin' || estSuper)) return true;
     }
   } catch (error) {
     rapporterErreur('[roles] Erreur lecture role admin:', error);
@@ -57,36 +90,185 @@ export async function estAdminActuel(): Promise<boolean> {
   return false;
 }
 
-export type UserRole = 'etudiant' | 'moniteur' | 'chef_classe' | 'delegue' | 'admin';
+export type UserRole = 'etudiant' | 'moniteur' | 'chef_classe' | 'delegue' | 'admin' | 'superadmin';
+
+/**
+ * 🔑 CATALOGUE DES 50 PERMISSIONS (12 historiques + 38 nouvelles).
+ *
+ * Convention : le NOM est la documentation. Les permissions marquées 🔒
+ * (promouvoirAdmin, retrograderAdmin) sont réservées au superadmin :
+ * `genererPermissions('admin')` ne les active PAS.
+ */
+export type PermissionKey =
+  // Historiques — entraide de classe
+  | 'peutAider'
+  | 'peutCorriger'
+  | 'gererAbsences'
+  | 'creerDefis'
+  | 'validerHomework'
+  | 'accesStatsClasse'
+  | 'creerAnnonces'
+  | 'gererPetitions'
+  // Historiques — administration
+  | 'gererUtilisateurs'
+  | 'gererContenu'
+  | 'accesAudit'
+  | 'modifierRoles'
+  // 📖 Pédagogie — cours & exercices
+  | 'voirCoursTousNiveaux'
+  | 'modifierCours'
+  | 'publierCours'
+  | 'creerExercice'
+  | 'modifierExercice'
+  | 'gererFichesSynthese'
+  | 'gererSchemas'
+  | 'gererAudioCours'
+  // 📝 Devoirs & défis
+  | 'creerDevoir'
+  | 'corrigerDevoir'
+  | 'publierDevoir'
+  | 'validerDefi'
+  | 'gererOlympiades'
+  // 👥 Comptes
+  | 'voirListeEleves'
+  | 'promouvoirAdmin'
+  | 'retrograderAdmin'
+  | 'suspendreCompte'
+  | 'reinitialiserMotDePasse'
+  | 'exporterDonneesEleves'
+  | 'gererInscriptions'
+  // 🛡️ Modération
+  | 'voirSignalements'
+  | 'traiterSignalement'
+  | 'bannirTemporaire'
+  | 'voirJournalAide'
+  | 'traiterDemandeAide'
+  // 📊 Statistiques
+  | 'accesStatsEcole'
+  | 'exporterStatistiques'
+  | 'voirJournalAdmin'
+  | 'gererClassement'
+  // 📣 Communication
+  | 'envoyerNotification'
+  | 'gererGroupes'
+  | 'creerSondage'
+  | 'gererCalendrierScolaire'
+  // ⚙️ Système
+  | 'gererParametresApp'
+  | 'gererSauvegardes'
+  | 'forcerSync'
+  | 'voirSanteSync'
+  | 'gererModeExamen';
+
+/** Les 50 clés, dans un ordre stable (tests + grille UI). */
+export const TOUTES_PERMISSIONS: readonly PermissionKey[] = [
+  'peutAider',
+  'peutCorriger',
+  'gererAbsences',
+  'creerDefis',
+  'validerHomework',
+  'accesStatsClasse',
+  'creerAnnonces',
+  'gererPetitions',
+  'gererUtilisateurs',
+  'gererContenu',
+  'accesAudit',
+  'modifierRoles',
+  'voirCoursTousNiveaux',
+  'modifierCours',
+  'publierCours',
+  'creerExercice',
+  'modifierExercice',
+  'gererFichesSynthese',
+  'gererSchemas',
+  'gererAudioCours',
+  'creerDevoir',
+  'corrigerDevoir',
+  'publierDevoir',
+  'validerDefi',
+  'gererOlympiades',
+  'voirListeEleves',
+  'promouvoirAdmin',
+  'retrograderAdmin',
+  'suspendreCompte',
+  'reinitialiserMotDePasse',
+  'exporterDonneesEleves',
+  'gererInscriptions',
+  'voirSignalements',
+  'traiterSignalement',
+  'bannirTemporaire',
+  'voirJournalAide',
+  'traiterDemandeAide',
+  'accesStatsEcole',
+  'exporterStatistiques',
+  'voirJournalAdmin',
+  'gererClassement',
+  'envoyerNotification',
+  'gererGroupes',
+  'creerSondage',
+  'gererCalendrierScolaire',
+  'gererParametresApp',
+  'gererSauvegardes',
+  'forcerSync',
+  'voirSanteSync',
+  'gererModeExamen',
+];
+
+/** Regroupement par domaine pour l'interface de délégation (grille à cocher). */
+export const DOMAINES_PERMISSIONS: readonly { domaine: string; cles: readonly PermissionKey[] }[] = [
+  { domaine: '🤝 Entraide', cles: ['peutAider', 'peutCorriger'] },
+  { domaine: '🏫 Vie de classe', cles: ['gererAbsences', 'creerDefis', 'validerHomework', 'accesStatsClasse', 'creerAnnonces', 'gererPetitions'] },
+  { domaine: '📖 Pédagogie', cles: ['voirCoursTousNiveaux', 'modifierCours', 'publierCours', 'creerExercice', 'modifierExercice', 'gererFichesSynthese', 'gererSchemas', 'gererAudioCours'] },
+  { domaine: '📝 Devoirs & défis', cles: ['creerDevoir', 'corrigerDevoir', 'publierDevoir', 'validerDefi', 'gererOlympiades'] },
+  { domaine: '👥 Comptes', cles: ['voirListeEleves', 'promouvoirAdmin', 'retrograderAdmin', 'suspendreCompte', 'reinitialiserMotDePasse', 'exporterDonneesEleves', 'gererInscriptions'] },
+  { domaine: '🛡️ Modération', cles: ['voirSignalements', 'traiterSignalement', 'bannirTemporaire', 'voirJournalAide', 'traiterDemandeAide'] },
+  { domaine: '📊 Statistiques', cles: ['accesStatsEcole', 'exporterStatistiques', 'voirJournalAdmin', 'gererClassement'] },
+  { domaine: '📣 Communication', cles: ['envoyerNotification', 'gererGroupes', 'creerSondage', 'gererCalendrierScolaire'] },
+  { domaine: '⚙️ Système', cles: ['gererParametresApp', 'gererSauvegardes', 'forcerSync', 'voirSanteSync', 'gererModeExamen'] },
+  { domaine: '🔐 Administration', cles: ['gererUtilisateurs', 'gererContenu', 'accesAudit', 'modifierRoles'] },
+];
+
+/** Permissions que même un `admin` complet ne reçoit JAMAIS (superadmin seul). */
+export const PERMISSIONS_SUPERADMIN_SEUL: readonly PermissionKey[] = ['promouvoirAdmin', 'retrograderAdmin'];
+
+/**
+ * Permissions que le superadmin PEUT confier à un élève ou à un autre admin :
+ * tout le catalogue, moins ses propres réserves (sinon un délégué pourrait
+ * créer d'autres superadmins et la hiérarchie n'aurait plus aucun sens).
+ */
+export const PERMISSIONS_DELEGABLES: readonly PermissionKey[] = TOUTES_PERMISSIONS.filter(
+  (cle) => !PERMISSIONS_SUPERADMIN_SEUL.includes(cle)
+);
+
+/**
+ * Grille de la délégation : les domaines, purgés des permissions
+ * superadmin-seul (et sans domaine devenu vide). C'est LA structure affichée
+ * par l'écran de partage de pouvoirs — ainsi l'UI ne décide de rien.
+ */
+export function grilleDelegation(): { domaine: string; cles: readonly PermissionKey[] }[] {
+  return DOMAINES_PERMISSIONS.map((d) => ({
+    domaine: d.domaine,
+    cles: d.cles.filter((cle) => !PERMISSIONS_SUPERADMIN_SEUL.includes(cle)),
+  })).filter((d) => d.cles.length > 0);
+}
+
+export type PermissionsCarte = Record<PermissionKey, boolean>;
 
 export interface UserPermissions {
   userId: string;
   role: UserRole;
   nom: string;
   classe: string;
-  permissions: {
-    // Moniteur : Aide les autres
-    peutAider: boolean;
-    peutCorriger: boolean;
-    
-    // Chef de classe : Gère la classe
-    gererAbsences: boolean;
-    creerDefis: boolean;
-    validerHomework: boolean;
-    
-    // Délégué : Représente la classe
-    accesStatsClasse: boolean;
-    creerAnnonces: boolean;
-    gererPetitions: boolean;
-    
-    // Admin : Accès complet
-    gererUtilisateurs: boolean;
-    gererContenu: boolean;
-    accesAudit: boolean;
-    modifierRoles: boolean;
-  };
+  permissions: PermissionsCarte;
   dateAttribution: string;
   dateExpiration?: string;
+  /** Pouvoirs fins délégués par le superadmin (fusionnés aux droits du rôle). */
+  pouvoirsDelegues?: PermissionKey[];
+}
+
+/** Carte « tout faux » — base de `genererPermissions`. */
+function carteVide(): PermissionsCarte {
+  return Object.fromEntries(TOUTES_PERMISSIONS.map((cle) => [cle, false])) as PermissionsCarte;
 }
 
 // ✅ CRÉER/ATTRIBUER UN RÔLE
@@ -107,6 +289,19 @@ export async function attribuerRoleEtudiant(
     // toujours refusé, et un admin créé avec role='admin' l'était aussi.
     if (!(await estAdminActuel())) {
       return { success: false, error: 'Permissions insuffisantes' };
+    }
+
+    // 👑 GARDE HIÉRARCHIQUE — deux verrous, car ce service est exporté (donc
+    // appelable sans passer par l'UI, qui n'expose jamais ces deux cas) :
+    //  1) attribuer le rôle 'superadmin' est réservé au superadmin en place ;
+    //  2) modifier la fiche d'un superadmin est interdit à tout autre admin.
+    // Sans eux, un admin ordinaire pouvait s'auto-promouvoir superadmin en
+    // appelant `attribuerRoleEtudiant(sonUid, nom, classe, 'superadmin')`.
+    if (role === 'superadmin' && !(await estSuperAdminActuel())) {
+      return { success: false, error: 'Rôle superadmin réservé' };
+    }
+    if ((await cibleEstSuperAdmin(userId)) && !(await estSuperAdminActuel())) {
+      return { success: false, error: 'Le superadmin ne peut pas être modifié' };
     }
 
     // Créer les permissions selon le rôle
@@ -164,22 +359,16 @@ export async function attribuerRoleEtudiant(
 }
 
 // ✅ GÉNÉRER PERMISSIONS PAR RÔLE
-function genererPermissions(role: UserRole): UserPermissions['permissions'] {
-  const base = {
-    peutAider: false,
-    peutCorriger: false,
-    gererAbsences: false,
-    creerDefis: false,
-    validerHomework: false,
-    accesStatsClasse: false,
-    creerAnnonces: false,
-    gererPetitions: false,
-    gererUtilisateurs: false,
-    gererContenu: false,
-    accesAudit: false,
-    modifierRoles: false,
-  };
-
+// ⚠️ Exporté pour être testable SANS Firestore : c'est la SEULE source des
+// permissions (elles ne sont jamais lues depuis le document, toujours
+// régénérées depuis le rôle — cf. getPermissionsUtilisateur).
+export function genererPermissions(role: UserRole): PermissionsCarte {
+  // Base = 50 clés à `false` (cf. carteVide). Les anciens blocs littéraux qui
+  // dupliquaient les 12 clés historiques ont été supprimés : une clé oubliée
+  // dans la copie redevenait `undefined` à la lecture (crash
+  // `perms.permissions[action]`), et une clé ajoutée au catalogue n'y
+  // apparaissait jamais.
+  const base = carteVide();
   switch (role) {
     case 'moniteur':
       return {
@@ -217,9 +406,186 @@ function genererPermissions(role: UserRole): UserPermissions['permissions'] {
         gererContenu: true,
         accesAudit: true,
         modifierRoles: true,
+        voirCoursTousNiveaux: true,
+        modifierCours: true,
+        publierCours: true,
+        creerExercice: true,
+        modifierExercice: true,
+        gererFichesSynthese: true,
+        gererSchemas: true,
+        gererAudioCours: true,
+        creerDevoir: true,
+        corrigerDevoir: true,
+        publierDevoir: true,
+        validerDefi: true,
+        gererOlympiades: true,
+        voirListeEleves: true,
+        suspendreCompte: true,
+        reinitialiserMotDePasse: true,
+        exporterDonneesEleves: true,
+        gererInscriptions: true,
+        voirSignalements: true,
+        traiterSignalement: true,
+        bannirTemporaire: true,
+        voirJournalAide: true,
+        traiterDemandeAide: true,
+        accesStatsEcole: true,
+        exporterStatistiques: true,
+        voirJournalAdmin: true,
+        gererClassement: true,
+        envoyerNotification: true,
+        gererGroupes: true,
+        creerSondage: true,
+        gererCalendrierScolaire: true,
+        gererParametresApp: true,
+        gererSauvegardes: true,
+        forcerSync: true,
+        voirSanteSync: true,
+        gererModeExamen: true,
       };
+    case 'superadmin':
+      return Object.fromEntries(TOUTES_PERMISSIONS.map((cle) => [cle, true])) as PermissionsCarte;
     default:
       return base;
+  }
+}
+
+export async function estSuperAdminActuel(): Promise<boolean> {
+  const uid = await getCurrentUserId();
+  if (!uid) return false;
+  try {
+    const snap = await getDoc(doc(db, 'roles', uid));
+    if (snap.exists()) {
+      const d = snap.data() as { estSuperAdmin?: boolean; role?: string; isDeleted?: boolean };
+      if (!d.isDeleted && (d.estSuperAdmin === true || d.role === 'superadmin')) return true;
+    }
+  } catch (error) {
+    rapporterErreur('[roles] Erreur lecture superadmin:', error);
+  }
+  try {
+    const snapAdmin = await getDoc(doc(db, 'admins', uid));
+    if (snapAdmin.exists()) {
+      const d = snapAdmin.data() as { role?: string };
+      if (d.role === 'superadmin') return true;
+    }
+  } catch (error) {
+    rapporterErreur('[roles] Erreur lecture admin superadmin:', error);
+  }
+  return false;
+}
+
+/**
+ * 👑 BOOTSTRAP SUPERADMIN (usage UNIQUE).
+ *
+ * Le code secret n'est JAMAIS dans l'app ni dans `roles` : il vit côté serveur
+ * dans le secret Cloud Functions `SUPERADMIN_CODE_HASH` (SHA-256 du code) — ou,
+ * à défaut, dans `config/superadmin.codeHash` posé depuis la console Firebase.
+ * Le client ne fait que TRANSMETTRE la saisie à la fonction `devenirSuperAdmin`,
+ * qui compare les empreintes en temps constant puis écrit :
+ *   - `roles/<uid>`   : `estSuperAdmin: true`, `role: 'superadmin'` ;
+ *   - `admins/<uid>`  : `role: 'superadmin'` (repli `isSuperAdmin()` des règles) ;
+ *   - `config/superadmin` : sentinelle `{ uid }` → le code ne sert qu'UNE fois.
+ */
+export async function reclamerSuperAdmin(
+  code: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!code.trim()) return { success: false, error: 'Code requis' };
+
+  const jeton = await jetonIdentite();
+  if (!jeton) {
+    return {
+      success: false,
+      error: 'Session Firebase absente : reconnecte-toi avant de réclamer le rôle.',
+    };
+  }
+
+  try {
+    const reponse = await fetch(URL_DEVENIR_SUPERADMIN, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jeton}` },
+      body: JSON.stringify({ code: code.trim() }),
+    });
+    // ⚠️ Fonction non déployée → 404 en HTML : on ne tente même pas de parser.
+    if (reponse.status === 404) {
+      return { success: false, error: 'Fonction non déployée (devenirSuperAdmin).' };
+    }
+    const donnees = (await reponse.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+    if (!reponse.ok || donnees.ok !== true) {
+      return { success: false, error: donnees.error || `Refusé par le serveur (${reponse.status}).` };
+    }
+    return { success: true };
+  } catch (error) {
+    rapporterErreur('[roles] Reclamation superadmin:', error);
+    return { success: false, error: 'Serveur injoignable — réessaie en ligne.' };
+  }
+}
+
+export async function cibleEstSuperAdmin(userId: string): Promise<boolean> {
+  if (!userId) return false;
+  try {
+    const snapRole = await getDoc(doc(db, 'roles', userId));
+    if (snapRole.exists()) {
+      const d = snapRole.data() as { estSuperAdmin?: boolean; role?: string; isDeleted?: boolean };
+      if (!d.isDeleted && (d.estSuperAdmin === true || d.role === 'superadmin')) return true;
+    }
+    const snapAdmin = await getDoc(doc(db, 'admins', userId));
+    if (snapAdmin.exists()) {
+      const d = snapAdmin.data() as { role?: string };
+      if (d.role === 'superadmin') return true;
+    }
+  } catch (error) {
+    rapporterErreur('[roles] Erreur garde superadmin:', error);
+  }
+  return false;
+}
+
+export async function deleguerPouvoirs(
+  userId: string,
+  pouvoirs: PermissionKey[]
+): Promise<{ success: boolean; error?: string }> {
+  if (!(await estSuperAdminActuel())) {
+    return { success: false, error: 'Reserve au superadmin' };
+  }
+  const propres = [...new Set(pouvoirs)].filter(
+    (pp): pp is PermissionKey => (TOUTES_PERMISSIONS as readonly string[]).includes(pp)
+  );
+  try {
+    await setDoc(
+      doc(db, 'roles', userId),
+      { pouvoirsDelegues: propres, deleguesLe: new Date().toISOString() },
+      { merge: true }
+    );
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+}
+
+
+/**
+ * Pouvoirs fins RÉELLEMENT stockés pour un utilisateur (champ brut
+ * `pouvoirsDelegues`), afin que la grille de délégation s'ouvre avec les
+ * cases déjà cochées. On lit le champ BRUT et non la carte de permissions :
+ * celle-ci est régénérée depuis le rôle, donc réouvrir la grille afficherait
+ * toutes les cases d'un admin déjà actives — impossible de voir ce qui a été
+ * délégué à la main.
+ */
+export async function lirePouvoirsDelegues(userId: string): Promise<PermissionKey[]> {
+  if (!userId) return [];
+  try {
+    const snap = await getDoc(doc(db, 'roles', userId));
+    if (!snap.exists()) return [];
+    const d = snap.data() as { pouvoirsDelegues?: PermissionKey[]; isDeleted?: boolean };
+    if (d.isDeleted) return [];
+    const brut = Array.isArray(d.pouvoirsDelegues) ? d.pouvoirsDelegues : [];
+    // Filtre défensif : un doc écrit à la main (console Firebase) peut contenir
+    // n'importe quoi — on ne garde que les clés du catalogue.
+    return brut.filter((cle): cle is PermissionKey =>
+      (TOUTES_PERMISSIONS as readonly string[]).includes(cle)
+    );
+  } catch (error) {
+    rapporterErreur('[roles] Erreur lecture pouvoirs delegues:', error);
+    return [];
   }
 }
 
@@ -228,13 +594,23 @@ export async function getPermissionsUtilisateur(userId: string): Promise<UserPer
   try {
     const doc_snap = await getDoc(doc(db, 'roles', userId));
     if (!doc_snap.exists()) return null;
-    const data = doc_snap.data() as UserPermissions & { isDeleted?: boolean };
+    const data = doc_snap.data() as UserPermissions & {
+      isDeleted?: boolean;
+      estSuperAdmin?: boolean;
+      pouvoirsDelegues?: PermissionKey[];
+    };
     if (data.isDeleted) return null; // rôle révoqué : plus aucune permission
     // ️ Normalisation : un doc écrit hors de ce service (bootstrap proviseur,
     // console Firestore) peut ne pas contenir le champ `permissions` — et
     // `peutEffectuerAction` faisait alors `perms.permissions[action]` → crash.
     // Les permissions sont donc TOUJOURS régénérées depuis le rôle.
-    return { ...data, userId, permissions: genererPermissions(data.role) };
+    const carte = genererPermissions(data.role === 'superadmin' || data.estSuperAdmin === true ? 'superadmin' : data.role);
+    // Fusion des pouvoirs fins délégués par le superadmin.
+    const delegues = Array.isArray(data.pouvoirsDelegues) ? data.pouvoirsDelegues : [];
+    for (const pv of delegues) {
+      if ((TOUTES_PERMISSIONS as readonly string[]).includes(pv)) carte[pv] = true;
+    }
+    return { ...data, userId, permissions: carte };
   } catch (error) {
     rapporterErreur('[roles] Erreur lecture permissions:', error);
     return null;
@@ -277,6 +653,12 @@ export async function revoquerRole(userId: string): Promise<{ success: boolean; 
   try {
     if (!(await estAdminActuel())) {
       return { success: false, error: 'Permissions insuffisantes' };
+    }
+    // Le superadmin est intouchable sauf par lui-meme.
+    if (await cibleEstSuperAdmin(userId)) {
+      if (!(await estSuperAdminActuel())) {
+        return { success: false, error: 'Le superadmin ne peut pas etre revoque' };
+      }
     }
 
     await setDoc(

@@ -72,6 +72,9 @@ service cloud.firestore {
         && request.resource.data.raison is string
         && request.resource.data.raison.size() <= 60;
       allow read: if isAdmin();
+      // 🛠️ L'admin traite un signalement (marqué « ✔ Traité » = suppression).
+      // Sans cette règle, la liste ne pouvait JAMAIS être vidée depuis l'app.
+      allow update, delete: if isAdmin();
     }
 
     // ============ DEVOIRS (espace prof) ============
@@ -93,6 +96,10 @@ service cloud.firestore {
       allow create: if request.resource.data.nom is string
         && request.resource.data.nom.size() <= 60;
       allow read: if isAdmin();
+      // 🛠️ L'admin voit la demande dans l'app (dashboard) puis la marque
+      // « ✔ Traitée ». Avant, l'élève lisait « va voir l'administrateur » mais
+      // l'admin n'avait AUCUNE liste dans l'app : il devait ouvrir la console.
+      allow update, delete: if isAdmin();
     }
 
     // ============ CRASH LOGS (rapports de plantage) ============
@@ -115,10 +122,27 @@ service cloud.firestore {
       allow write: if isAdmin() || (estSoiMeme(userId) && fichePubliqueValide());
     }
 
-    // ============ CONFIG APP (code prof, etc.) ============
+    // ============ CONFIG APP (code proviseur, sentinelle bootstrap) ============
+    // 🛡️ BOOTSTRAP PROVISEUR — avant, `write: if isAdmin()` seul rendait le
+    // premier bootstrap IMPOSSIBLE : personne n'est encore admin, donc
+    // `config/proviseur` (le code) et `config/initialise` (la sentinelle)
+    // ne pouvaient jamais être écrits depuis l'app. La porte reste
+    // strictement à usage unique : UNIQUEMENT si la sentinelle n'existe pas
+    // encore, UNIQUEMENT sur les deux docs connus, et UNIQUEMENT pour les
+    // créer (jamais les modifier ni les supprimer).
     match /config/{docId} {
-      allow read: if true;
-      allow write: if isAdmin();
+      // 🔒 `superadmin` est le SEUL document de config fermé en lecture : il
+      // peut contenir l'empreinte du code de bootstrap (secret de fait). Le
+      // reste (proviseur, initialise) doit rester lisible AVANT connexion,
+      // sinon le tout premier proviseur ne peut pas amorcer l'app.
+      allow read: if docId != 'superadmin' || isAdmin();
+      // 🔒 `superadmin` est EXCLU de toute écriture cliente : seul le SDK admin
+      // (console Firebase ou Cloud Function `devenirSuperAdmin`) le pose. Sans
+      // cette exclusion, un admin pourrait planter SON PROPRE `codeHash` puis
+      // s'auto-promouvoir superadmin — la hiérarchie n'aurait plus aucun sens.
+      allow create: if docId != 'superadmin'
+        && (isAdmin() || (!adminInitialise() && docId in ['proviseur', 'initialise']));
+      allow update, delete: if docId != 'superadmin' && isAdmin();
     }
 
     // ============ JOURNAL D'AUDIT (admin seul) ============
@@ -133,7 +157,10 @@ service cloud.firestore {
       // Un admin gère les rôles de tout le monde. Le cas `estSoiMeme` couvre
       // le BOOTSTRAP : le premier proviseur doit pouvoir écrire son propre
       // doc de rôle (une seule fois — voir adminInitialise()).
-      allow write: if isAdmin() || (estSoiMeme(userId) && !adminInitialise());
+      // Le superadmin est INTOUCHABLE sauf par lui-meme.
+      allow write: if isSuperAdmin()
+        || (isAdmin() && !(estCibleSuperAdmin(userId)))
+        || (estSoiMeme(userId) && !adminInitialise());
     }
 
     // ============ ADMINS (liste du proviseur) ============
@@ -147,7 +174,8 @@ service cloud.firestore {
       // create : un admin en place promeut qui il veut.
       allow create: if isAdmin() || (estSoiMeme(userId) && !adminInitialise());
       // update/delete : jamais en auto-promotion (ferme l'usurpation).
-      allow update, delete: if isAdmin();
+      // Le superadmin est INTOUCHABLE sauf par lui-meme.
+      allow update, delete: if isSuperAdmin() || (isAdmin() && !(estCibleSuperAdmin(userId)));
     }
 
     // ============ HELPERS ============
@@ -215,6 +243,24 @@ service cloud.firestore {
             || (request.resource.data.xp_semaine is int && request.resource.data.xp_semaine >= 0))
         && (!('avatar' in request.resource.data)
             || (request.resource.data.avatar is string && request.resource.data.avatar.size() <= 8));
+    }
+    function isSuperAdmin() {
+      // Le superadmin est designe par `roles/<uid>.estSuperAdmin == true`
+      // (repli `admins/<uid>.role == 'superadmin'` pour le bootstrap console).
+      return estAuth() && ((
+        exists(/databases/$(database)/documents/roles/$(request.auth.uid))
+        && get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.estSuperAdmin == true
+      ) || (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'superadmin'
+      ));
+    }
+    // Le superadmin passe partout ou l'admin passe (hiérarchie stricte).
+    function estCibleSuperAdmin(uid) {
+      return (exists(/databases/$(database)/documents/roles/$(uid))
+          && get(/databases/$(database)/documents/roles/$(uid)).data.estSuperAdmin == true)
+        || (exists(/databases/$(database)/documents/admins/$(uid))
+          && get(/databases/$(database)/documents/admins/$(uid)).data.role == 'superadmin');
     }
     function isAdmin() {
       // 🔑 SOURCE DE VÉRITÉ = collection `admins` (celle que lit réellement
