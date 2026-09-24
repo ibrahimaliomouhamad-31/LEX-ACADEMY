@@ -1,9 +1,8 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { urlChat, headersIA, construireMessages, extraireReponse, extraireErreurProxy } from '../services/configIA';
+import { urlChat, headersIA, construireMessages, extraireReponse, extraireErreurProxy, quotaClientDepasse } from '../services/configIA';
 import { chercher, memoriser } from '../services/qaCache';
-import { bloquerSiExamen } from '../services/parametres';
 import { estEnLigne } from '../utils/reseau';
 import { rapporterErreur } from '../utils/logger';
 
@@ -29,6 +28,14 @@ function texteErreur(error: unknown, enLigne: boolean): string {
   return `Je ne peux pas répondre pour le moment${message}. Réessaie dans un instant.`;
 }
 
+/** Historique des envois (fenêtre glissante) pour le quota client. */
+const FENETRE_QUOTA_MS = 10 * 60 * 1000;
+
+/** Nettoie les horodatages hors fenêtre pour garder une trace légère. */
+function borner(horodatages: number[], maintenant: number): number[] {
+  return horodatages.filter((h) => maintenant - h < FENETRE_QUOTA_MS);
+}
+
 export default function LexAI() {
   const router = useRouter();
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([
@@ -37,19 +44,28 @@ export default function LexAI() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
+  // Horodatages des tentatives d'envoi (quota client, fenêtre glissante 10 min).
+  const horodatagesEnvois = useRef<number[]>([]);
 
   useEffect(() => {
     scrollViewRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
 
-  // 🔒 MODE EXAMEN : LEX.AI est l'outil d'aide le plus puissant de l'app —
-  // il doit être verrouillé pendant une épreuve, comme le solveur, les
-  // flashcards et la recherche (bloquerSiExamen, garde partagée).
-  useEffect(() => { bloquerSiExamen(router, 'LEX.AI'); }, []);
-
   const sendMessage = async () => {
     const texte = input.trim();
     if (texte === '' || loading) return;
+
+    // ⏳ QUOTA CLIENT : on compte les TENTATIVES (pas seulement les succès)
+    // pour devancer le rate-limiter serveur (60/10 min/IP partagée en ville).
+    const maintenant = Date.now();
+    if (quotaClientDepasse(horodatagesEnvois.current, maintenant)) {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: "⏳ Tu as déjà beaucoup questionné LEX.AI sur les 10 dernières minutes. Fais une petite pause — je serai là juste après ! (quota de sécurité anti-abus)"
+      }]);
+      return;
+    }
+    horodatagesEnvois.current = [...borner(horodatagesEnvois.current, maintenant), maintenant];
 
     const userMessage = { role: 'user', content: texte };
     setMessages(prev => [...prev, userMessage]);

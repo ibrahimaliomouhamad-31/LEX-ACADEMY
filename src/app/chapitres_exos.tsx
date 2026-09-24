@@ -5,7 +5,7 @@ import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOp
 import { db } from '../config/firebaseConfig';
 import { getAllCachedChapterIds, getCacheSize, saveCours, saveExercices, type Exercice } from '../services/cacheHorsLigne';
 import { generateurDisponible } from '../services/generateurLocal';
-import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
+import { rapporterErreur } from '../utils/logger';
 
 /** Chapitre Firestore : champs connus typés, le reste en inconnu. */
 export interface ChapitreFirestore {
@@ -177,13 +177,6 @@ export default function ChapitresExos() {
                       {enCours === chapitre.id ? '⏳ Téléchargement...' : estTelecharge ? '✅ Hors-ligne' : '📥 Télécharger'}
                     </Text>
                   </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.lexAiBtn}
-                    onPress={() => router.push({ pathname: '/lexai' })}
-                  >
-                    <Text style={styles.lexAiBtnText}>🤖 LEX.AI</Text>
-                  </TouchableOpacity>
                 </View>
               </View>
             );
@@ -223,8 +216,4 @@ const styles = StyleSheet.create({
   telechargerBtnOk: { backgroundColor: '#14352B' },
   telechargerBtnText: { color: '#7DD3FC', fontSize: 12, fontWeight: 'bold' },
   telechargerBtnTextOk: { color: '#6EE7B7' },
-  aiBtn: { flex: 1, backgroundColor: '#2D1F40', paddingVertical: 10, alignItems: 'center', borderLeftWidth: 1, borderLeftColor: '#334155' },
-  aiBtnText: { color: '#C4B5FD', fontSize: 12, fontWeight: 'bold' },
-  lexAiBtn: { flex: 1, backgroundColor: '#1B1424', paddingVertical: 10, alignItems: 'center', borderLeftWidth: 1, borderLeftColor: '#334155' },
-  lexAiBtnText: { color: '#8B5CF6', fontSize: 12, fontWeight: 'bold' },
 });
