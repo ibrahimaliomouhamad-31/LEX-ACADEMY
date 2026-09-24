@@ -14,7 +14,17 @@
 //   erreurs     : `{ error: "..." }` avec 400 / 429 / 502
 //   limites     : ≤ 30 messages, ≤ 8000 car. par message, ≤ 32 000 car. total
 
+// 🔁 MIGRATION PROXY (alternative gratuite) : Firebase Cloud Functions exige
+// le plan BLAZE (payant) — cloudbuild + secretmanager sont refusés sur Spark.
+// Le proxy vit désormais sur Cloudflare Workers (plan Free : 100 000 req/jour,
+// sans carte). L'URL se configure dans .env :
+//   EXPO_PUBLIC_LEXAI_PROXY_URL=https://lexai-chat.<hash>.workers.dev
+// (wrangler deploy l'affiche — voir workers/lexai-chat/README.md).
+// En attendant, l'ancienne URL Firebase reste en fallback : le 404 HTML qu'elle
+// renvoie est géré côté écran (« assistant non activé », pas de faux blame
+// connexion).
 export const URL_PROXY: string =
+  process.env.EXPO_PUBLIC_LEXAI_PROXY_URL ||
   'https://us-central1-lex-academy-10eef.cloudfunctions.net/lexaiChat';
 
 export function urlChat(): string {

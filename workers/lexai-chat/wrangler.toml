@@ -1,0 +1,6 @@
+name = "lexai-chat"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+
+# 🔒 Pas de clé ici : `npx wrangler secret put GROQ_API_KEY`
+# (injectée dans env.GROQ_API_KEY au runtime, jamais dans le code).
