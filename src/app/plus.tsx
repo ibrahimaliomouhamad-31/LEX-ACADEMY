@@ -28,7 +28,6 @@ const ROUTES_STRICT_EXAMEN: HrefApp[] = [
 const REVISER: Fonctionnalite[] = [
   { emoji: '🧪', titre: 'Test de positionnement', titreEn: 'Placement test', description: '20 questions pour situer ton niveau exact', descriptionEn: '20 questions to find your exact level', route: '/positionnement', couleur: '#06B6D4' },
   { emoji: '🃏', titre: 'Flashcards', titreEn: 'Flashcards', description: 'Cartes de révision générées depuis tes cours', descriptionEn: 'Revision cards made from your lessons', route: '/flashcards', couleur: '#8B5CF6' },
-  { emoji: '🧬', titre: 'QCM SVT', titreEn: 'Biology quiz', description: '40 questions à choix multiples, 2nde → Tle', descriptionEn: '40 multiple-choice questions', route: '/qcm_svt', couleur: '#84CC16' },
   { emoji: '🎧', titre: 'Cours en audio', titreEn: 'Audio lessons', description: 'Écoute tes cours à voix haute, hors-ligne', descriptionEn: 'Listen to your lessons, offline', route: '/audio_cours', couleur: '#8B5CF6' },
   { emoji: '📊', titre: 'Ma maîtrise', titreEn: 'My mastery', description: 'Progression par chapitre, du plus faible au plus fort', descriptionEn: 'Progress per chapter', route: '/maitrise', couleur: '#10B981' },
   { emoji: '📈', titre: 'Statistiques', titreEn: 'Statistics', description: 'Activité, taux de réussite, progression', descriptionEn: 'Activity, success rate, progress', route: '/statistiques', couleur: '#06B6D4' },

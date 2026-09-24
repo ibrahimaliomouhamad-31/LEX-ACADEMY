@@ -16,7 +16,7 @@ mais chaque fichier appartient à un domaine fonctionnel clair.
 - Les exemples d'un cours s'affichent **dans l'ordre croissant** : une ancienne « permutation déterministe » inversait la liste et montrait « Exemple 15 » avant « Exemple 1 ».
 
 ## 2️⃣ 🏋️ ENTRAÎNEMENT & ÉVALUATION
-- **Écrans** : `exercices`, `liste_exercices`, `matieres_exos`, `chapitres_exos`, `classes_exos`, `entrainement_infini`, `qcm_eclair`, `qcm_svt`, `defi_jour`, `olympiades`, `positionnement`, `maitrise`, `solveur`, `flashcards`
+- **Écrans** : `exercices`, `liste_exercices`, `matieres_exos`, `chapitres_exos`, `classes_exos`, `entrainement_infini`, `qcm_eclair`, `defi_jour`, `olympiades`, `positionnement`, `maitrise`, `solveur`, `flashcards`
 - **Services** : `selectionAdaptive`, `revisions`, `qaCache`, `solveur`, `flashcardsService`, `defiService`, `olympiades`
 - BAC réel 3h/4h, anti-farm persistant, démarches pas-à-pas. `entrainement_infini` = exercices OFFLINE illimités (générateur local, zéro réseau, **notions filtrées par matière**). L'ancien chat IA en ligne (`infini.tsx`) et `photo_exo` ont été supprimés (cycle K : jamais déployés, jamais joignables).
 - **Un seul parcours d'exercices** : le tap sur un chapitre ouvre directement `entrainement_infini` (toutes les micro-notions) dès qu'un générateur existe pour la matière ; `liste_exercices` reste le repli. L'ancien bouton « 🧠 Infini » (double entrée) est supprimé, et l'écran affiche « Notions vues x/y · N exercices résolus ».
