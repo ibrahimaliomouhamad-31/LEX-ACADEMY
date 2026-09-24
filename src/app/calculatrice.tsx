@@ -3,6 +3,14 @@ import { useEffect, useState } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { bloquerSiExamen } from '../services/parametres';
 
+// 🧮 Sous-composant hors du render parent : défini à l'intérieur, il était
+// recréé à chaque rendu → remontage complet (et perte de focus) à chaque frappe.
+const Bouton = ({ valeur, onPress, style, texteStyle }: { valeur: string; onPress: () => void; style?: object; texteStyle?: object }) => (
+  <TouchableOpacity style={[styles.bouton, style]} onPress={onPress}>
+    <Text style={[styles.boutonTexte, texteStyle]}>{valeur}</Text>
+  </TouchableOpacity>
+);
+
 export default function Calculatrice() {
   const router = useRouter();
   // 🛡️ VERROU EXAMEN DIRECT : bloque même en accès direct (deep link).
@@ -72,12 +80,6 @@ export default function Calculatrice() {
     if (resultat === null || !Number.isFinite(resultat)) { setAffichage('Erreur'); return; }
     setAffichage(String(parseFloat(resultat.toFixed(10))));
   };
-
-  const Bouton = ({ valeur, onPress, style, texteStyle }: { valeur: string; onPress: () => void; style?: object; texteStyle?: object }) => (
-    <TouchableOpacity style={[styles.bouton, style]} onPress={onPress}>
-      <Text style={[styles.boutonTexte, texteStyle]}>{valeur}</Text>
-    </TouchableOpacity>
-  );
 
   return (
     <View style={styles.container}>
