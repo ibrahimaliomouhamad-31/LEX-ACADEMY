@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { alerte } from '../utils/alerte';
 import {
   couleurTheme,
   getDortoirActive,
@@ -65,14 +66,14 @@ export default function Parametres() {
   const basculerRappel = async (v: boolean) => {
     setRappel(v);
     await setRappelActif(v);
-    Alert.alert('Rappel quotidien', await appliquerRappel());
+    alerte('Rappel quotidien', await appliquerRappel());
   };
 
   const changerHeure = async (h: number) => {
     const borne = Math.max(6, Math.min(23, h));
     setH(borne);
     await setHeureRappel(borne);
-    if (rappel) Alert.alert('Rappel quotidien', await appliquerRappel());
+    if (rappel) alerte('Rappel quotidien', await appliquerRappel());
   };
 
   const Ligne = ({ titre, sousTitre, actif, onToggle }: { titre: string; sousTitre?: string; actif: boolean; onToggle: (v: boolean) => void | Promise<void> }) => (

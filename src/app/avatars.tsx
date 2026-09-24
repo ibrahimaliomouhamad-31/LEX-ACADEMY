@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { alerte } from '../utils/alerte';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db } from '../config/firebaseConfig';
 import { getUserItem, setUserItem } from '../services/userStorage';
@@ -69,7 +70,7 @@ export default function Avatars() {
     } finally {
       setLoading(false);
     }
-    Alert.alert('Mis à jour !', 'Ton nouvel avatar est enregistré sur ce téléphone.');
+    alerte('Mis à jour !', 'Ton nouvel avatar est enregistré sur ce téléphone.');
     router.push('/profil');
   };
 

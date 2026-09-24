@@ -3,7 +3,8 @@ import { hacherMotDePasse } from '../services/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { alerte } from '../utils/alerte';
 import { Picker } from '@react-native-picker/picker';
 import { db } from '../config/firebaseConfig';
 import { doc, setDoc } from 'firebase/firestore';
@@ -57,7 +58,7 @@ export default function Register() {
       await AsyncStorage.setItem('lex_user_id', uid);
       await AsyncStorage.setItem('lex_user_niveau', niveauPourClasse(classe));
 
-      Alert.alert("Bienvenue au LEX !", "Ton compte a été créé avec succès. Tu as 0 XP. Va faire des exercices pour grimper dans le classement !");
+      alerte("Bienvenue au LEX !", "Ton compte a été créé avec succès. Tu as 0 XP. Va faire des exercices pour grimper dans le classement !");
       router.push('/');
 
     } catch (error: unknown) {
