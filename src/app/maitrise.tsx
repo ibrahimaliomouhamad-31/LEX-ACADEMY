@@ -1,7 +1,9 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Share, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ActivityIndicator, ScrollView } from 'react-native';
+import { alerte } from '../utils/alerte';
+import { partager } from '../utils/partager';
 import { getStats, niveauMaitrise, tauxMaitrise, type LexStats } from '../services/statsSuivi';
 import { getAllCoursCache } from '../services/cacheHorsLigne';
 
@@ -64,16 +66,14 @@ export default function Maitrise() {
                     onPress={() => {
                       // 57 — Diplôme de chapitre : récompense visuelle + partage
                       if (m.taux >= 70) {
-                        Alert.alert(
+                        alerte(
                           '🎓 DIPLOME DE MAÎTRISE',
                           `Chapitre : ${titre}\nMaîtrise : ${m.taux}% (${c.reussis}/${c.total} réussis)\n\nFélicitations, ce chapitre est à toi ! Partage ta fierté 🏆`,
                           [
                             { text: 'Fermer', style: 'cancel' },
                             {
                               text: '📤 Partager',
-                              onPress: () => Share.share({
-                                message: `🎓 J'ai maîtrisé « ${titre} » à ${m.taux}% sur LEX ACADEMY ! 🏆 L'Excellence à portée de main.`,
-                              }),
+                              onPress: () => partager(`🎓 J'ai maîtrisé « ${titre} » à ${m.taux}% sur LEX ACADEMY ! 🏆 L'Excellence à portée de main.`),
                             },
                           ]
                         );

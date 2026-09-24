@@ -2,7 +2,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ActivityIndicator, ScrollView, Share, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { partager } from '../utils/partager';
 import Speech from 'expo-speech';
 import { db } from '../config/firebaseConfig';
 import { getCours, saveCours, type CoursCache } from '../services/cacheHorsLigne';
@@ -262,7 +263,7 @@ export default function Cours() {
                 (coursData?.matiere as string) || '',
                 (coursData?.theorie as string) || sectionsEnTexte(genererSectionsCours((coursData?.titre as string) || id, coursData?.matiere, '')),
               );
-              await Share.share({ message: ficheEnTexte(fiche) });
+              await partager(ficheEnTexte(fiche));
             } catch {
               // partage annulé par l'élève : rien à faire
             }
