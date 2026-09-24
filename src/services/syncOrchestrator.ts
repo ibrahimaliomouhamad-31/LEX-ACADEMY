@@ -6,7 +6,6 @@
  *  - `lex_sync_queue`        (syncQueue)        → vidée par un intervalle fantôme
  *  - `lex_file_sync_globale` (objectifs)        → vidée seulement au démarrage de index.tsx
  *  - `lex_signalements_en_attente` (signalements) → idem, seulement au démarrage
- *  - `lex_defi_en_attente`   (defiService)      → ❌ JAMAIS vidée : scores de défis perdus
  *
  * MAINTENANT : un point unique `toutSynchroniser()` appelé :
  *  - au démarrage de l'app,
@@ -15,7 +14,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { addDoc, collection, doc, setDoc } from 'firebase/firestore';
+import { addDoc, collection } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
 import { syncQueue } from './syncQueue';
 import { pousserProgression } from './syncCloud';
@@ -23,51 +22,11 @@ import { viderFileSignalements } from './signalementService';
 import { synchroniserXp, synchroniserStreak } from './xpLocal';
 import { publierMonProfilPublic } from './classementPublic';
 import { estEnLigneSync, verifierConnexion } from '../utils/reseau';
-import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
+import { rapporterErreur } from '../utils/logger';
 
 const CLE_FILE_GLOBALE = 'lex_file_sync_globale';
-const CLE_DEFI_EN_ATTENTE = 'lex_defi_en_attente';
 
-interface ElementFileDefi {
-  nom: string;
-  classe: string;
-  score: number;
-  tempsS: number;
-  date: string;
-}
-
-/** Vide la file de scores du Défi du Jour (avant : jamais vidée). */
-async function viderDefisEnAttente(): Promise<number> {
-  let envoyes = 0;
-  try {
-    const brut = await AsyncStorage.getItem(CLE_DEFI_EN_ATTENTE);
-    if (!brut) return 0;
-
-    const file: ElementFileDefi[] = JSON.parse(brut);
-    const restants: ElementFileDefi[] = [];
-
-    for (const d of file) {
-      try {
-        const userId = (await AsyncStorage.getItem('lex_user_id')) || `local_${d.nom}`;
-        await setDoc(doc(db, 'defi_jour', `${d.date}_${userId}`), {
-          date: d.date,
-          nom: d.nom,
-          classe: d.classe,
-          score: d.score,
-          tempsS: d.tempsS,
-        });
-        envoyes++;
-      } catch {
-        restants.push(d); // toujours hors-ligne : on garde
-      }
-    }
-
-    await AsyncStorage.setItem(CLE_DEFI_EN_ATTENTE, JSON.stringify(restants));
-  } catch (error) {
-    rapporterErreur('[syncOrchestrator] Erreur défis en attente :', error);
-  }
-  return envoyes;
-}
+/** Vide la file globale (signalements, devoirs rendus hors-ligne). */
 
 /** Vide la file globale (défis joués, signalements, devoirs rendus hors-ligne). */
 async function viderFileGlobale(): Promise<number> {
@@ -77,17 +36,14 @@ async function viderFileGlobale(): Promise<number> {
     if (!brut) return 0;
 
     const file = JSON.parse(brut) as {
-      type: 'defi' | 'signalement' | 'devoir';
+      type: 'signalement' | 'devoir';
       donnees: Record<string, unknown>;
     }[];
     const restants: typeof file = [];
 
     for (const element of file) {
       try {
-        if (element.type === 'defi') {
-          const d = element.donnees as { date: string; userId: string };
-          await setDoc(doc(db, 'defi_jour', `${d.date}_${d.userId}`), element.donnees);
-        } else if (element.type === 'signalement') {
+        if (element.type === 'signalement') {
           await addDoc(collection(db, 'signalements'), element.donnees);
         } else if (element.type === 'devoir') {
           await addDoc(collection(db, 'devoir_reponses'), element.donnees);
@@ -145,11 +101,10 @@ export async function toutSynchroniser(): Promise<ResultatSync> {
     // 4) Progression pédagogique (stats, SRS, exos résolus)
     resultat.progression = await pousserProgression();
 
-    // 5) Files diverses : défis du jour, file globale, signalements
-    const defis = await viderDefisEnAttente().catch(() => 0);
+    // 5) Files diverses : file globale, signalements
     const globale = await viderFileGlobale().catch(() => 0);
     await viderFileSignalements();
-    resultat.divers = defis + globale;
+    resultat.divers = globale;
 
     // 6) 🏆 Miroir du classement : republie ma fiche publique avec l'XP à jour.
     //    ⚠️ Indispensable : sans la Cloud Function (plan Spark), c'est la SEULE

@@ -44,7 +44,6 @@ const SECTIONS: Section[] = [
   {
     emoji: '🎮', titre: '4. Jouer et rester motivé',
     entrees: [
-      { q: '📰 Défi du jour', r: 'Chaque jour, 3 questions IDENTIQUES pour toute ta classe : qui sera le plus rapide ? Le classement de la classe se met à jour en direct. En mode 👥 Duo, jouez à deux sur le même téléphone.' },
       { q: '⚔️ Duels, 🎮 Mini-jeux, 🗺️ Conquête', r: 'Duel : bats le fantôme (ton record). Mini-jeux : course de calcul à 2 + memory des formules. Conquête : chaque chapitre maîtrisé à 70 % devient un territoire 🏰 à toi.' },
       { q: '🏅 Badges, quêtes, ligues', r: 'Des quêtes changent chaque semaine, 15 badges à débloquer, 6 ligues selon tes XP. La régularité rapporte plus que le farming.' },
     ],

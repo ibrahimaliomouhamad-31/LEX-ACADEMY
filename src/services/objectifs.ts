@@ -1,7 +1,7 @@
 // OBJECTIFS PERSONNELS + FILE DE SYNCHRONISATION GLOBALE + ANNOTATIONS (services groupés)
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { addDoc, collection, setDoc, doc } from 'firebase/firestore';
+import { addDoc, collection } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
 import { chargerContexte, type ContexteBadges } from './motivation';
 import { getStats } from './statsSuivi';
@@ -73,7 +73,7 @@ export const LIBELLES_OBJECTIFS: { type: TypeObjectif; titre: string; emoji: str
 // ---------- 42 : File de synchronisation globale ----------
 
 interface ElementFile {
-  type: 'defi' | 'signalement' | 'devoir';
+  type: 'signalement' | 'devoir';
   donnees: Record<string, unknown>;
   dateISO: string;
 }
@@ -110,10 +110,7 @@ export async function viderFileGlobale(): Promise<number> {
     const restants: ElementFile[] = [];
     for (const element of file) {
       try {
-        if (element.type === 'defi') {
-          const d = element.donnees as { date: string; userId: string };
-          await setDoc(doc(db, 'defi_jour', `${d.date}_${d.userId}`), element.donnees);
-        } else if (element.type === 'signalement') {
+        if (element.type === 'signalement') {
           await addDoc(collection(db, 'signalements'), element.donnees);
         } else if (element.type === 'devoir') {
           await addDoc(collection(db, 'devoir_reponses'), element.donnees);

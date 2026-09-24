@@ -17,7 +17,7 @@
 require('dotenv').config();
 
 // ⚠️ Initialisation OBLIGATOIRE du SDK Admin : sans elle, toute fonction
-// utilisant firebase-admin (journalScores, classement_public, resetXpSemaine)
+// utilisant firebase-admin (classement_public, resetXpSemaine)
 // plante au premier appel avec « The default Firebase app does not exist ».
 const admin = require('firebase-admin');
 admin.initializeApp();
@@ -130,22 +130,6 @@ exports.lexaiChat = onRequest({ cors: true, secrets: ['GROQ_API_KEY'] }, async (
 // 501 sans jamais rien transcrire, et aucun écran ne l'appelait
 // (`urlTranscription()` n'avait plus de consommateur). La lecture audio des
 // cours passe par `expo-speech` — un TTS LOCAL, donc 100 % hors-ligne.
-
-// 72 — JOURNAL D'AUDIT : trace toutes les écritures de scores pour repérer
-// les anomalies (rafales, scores impossibles). Consultable dans Firestore.
-// 🔒 Avec les règles Firestore (score 0..3), un score invalide est bloqué à
-// la source ; l'audit garde un œil sur les temps anormalement rapides.
-const { onDocumentCreated } = require('firebase-functions/v2/firestore');
-exports.journalScores = onDocumentCreated('/defi_jour/{docId}', async (event) => {
-  const db = require('firebase-admin').firestore();
-  const d = event.data && event.data.data ? event.data.data() : {};
-  const suspect = (d.tempsS || 999) < 8; // 3 questions en < 8 s = quasi impossible
-  return db.collection('journal_audit').add({
-    type: 'defi', ref: event.params.docId, nom: d.nom || '?', classe: d.classe || '?',
-    score: d.score, tempsS: d.tempsS, suspect,
-    dateISO: new Date().toISOString(),
-  }).catch(() => null);
-});
 
 /** Classement public : whitelist de champs, jamais de lecture des profils privés. */
 const { onDocumentUpdated, onDocumentCreated: onDocCree, onDocumentDeleted } = require('firebase-functions/v2/firestore');

@@ -42,6 +42,10 @@ const CLES_EXCLUES: readonly string[] = [
   'lex_user_session', 'lex_session_expiry', // session de connexion
   'lex_examen_actif', // verrou local de sécurité (anti-triche)
   'lex_sync_queue', 'lex_sync_conflicts', 'lex_last_sync_timestamp',
+  // `lex_defi_en_attente` : file d'une fonctionnalité retirée (Défi du jour),
+  // mais l'exclusion est CONSERVÉE : un téléphone pas encore mis à jour peut
+  // en avoir une résiduelle, et elle ne doit jamais partir dans un code de
+  // sauvegarde partagé.
   'lex_defi_en_attente', 'lex_file_sync_globale', 'lex_signalements_en_attente',
   'lex_dernier_pretelechargement', 'lex_crash_logs', 'lex_guide_vu',
 ];

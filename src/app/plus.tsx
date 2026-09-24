@@ -39,7 +39,6 @@ const REVISER: Fonctionnalite[] = [
 ];
 
 const JOUER: Fonctionnalite[] = [
-  { emoji: '📰', titre: 'Défi du jour', titreEn: 'Daily challenge', description: 'Le même défi pour toute ta classe (mode duo !)', descriptionEn: 'Same challenge for your class (duo mode!)', route: '/defi_jour', couleur: '#EC4899' },
   { emoji: '⚡', titre: 'QCM Éclair', titreEn: 'Lightning quiz', description: '60 secondes pour un max de bonnes réponses', descriptionEn: '60 seconds, max correct answers', route: '/qcm_eclair', couleur: '#FBBF24' },
   { emoji: '⚔️', titre: 'Duels', titreEn: 'Duels', description: 'Bats le fantôme de ton meilleur score', descriptionEn: 'Beat your ghost score', route: '/duels', couleur: '#F97316' },
   { emoji: '🎮', titre: 'Mini-jeux', titreEn: 'Mini-games', description: 'Course de calcul à 2 joueurs + memory', descriptionEn: '2-player math race + memory', route: '/mini_jeux', couleur: '#F97316' },

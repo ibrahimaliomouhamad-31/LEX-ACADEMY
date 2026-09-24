@@ -156,10 +156,10 @@ export default function Parametres() {
           </View>
         )}
 
-        {/* 🔔 Rappels intelligents : défi non fait + série en danger (hors-ligne) */}
+        {/* 🔔 Rappels intelligents : série en danger (hors-ligne) */}
         <Ligne
           titre="🔔 Rappels intelligents"
-          sousTitre="Te prévient si le Défi du jour n'est pas fait (19h) ou si ta série est en danger (20h)"
+          sousTitre="Te prévient si ta série est en danger (20h) : un seul exercice ce soir la garde en vie"
           actif={notifsExtras}
           onToggle={async (v) => {
             setNotifsExtrasState(v);

@@ -49,22 +49,6 @@ service cloud.firestore {
       allow read: if estSoiMeme(resource.data.userId) || isAdmin();
     }
 
-    // ============ DÉFIS QUOTIDIENS ============
-    // Le défi comporte 3 questions : score 0..3, temps plausible (> 5 s).
-    // 1 écriture max par élève/jour (docId = date_uid, créé une fois).
-    match /defi_jour/{docId} {
-      allow read: if true;
-      allow create: if estSoiMeme(request.resource.data.userId)
-        && request.resource.data.score is number
-        && request.resource.data.score >= 0
-        && request.resource.data.score <= 3
-        && request.resource.data.tempsS is number
-        && request.resource.data.tempsS >= 5
-        && request.resource.data.nom is string
-        && request.resource.data.nom.size() <= 60;
-      allow update, delete: if isAdmin();
-    }
-
     // ============ SIGNALEMENTS (élève → admin) ============
     match /signalements/{docId} {
       allow create: if request.resource.data.exoId is string
