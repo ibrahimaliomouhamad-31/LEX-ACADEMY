@@ -97,6 +97,23 @@ export function extraireErreurProxy(data: unknown): string | null {
   return null;
 }
 
+// ─── QUOTA CLIENT (marge sous le rate-limiter serveur) ───────────────────────
+// Le proxy refuse (429) au-delà de 60 requêtes / 10 min / IP — une IP de
+// quartier est souvent partagée entre élèves. On plafonne donc côté client à
+// 40 tentatives / 10 min (fenêtre glissante identique) pour ne JAMAIS arriver
+// au 429 serveur avec un message d'erreur au lieu d'une réponse IA.
+const FENETRE_QUOTA_MS = 10 * 60 * 1000;
+const LIMITE_QUOTA_CLIENT = 40;
+
+/**
+ * Vrai si l'élève a déjà atteint le quota client dans la fenêtre glissante.
+ * `horodatages` = instants (ms) des envois précédents (non nettoyés) — le
+ * filtre interne ne compte que ceux de la fenêtre courante.
+ */
+export function quotaClientDepasse(horodatages: readonly number[], maintenant: number): boolean {
+  return horodatages.filter((h) => maintenant - h < FENETRE_QUOTA_MS).length >= LIMITE_QUOTA_CLIENT;
+}
+
 // ─── PROMPT SYSTÈME ──────────────────────────────────────────────────────────
 export const SYSTEME_LEXAI =
   "Tu es LEX.AI, un professeur virtuel strict mais pédagogue du Lycée d'Excellence (LEX) au Niger. Tu aides l'élève en lui donnant des indices et en le guidant. Tu ne donnes JAMAIS la réponse finale directement. Tu utilises le programme officiel du Niger.";

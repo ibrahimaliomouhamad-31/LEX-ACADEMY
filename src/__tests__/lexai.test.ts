@@ -3,6 +3,7 @@ import {
   construireMessages,
   extraireReponse,
   extraireErreurProxy,
+  quotaClientDepasse,
   SYSTEME_LEXAI,
   type MessageChat,
 } from '../services/configIA';
@@ -106,5 +107,42 @@ describe('LEX.AI — extraireErreurProxy', () => {
     expect(extraireErreurProxy({ error: '' })).toBeNull();
     expect(extraireErreurProxy({ error: { nested: true } })).toBeNull();
     expect(extraireErreurProxy(null)).toBeNull();
+  });
+});
+
+// ─── QUOTA CLIENT (marge sous le rate-limiter serveur 60/10 min/IP) ─────────
+describe('LEX.AI — quotaClientDepasse (fenêtre glissante)', () => {
+  const MIN = 60 * 1000;
+  const maintenant = 1_000_000_000;
+
+  it("n'est pas dépassé en dessous de 40 envois dans la fenêtre", () => {
+    const horodatages = Array.from({ length: 39 }, (_, i) => maintenant - i * 1000);
+    expect(quotaClientDepasse(horodatages, maintenant)).toBe(false);
+  });
+
+  it('est dépassé à partir de 40 envois dans la fenêtre', () => {
+    const horodatages = Array.from({ length: 40 }, (_, i) => maintenant - i * 1000);
+    expect(quotaClientDepasse(horodatages, maintenant)).toBe(true);
+  });
+
+  it('ignore les envois hors fenêtre (10 min) : le quota se relâche', () => {
+    // 40 envois, tous il y a plus de 10 min → fenêtre vide → non dépassé.
+    const vieux = Array.from({ length: 40 }, (_, i) => maintenant - 11 * MIN - i * 1000);
+    expect(quotaClientDepasse(vieux, maintenant)).toBe(false);
+    // Mélange : 39 récents (dans la fenêtre) + 5 vieux → toujours non dépassé.
+    const melange = [
+      ...Array.from({ length: 39 }, (_, i) => maintenant - i * 1000),
+      ...Array.from({ length: 5 }, (_, i) => maintenant - 15 * MIN - i * 1000),
+    ];
+    expect(quotaClientDepasse(melange, maintenant)).toBe(false);
+  });
+
+  it('garde la limite pile à la frontière de la fenêtre (10 min exactement)', () => {
+    // 39 récents + 1 exactement à 10 min → hors fenêtre (filtre strict <) → 39.
+    const bordure = [
+      ...Array.from({ length: 39 }, (_, i) => maintenant - i * 1000),
+      maintenant - 10 * MIN,
+    ];
+    expect(quotaClientDepasse(bordure, maintenant)).toBe(false);
   });
 });
