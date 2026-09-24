@@ -19,7 +19,7 @@ const path = require('path');
   if (!fs.existsSync(dossier)) fs.mkdirSync(dossier, { recursive: true });
   const horodatage = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 
-  const collections = ['cours', 'exercices', 'utilisateurs', 'defi_jour', 'devoirs', 'devoir_reponses', 'signalements', 'progression', 'admins'];
+  const collections = ['cours', 'exercices', 'utilisateurs', 'devoirs', 'devoir_reponses', 'signalements', 'progression', 'admins'];
   const rapport = {};
 
   for (const nom of collections) {

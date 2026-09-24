@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { alerte } from '../utils/alerte';
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, limit, orderBy, query, setDoc, where } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, limit, query, setDoc, where } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
 import { syncQueue } from '../services/syncQueue';
 import { lireXpNonSync } from '../services/xpLocal';
@@ -57,11 +57,9 @@ export default function Admin() {
   const [nouvelAdmin, setNouvelAdmin] = useState('');
 
   // Dashboard
-  const [statsClasses, setStatsClasses] = useState<{ classe: string; joueurs: number; defis: number; points: number }[]>([]);
   // ⚠️ `id` = identifiant du DOCUMENT. Il était jeté au chargement, ce qui
   // rendait la liste impossible à traiter : sans docId, aucun `deleteDoc`.
   const [signalements, setSignalements] = useState<{ id: string; exoId: string; raison: string; dateISO: string }[]>([]);
-  const [triches, setTriches] = useState<{ ref: string; nom: string; score: number; suspect: boolean }[]>([]);
 
   // 🆘 Demandes d'aide (« mot de passe oublié ») : l'élève envoie sa demande
   // depuis l'écran de connexion et le guide lui dit « va voir l'administrateur ».
@@ -326,33 +324,6 @@ export default function Admin() {
 
   const chargerDashboard = async () => {
     try {
-      const q = query(collection(db, 'defi_jour'), orderBy('date', 'desc'), limit(300));
-      const snap = await getDocs(q);
-      const agg: { [classe: string]: { joueurs: Set<string>; defis: number; points: number } } = {};
-      snap.forEach((d) => {
-        const donnees = d.data() as { classe?: string; score?: number; nom?: string };
-        const c = donnees.classe || '?';
-        if (!agg[c]) agg[c] = { joueurs: new Set(), defis: 0, points: 0 };
-        agg[c].defis += 1;
-        agg[c].points += donnees.score || 0;
-        if (donnees.nom) agg[c].joueurs.add(donnees.nom);
-      });
-      setStatsClasses(
-        Object.entries(agg)
-          .map(([classe, s]) => ({ classe, joueurs: s.joueurs.size, defis: s.defis, points: s.points }))
-          .sort((a, b) => b.points - a.points)
-      );
-
-      // 77 — Journal d'audit : scores suspects (triche)
-      try {
-        const snapAudit = await getDocs(query(collection(db, 'journal_audit'), limit(30)));
-        const audit: { ref: string; nom: string; score: number; suspect: boolean }[] = [];
-        snapAudit.forEach((d) => {
-          const donnees = d.data() as { ref?: string; nom?: string; score?: number; suspect?: boolean };
-          if (donnees.suspect) audit.push({ ref: donnees.ref || '', nom: donnees.nom || '?', score: donnees.score || 0, suspect: true });
-        });
-        setTriches(audit.slice(0, 10));
-      } catch { /* ignore */ }
       const snapSign = await getDocs(query(collection(db, 'signalements'), limit(30)));
       const sig: { id: string; exoId: string; raison: string; dateISO: string }[] = [];
       snapSign.forEach((d) => {
@@ -757,22 +728,6 @@ export default function Admin() {
       <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
       {header}
       <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
-        {/* Dashboard école */}
-        <Text style={styles.section}>📊 Vue de l'école (30 derniers jours de défis)</Text>
-        {statsClasses.length === 0 ? (
-          <Text style={styles.vide}>Aucun défi joué encore. Les stats apparaîtront dès que les élèves joueront au 📰 Défi du jour.</Text>
-        ) : (
-          statsClasses.map((c, i) => (
-            <View key={c.classe} style={styles.ligneClasse}>
-              <Text style={styles.rangClasse}>{i + 1}.</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.nomClasse}>{c.classe}</Text>
-                <Text style={styles.detailClasse}>{c.joueurs} élève(s) actifs · {c.defis} défis · {c.points} pts</Text>
-              </View>
-            </View>
-          ))
-        )}
-
         {/* Signalements */}
         <Text style={styles.section}>⚠️ Exercices signalés par les élèves ({signalements.length})</Text>
         {signalements.length === 0 ? (
@@ -835,23 +790,6 @@ export default function Admin() {
               <Text key={i} style={styles.signExo}>⚠️ {c.dateISO.slice(0, 16)} — {c.message}</Text>
             ))}
           </View>
-        )}
-
-        {/* Triche */}
-        <Text style={styles.section}>🚨 Scores suspects ({triches.length})</Text>
-        {triches.length === 0 ? (
-          <Text style={styles.vide}>Aucun score suspect : jeu propre ! 🎉</Text>
-        ) : (
-          triches.map((t, i) => (
-            <View key={i} style={styles.ligneSignalement}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.signExo}>⚠️ {t.nom} — score {t.score}</Text>
-              </View>
-              <TouchableOpacity onPress={async () => { try { await deleteDoc(doc(db, 'defi_jour', t.ref)); setTriches((liste) => liste.filter((x) => x.ref !== t.ref)); } catch { /* ignore */ } }}>
-                <Text style={{ color: '#EF4444', fontSize: 12, fontWeight: 'bold' }}>Annuler ✕</Text>
-              </TouchableOpacity>
-            </View>
-          ))
         )}
 
         {/* Gestion des admins */}
@@ -1004,7 +942,6 @@ const styles = StyleSheet.create({
   listeActuelle: { color: '#64748B', fontSize: 12, marginTop: 15, fontStyle: 'italic' },
   section: { color: '#F8FAFC', fontSize: 16, fontWeight: 'bold', marginBottom: 12, marginTop: 8 },
   ligneClasse: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E293B', borderRadius: 10, padding: 14, marginBottom: 8 },
-  rangClasse: { color: '#FBBF24', width: 30, fontWeight: 'bold' },
   nomClasse: { color: '#F8FAFC', fontSize: 15, fontWeight: 'bold' },
   detailClasse: { color: '#64748B', fontSize: 12, marginTop: 3 },
   ligneSignalement: { backgroundColor: '#2A1010', borderRadius: 10, padding: 12, marginBottom: 6, borderLeftWidth: 3, borderLeftColor: '#EF4444' },

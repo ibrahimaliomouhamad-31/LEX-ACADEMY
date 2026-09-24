@@ -75,7 +75,6 @@ export default function Index() {
   const [nbRevisions, setNbRevisions] = useState<number>(0);
   const [langue, setLangueState] = useState<'fr' | 'en'>('fr');
   const [accent, setAccent] = useState<string>('#FBBF24');
-  const [defiFait, setDefiFait] = useState<boolean | null>(null);
   const [premiereFois, setPremiereFois] = useState(false);
 
   const verifierConnexion = async () => {
@@ -142,22 +141,12 @@ export default function Index() {
         const vu = await AsyncStorage.getItem('lex_guide_vu');
         if (!vu) setPremiereFois(true);
       } catch { /* ignore */ }
-      // Le défi du jour a-t-il déjà été fait ?
-      try {
-        const classe = await AsyncStorage.getItem('lex_classe_actuelle');
-        if (classe) {
-          const fait = await AsyncStorage.getItem(`lex_defi_fait_${classe}`);
-          setDefiFait(fait === jourLocal());
-        }
-      } catch {
-        // ignore
-      }
       // 🔄 SYNC CENTRALISÉE : restaure la progression sur un nouveau
       // téléphone, puis vide TOUTES les files d'attente (XP non sync,
-      // streak, défis du jour, signalements, devoirs). Avant, chaque file
-      // avait sa logique et certaines (défis) n'étaient jamais vidées.
+      // streak, signalements, devoirs). Avant, chaque file avait sa
+      // logique et certaines n'étaient jamais vidées.
       // ⚠️ toutSynchroniser() doit TOUJOURS tourner : même après une
-      // restauration, les files locales (XP, défis…) doivent partir.
+      // restauration, les files locales doivent partir.
       await restaurerProgressionSiVide().catch(() => false);
       await toutSynchroniser().catch(() => undefined);
       // 67 — Vérifie une mise à jour OTA au lancement (no-op en dev)
@@ -241,11 +230,6 @@ export default function Index() {
           <Text style={styles.jourChiffre}>🧠 {nbRevisions}</Text>
           <Text style={styles.jourLabel}>révisions</Text>
         </TouchableOpacity>
-        <View style={styles.jourSeparateur} />
-        <TouchableOpacity style={styles.jourColonne} onPress={() => router.push('/defi_jour')}>
-          <Text style={styles.jourChiffre}>{defiFait === true ? '✅' : defiFait === false ? '⏳' : '📰'}</Text>
-          <Text style={styles.jourLabel}>défi</Text>
-        </TouchableOpacity>
       </View>
 
       {/* 54 — Mode intensif pré-compositions */}
@@ -275,10 +259,6 @@ export default function Index() {
 
       <TouchableOpacity style={styles.revBtn} onPress={() => router.push('/revisions')}>
         <Text style={styles.revBtnText}>{t('revisions_jour', langue)}{nbRevisions > 0 ? ` (${nbRevisions})` : ''}</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.defiBtn} onPress={() => router.push('/defi_jour')}>
-        <Text style={styles.defiBtnText}>📰 Défi du jour / Daily challenge</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.rankBtn} onPress={() => router.push('/classement')}>
@@ -342,8 +322,6 @@ const styles = StyleSheet.create({
   iaBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
   revBtn: { backgroundColor: '#EC4899', paddingVertical: 15, borderRadius: 15, width: '100%', alignItems: 'center', marginBottom: 15 },
   revBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
-  defiBtn: { backgroundColor: '#7C3AED', paddingVertical: 15, borderRadius: 15, width: '100%', alignItems: 'center', marginBottom: 15 },
-  defiBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: 'bold' },
   plusBtn: { backgroundColor: '#0EA5E9', paddingVertical: 15, borderRadius: 15, width: '100%', alignItems: 'center', marginBottom: 15 },
   plusBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: 'bold' },
   footer: { color: '#475569', fontSize: 12, marginTop: 20, textAlign: 'center' },
