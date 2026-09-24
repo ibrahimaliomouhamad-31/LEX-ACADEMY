@@ -2,7 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import { Alert, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { alerte } from '../utils/alerte';
 import { db } from '../config/firebaseConfig';
 import { compterRevisionsDuJour } from '../services/revisions';
 import { restaurerProgressionSiVide } from '../services/syncCloud';
@@ -27,7 +28,7 @@ async function verifierPause(): Promise<void> {
     const brut = await AsyncStorage.getItem(`${CLE_TEMPS_JOUR}${jourCourant()}`);
     const minutes = brut ? parseInt(brut, 10) || 0 : 0;
     if (minutes >= 120) {
-      Alert.alert(
+      alerte(
         '☕ Petite pause ?',
         `Tu as déjà révisé ${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, '0')} aujourd'hui — c'est énorme ! Ton cerveau consolide mieux avec des repos. Bouge un peu, bois de l'eau, et reviens ce soir pour tes révisions du jour 🧠`,
         [{ text: 'Je continue quand même', style: 'default' }, { text: 'D\'accord, pause !' }]
@@ -127,7 +128,7 @@ export default function Index() {
         await verifierPause();
         // 11 — Rappel mensuel : sauvegarder son code de transfert
         if (new Date().getDate() === 1 && minutes >= 1) {
-          Alert.alert('📦 Pense à ta sauvegarde !', 'Début du mois : génère ton code de transfert (🎯 Plus → 📦 Transfert) pour ne jamais perdre tes XP si ton téléphone casse.');
+          alerte('📦 Pense à ta sauvegarde !', 'Début du mois : génère ton code de transfert (🎯 Plus → 📦 Transfert) pour ne jamais perdre tes XP si ton téléphone casse.');
         }
       } catch {
         // ignore
@@ -180,7 +181,7 @@ export default function Index() {
     setUserNom(null);
     setUserXp(0);
     setUserStreak(0);
-    Alert.alert("Déconnecté", "Tu as été déconnecté avec succès.");
+    alerte("Déconnecté", "Tu as été déconnecté avec succès.");
   };
 
   return (

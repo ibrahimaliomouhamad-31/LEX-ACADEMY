@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert as Alert_, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { alerte } from '../utils/alerte';
 import { FORMULES } from '../services/formulaire';
 import { estJuste } from '../services/outilsReponse';
 import { genererExercice, type ExoGenere } from '../services/generateurLocal';
@@ -72,7 +73,7 @@ export default function MiniJeux() {
     if (chronoRef.current) clearInterval(chronoRef.current);
     // Celui qui abandonne perd : l'autre est déclaré vainqueur
     const gagnant = tour === 0 ? j2 : j1;
-    Alert_.alert('Abandon', `${tour === 0 ? j1 : j2} abandonne. ${gagnant} remporte la manche !`, [
+    alerte('Abandon', `${tour === 0 ? j1 : j2} abandonne. ${gagnant} remporte la manche !`, [
       { text: 'OK', onPress: () => setPhase('menu') },
     ]);
   };
@@ -275,7 +276,7 @@ export default function MiniJeux() {
   );
 }
 
-// petit alias évité : Alert_ importé en tête de fichier
+// Les alertes passent par ../utils/alerte (Alert.alert de react-native-web est un no-op).
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0F172A' },

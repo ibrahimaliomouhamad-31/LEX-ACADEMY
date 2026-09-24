@@ -3,7 +3,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import Speech from 'expo-speech';
 import { doc, getDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { alerte } from '../utils/alerte';
 import { getExoById, type Exercice } from '../services/cacheHorsLigne';
 import { generateurDisponible } from '../services/generateurLocal';
 import { estJuste, normaliser, versNombre } from '../services/outilsReponse';
@@ -248,7 +249,7 @@ export default function Exercices() {
   };
 
   const signaler = () => {
-    Alert.alert(
+    alerte(
       '⚠️ Signaler un problème sur cet exercice ?',
       'Ta déclaration aide à corriger la base pour tous les élèves du LEX.',
       [

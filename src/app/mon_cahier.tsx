@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { alerte } from '../utils/alerte';
 import { getCours, saveCours } from '../services/cacheHorsLigne';
 import { chiffrerAsync, dechiffrerAsync } from '../services/chiffrement';
 import { extraireMicroNotions } from '../services/microNotions';
@@ -55,7 +56,7 @@ export default function MonCahier() {
     if (!cours.theorie && !cours.methode_content) cours.theorie = contenu;
     await saveCours(cours);
     setSauvegarde(true);
-    Alert.alert('✅ Mon cahier', `Enregistré ! ${n.length} micro-notion(s) détectée(s) dans ce chapitre.`);
+    alerte('✅ Mon cahier', `Enregistré ! ${n.length} micro-notion(s) détectée(s) dans ce chapitre.`);
     router.back();
   };
 
@@ -95,7 +96,7 @@ export default function MonCahier() {
           </Text>
         </View>
 
-        <TouchableOpacity style={styles.btnPrevisu} onPress={() => { const n = previsualiser(); Alert.alert('Prévisualisation', `✓ ${n.length} micro-notion(s) détectée(s).\n\n${n.slice(0, 4).map((x) => `• ${x.titre}`).join('\n') || (contenu.trim() ? 'Aucun titre reconnu. Ajoute des lignes "I. ..." / "1. ..." / "Définition : ..."' : 'Colle d\'abord du contenu.')}`); }}>
+        <TouchableOpacity style={styles.btnPrevisu} onPress={() => { const n = previsualiser(); alerte('Prévisualisation', `✓ ${n.length} micro-notion(s) détectée(s).\n\n${n.slice(0, 4).map((x) => `• ${x.titre}`).join('\n') || (contenu.trim() ? 'Aucun titre reconnu. Ajoute des lignes "I. ..." / "1. ..." / "Définition : ..."' : 'Colle d\'abord du contenu.')}`); }}>
           <Text style={styles.btnPrevisuText}>👁️ Prévisualiser les notions</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.btnSave} onPress={sauvegarder}>

@@ -2,7 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { collection, doc, getDoc, getDocs, limit, orderBy, query } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { alerte } from '../utils/alerte';
 import { db } from '../config/firebaseConfig';
 import { rapporterErreur } from '../utils/logger';
 import { getUserItem, setUserItem } from '../services/userStorage';
@@ -143,7 +144,7 @@ export default function Profil() {
   const seDeconnecter = async () => {
     await AsyncStorage.removeItem('lex_user_nom');
     await AsyncStorage.removeItem('lex_user_id');
-    Alert.alert("Déconnecté", "Tu as été déconnecté avec succès.");
+    alerte("Déconnecté", "Tu as été déconnecté avec succès.");
     router.push('/');
   };
 

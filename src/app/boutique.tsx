@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { alerte } from '../utils/alerte';
 import { depenserCredits, getCredits } from '../services/statsSuivi';
 import { couleurTheme, getTheme, type Theme } from '../services/parametres';
 import { bloquerSiExamen } from '../services/parametres';
@@ -90,10 +91,10 @@ export default function Boutique() {
         if (!ok) return;
         if (article.valeur === 'freeze') {
           await ajouterStreakFreezes(1);
-          Alert.alert('❄️ Streak Freeze acheté !', 'Ta série est protégée pour un jour manqué. Tu en possèdes ' + (await lireStreakFreezes()) + '.');
+          alerte('❄️ Streak Freeze acheté !', 'Ta série est protégée pour un jour manqué. Tu en possèdes ' + (await lireStreakFreezes()) + '.');
         } else if (article.valeur === 'x2') {
           await activerBoosterDoubleXp();
-          Alert.alert('⚡ Double XP actif !', 'Pendant 24 heures, chaque exercice réussi te rapporte 2× plus d\'XP. À toi de jouer !');
+          alerte('⚡ Double XP actif !', 'Pendant 24 heures, chaque exercice réussi te rapporte 2× plus d\'XP. À toi de jouer !');
         }
         setCredits(await getCredits());
       } finally {

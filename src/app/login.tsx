@@ -5,7 +5,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { addDoc, collection, doc, getDoc } from 'firebase/firestore';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { alerte } from '../utils/alerte';
 import { db } from '../config/firebaseConfig';
 import { estEnLigne } from '../utils/reseau';
 import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
@@ -54,7 +55,7 @@ function BoutonOublie({ nom }: { nom: string }) {
       try {
         await addDoc(collection(db, 'demandes_aide'), { nom: nom.trim(), dateISO: new Date().toISOString() });
       } catch { /* hors-ligne : la demande partira en parlant à l'admin */ }
-      Alert.alert(
+      alerte(
         'Mot de passe oublié ?',
         "Pas de panique : ton compte n'est pas perdu.\n\n👉 Va voir l'administrateur de l'app (le créateur) en personne au lycée : il peut te réinitialiser ton mot de passe. Ta demande vient de lui être transmise.",
         [{ text: 'Compris' }]
@@ -73,7 +74,7 @@ export default function Login() {
 
   const seConnecter = async () => {
     if (nom.trim() === '' || password.trim() === '') {
-      Alert.alert("Erreur", "Veuillez remplir tous les champs.");
+      alerte("Erreur", "Veuillez remplir tous les champs.");
       return;
     }
     setLoading(true);
@@ -101,14 +102,14 @@ export default function Login() {
           if (compte.niveau) {
             await AsyncStorage.setItem('lex_user_niveau', compte.niveau);
           }
-          Alert.alert(
+          alerte(
             "Bienvenue !",
             `Connecté hors-ligne en tant que ${nomNettoye}.\nTa progression se synchronisera au retour du wifi.`
           );
           router.push('/');
           return;
         }
-        Alert.alert(
+        alerte(
           "Mode hors-ligne",
           "Pas de connexion et aucun compte enregistré sur ce téléphone.\n\n👉 Tu peux quand même réviser sans compte, ou connecte-toi une première fois avec le wifi du LEX."
         );
@@ -130,12 +131,12 @@ export default function Login() {
         }
         // Mémoire des identifiants pour les prochaines connexions hors-ligne
         await sauvegarderCompteLocal(nomNettoye, hashSaisi, uid, niveau || undefined);
-        Alert.alert("Bienvenue !", `Connecté en tant que ${nomNettoye}.`);
+        alerte("Bienvenue !", `Connecté en tant que ${nomNettoye}.`);
         router.push('/');
         return;
       }
       // Faute d'identifiant Firebase Auth : mot de passe ou nom incorrect.
-      Alert.alert("Erreur", "Nom ou mot de passe incorrect.");
+      alerte("Erreur", "Nom ou mot de passe incorrect.");
     } catch (error) {
       rapporterErreur("Erreur login : ", error);
       // 🔄 Dernier recours : compte local ? (le réseau a pu lâcher en route)
@@ -148,14 +149,14 @@ export default function Login() {
         if (compte.niveau) {
           await AsyncStorage.setItem('lex_user_niveau', compte.niveau);
         }
-        Alert.alert(
+        alerte(
           "Bienvenue !",
           `Connecté hors-ligne en tant que ${nomNettoye}.\nTa progression se synchronisera au retour du wifi.`
         );
         router.push('/');
         return;
       }
-      Alert.alert(
+      alerte(
         "Connexion impossible",
         "Vérifie ta connexion internet. Astuce : si tu t'es déjà connecté avec le wifi du LEX, tu peux te reconnecter même sans internet."
       );

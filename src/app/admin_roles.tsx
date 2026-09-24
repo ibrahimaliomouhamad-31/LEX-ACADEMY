@@ -13,10 +13,10 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   TextInput,
   ActivityIndicator,
 } from 'react-native';
+import { alerte } from '../utils/alerte';
 import { useRouter } from 'expo-router';
 import { collection, query, where, getDocs, DocumentData } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
@@ -83,7 +83,7 @@ export default function AdminPanel() {
       // donc JAMAIS etre attribue.
       const isAdminUser = await estAdminActuel();
       if (!isAdminUser) {
-        Alert.alert('❌ Accès refusé', 'Vous n\'êtes pas autorisé à accéder à cette page');
+        alerte('❌ Accès refusé', 'Vous n\'êtes pas autorisé à accéder à cette page');
         router.back();
         return;
       }
@@ -99,7 +99,7 @@ export default function AdminPanel() {
 
   const chargerEtudiantsClasse = async () => {
     if (!classe.trim()) {
-      Alert.alert('Classe requise', 'Veuillez entrer une classe');
+      alerte('Classe requise', 'Veuillez entrer une classe');
       return;
     }
 
@@ -130,7 +130,7 @@ export default function AdminPanel() {
 
       if (docs.length === 0) {
         setStudents([]);
-        Alert.alert(
+        alerte(
           'Aucun élève trouvé',
           `Aucun élève pour « ${classe} ». Essaie un niveau du lycée : 2nde, 1ere ou terminale — le champ « classe » des anciens profils peut différer.`
         );
@@ -157,14 +157,14 @@ export default function AdminPanel() {
       setStudents(students);
     } catch (error) {
       rapporterErreur('[admin_roles] Chargement des eleves:', error);
-      Alert.alert('Erreur', String(error));
+      alerte('Erreur', String(error));
     } finally {
       setLoading(false);
     }
   };
 
   const revoquerRoleEtudiant = async (userId: string, nom: string) => {
-    Alert.alert(
+    alerte(
       '⚠️ Confirmation',
       `Êtes-vous sûr de révoquer le rôle de ${nom}?`,
       [
@@ -174,10 +174,10 @@ export default function AdminPanel() {
           onPress: async () => {
             const result = await revoquerRole(userId);
             if (result.success) {
-              Alert.alert('✅ Succès', 'Rôle révoqué');
+              alerte('✅ Succès', 'Rôle révoqué');
               chargerEtudiantsClasse();
             } else {
-              Alert.alert('❌ Erreur', result.error);
+              alerte('❌ Erreur', result.error);
             }
           },
         },
@@ -226,12 +226,12 @@ export default function AdminPanel() {
     const resultat = await deleguerPouvoirs(eleveCible.userId, pouvoirs);
     setEnregistrementPouvoirs(false);
     if (resultat.success) {
-      Alert.alert(
+      alerte(
         '✅ Pouvoirs partagés',
         `${pouvoirs.length} pouvoir(s) accordé(s) à ${eleveCible.nom}.`
       );
     } else {
-      Alert.alert('❌ Erreur', resultat.error || 'Enregistrement impossible');
+      alerte('❌ Erreur', resultat.error || 'Enregistrement impossible');
     }
   };
 

@@ -3,7 +3,6 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -12,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { alerte } from '../utils/alerte';
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, limit, orderBy, query, setDoc, where } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
 import { syncQueue } from '../services/syncQueue';
@@ -198,26 +198,26 @@ export default function Admin() {
    */
   const devenirSuperAdmin = async () => {
     if (!codeSuper.trim()) {
-      Alert.alert('Code requis', 'Saisis le code superadmin.');
+      alerte('Code requis', 'Saisis le code superadmin.');
       return;
     }
     setReclamationSuper(true);
     try {
       const resultat = await reclamerSuperAdmin(codeSuper);
       if (!resultat.success) {
-        Alert.alert('❌ Refusé', resultat.error || 'Code incorrect.');
+        alerte('❌ Refusé', resultat.error || 'Code incorrect.');
         return;
       }
       setCodeSuper('');
       setEstSuper(true);
-      Alert.alert(
+      alerte(
         '👑 Superadmin activé',
         'Tu détiens tous les pouvoirs. Change ton mot de passe et note précieusement que le code de bootstrap ne resservira plus.'
       );
       await charger(nom, uid);
     } catch (error) {
       rapporterErreur('[admin] Réclamation superadmin:', error);
-      Alert.alert('Erreur', 'Réessaie une fois connecté au réseau.');
+      alerte('Erreur', 'Réessaie une fois connecté au réseau.');
     } finally {
       setReclamationSuper(false);
     }
@@ -226,14 +226,14 @@ export default function Admin() {
     // Retour silencieux auparavant : le créateur ne comprenait pas pourquoi
     // « Devenir superadmin (ancien modele) » ne faisait rien (uid ou nom non encore chargés).
     if (!uid || !nom) {
-      Alert.alert(
+      alerte(
         'Connexion requise',
         'Crée d’abord ton compte élève (ou reconnecte-toi), puis reviens sur 🏛️ Administration pour devenir superadmin (ancien modèle).'
       );
       return;
     }
     if (!codeSuper.trim()) {
-      Alert.alert('Code requis', 'Saisis le code superadmin (ancien modèle) communiqué par le créateur de l’app.');
+      alerte('Code requis', 'Saisis le code superadmin (ancien modèle) communiqué par le créateur de l’app.');
       return;
     }
     setChargement(true);
@@ -256,21 +256,21 @@ export default function Admin() {
         } catch (poseCode: unknown) {
           const codePose = (poseCode as { code?: string } | null)?.code || '';
           if (codePose === 'permission-denied') {
-            Alert.alert('Déjà initialisé', 'Un superadmin existe deja. Demande-lui de te promouvoir.');
+            alerte('Déjà initialisé', 'Un superadmin existe deja. Demande-lui de te promouvoir.');
           } else {
-            Alert.alert('Erreur', 'Vérifie ta connexion puis réessaie.');
+            alerte('Erreur', 'Vérifie ta connexion puis réessaie.');
           }
           return;
         }
       }
       const attendu = snapProv.exists() ? (snapProv.data() as { codeBootstrap?: string }).codeBootstrap : undefined;
       if (!attendu || codeSuper.trim() !== attendu) {
-        Alert.alert('Code incorrect', 'Demande le code superadmin (ancien modele) au createur de l\'app.');
+        alerte('Code incorrect', 'Demande le code superadmin (ancien modele) au createur de l\'app.');
         return;
       }
       const recheck = await getDocs(collection(db, 'admins'));
       if (!recheck.empty) {
-        Alert.alert('Déjà initialisé', 'Un superadmin existe deja. Demande-lui de te promouvoir.');
+        alerte('Déjà initialisé', 'Un superadmin existe deja. Demande-lui de te promouvoir.');
         await charger(nom, uid);
         return;
       }
@@ -318,7 +318,7 @@ export default function Admin() {
       setCodeSuper('');
       await charger(nom, uid);
     } catch {
-      Alert.alert('Erreur', 'Vérifie ta connexion puis réessaie.');
+      alerte('Erreur', 'Vérifie ta connexion puis réessaie.');
     } finally {
       setChargement(false);
     }
@@ -425,7 +425,7 @@ export default function Admin() {
 
   const entrer = async () => {
     if (nom.trim() === '') {
-      Alert.alert('Nom requis', 'Entre ton nom d\'élève (celui de ton compte).');
+      alerte('Nom requis', 'Entre ton nom d\'élève (celui de ton compte).');
       return;
     }
     // Le verdict d'accès est renvoyé par `charger` : sans cela, un élève voyait
@@ -433,7 +433,7 @@ export default function Admin() {
     // réservé (l'écran paraissait « ne rien faire »).
     const autorise = await charger(nom.trim());
     if (!autorise) {
-      Alert.alert(
+      alerte(
         'Accès réservé',
         'Cet écran est réservé au superadmin et aux admins désignés. Si tu es le créateur de l’app, saisis le CODE SUPERADMIN ; sinon demande à l\'élève administrateur de te promouvoir.'
       );
@@ -465,12 +465,12 @@ export default function Admin() {
         { merge: true }
       );
       await tracer('promotion_admin', uidCible, nomCible);
-      Alert.alert('✅ Promu', `${nomCible} fait maintenant partie de l’administration.`);
+      alerte('✅ Promu', `${nomCible} fait maintenant partie de l’administration.`);
       setNouvelAdmin('');
       setCandidats([]);
     } catch (error) {
       rapporterErreur('[admin] Promotion d’un admin:', error);
-      Alert.alert('Erreur', 'Promotion impossible : vérifie ta connexion et tes droits.');
+      alerte('Erreur', 'Promotion impossible : vérifie ta connexion et tes droits.');
     } finally {
       await charger(nom, uid);
     }
@@ -515,7 +515,7 @@ export default function Admin() {
       }
 
       if (trouves.length === 0) {
-        Alert.alert(
+        alerte(
           'Élève introuvable',
           `Aucun élève ne s’appelle « ${saisie} ». Vérifie l’orthographe, ou colle son identifiant (uid) depuis la console Firebase.`
         );
@@ -525,7 +525,7 @@ export default function Admin() {
       if (trouves.length === 1) {
         const candidat = trouves[0];
         const precision = candidat.classe || candidat.niveau;
-        Alert.alert(
+        alerte(
           '👑 Promouvoir administrateur ?',
           `${candidat.nom}${precision ? ` (${precision})` : ''} aura accès à l’administration complète de l’app.`,
           [
@@ -540,7 +540,7 @@ export default function Admin() {
       setCandidats(trouves.slice(0, 8));
     } catch (error) {
       rapporterErreur('[admin] Ajout d’un admin:', error);
-      Alert.alert('Erreur', 'Recherche impossible : connexion requise.');
+      alerte('Erreur', 'Recherche impossible : connexion requise.');
     } finally {
       setChargement(false);
     }
@@ -551,10 +551,10 @@ export default function Admin() {
   const retirerAdmin = (a: Admin) => {
     const controleur = verifierRetraitAdmin(admins, a.id, uid);
     if (!controleur.autorise) {
-      Alert.alert('Retrait impossible', controleur.raison || 'Action refusée.');
+      alerte('Retrait impossible', controleur.raison || 'Action refusée.');
       return;
     }
-    Alert.alert(
+    alerte(
       '⚠️ Retirer un administrateur',
       `${controleur.avertissement ? `${controleur.avertissement}\n\n` : ''}${a.nom} perdra l’accès à l’administration. Il reste élève dans l’app.`,
       [
@@ -580,7 +580,7 @@ export default function Admin() {
               await tracer('retrait_admin', a.id, a.nom);
             } catch (error) {
               rapporterErreur('[admin] Retrait d’un admin:', error);
-              Alert.alert('Erreur', 'Retrait impossible : vérifie ta connexion.');
+              alerte('Erreur', 'Retrait impossible : vérifie ta connexion.');
             } finally {
               await charger(nom, uid);
             }
@@ -599,7 +599,7 @@ export default function Admin() {
       await tracer('signalement_traite', id, exoId);
     } catch (error) {
       rapporterErreur('[admin] Traitement d’un signalement:', error);
-      Alert.alert(
+      alerte(
         'Action impossible',
         'Vérifie que les règles Firestore autorisent l’admin à supprimer un signalement (allow update, delete: if isAdmin()).'
       );
@@ -615,7 +615,7 @@ export default function Admin() {
       await tracer('demande_aide_traitee', id, nomEleve);
     } catch (error) {
       rapporterErreur('[admin] Traitement d’une demande d’aide:', error);
-      Alert.alert('Action impossible', 'Connexion requise. Réessaie une fois le wifi revenu.');
+      alerte('Action impossible', 'Connexion requise. Réessaie une fois le wifi revenu.');
     }
   };
 
