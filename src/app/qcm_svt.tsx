@@ -98,6 +98,15 @@ export default function QcmSvtEcran() {
     </View>
   );
 
+  const q = questions[index];
+  // 🛡️ ANTI-MÉMORISATION : la bonne réponse gardait sa position d'origine
+  // (souvent B) → l'élève apprenait « toujours B » : on mélange l'ordre à
+  // chaque question en suivant le nouvel index de la bonne réponse.
+  // ⚠️ HOOKS AVANT TOUT `return` CONDITIONNEL : ce useMemo était placé APRÈS le
+  // early-return de la phase 'accueil' → nombre de hooks différent selon la
+  // phase → crash React au premier lancement du quiz.
+  const ordre = useMemo(() => melanger([0, 1, 2, 3]), [index, q?.id]);
+
   if (phase === 'accueil') {
     return (
       <View style={styles.container}>
@@ -121,12 +130,7 @@ export default function QcmSvtEcran() {
     );
   }
 
-  const q = questions[index];
-  // 🛡️ ANTI-MÉMORISATION : avant, la bonne réponse gardait sa position d'origine
-  // (souvent B) → l'élève apprenait « toujours B » au lieu de la notion. On
-  // mélange l'ordre d'affichage à chaque question tout en suivant le nouvel
-  // index de la bonne réponse.
-  const ordre = useMemo(() => melanger([0, 1, 2, 3]), [index, q.id]);
+  if (!q) return null;
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
