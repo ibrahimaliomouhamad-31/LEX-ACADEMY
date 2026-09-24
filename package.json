@@ -54,7 +54,11 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test": "jest --ci",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lexai:check": "node scripts/verifierLexai.js",
+    "lexai:login": "cd workers/lexai-chat && npx wrangler login",
+    "lexai:secret": "cd workers/lexai-chat && npx wrangler secret put GROQ_API_KEY",
+    "lexai:deploy": "cd workers/lexai-chat && npx wrangler deploy"
   },
   "private": true
 }

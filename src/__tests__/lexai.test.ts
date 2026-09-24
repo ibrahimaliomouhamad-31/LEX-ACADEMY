@@ -4,6 +4,8 @@ import {
   extraireReponse,
   extraireErreurProxy,
   quotaClientDepasse,
+  resoudreUrlProxy,
+  PROXY_FIREBASE_SECOURS,
   SYSTEME_LEXAI,
   type MessageChat,
 } from '../services/configIA';
@@ -144,5 +146,37 @@ describe('LEX.AI — quotaClientDepasse (fenêtre glissante)', () => {
       maintenant - 10 * MIN,
     ];
     expect(quotaClientDepasse(bordure, maintenant)).toBe(false);
+  });
+});
+
+// ─── RÉSOLUTION DE L'URL DU PROXY (app.json > .env > secours) ───────────────
+describe('LEX.AI — resoudreUrlProxy (priorité de configuration)', () => {
+  it("préfère l'URL de app.json (elle voyage dans l'APK)", () => {
+    expect(resoudreUrlProxy('https://lexai-chat.abc.workers.dev', 'https://env.example')).toBe(
+      'https://lexai-chat.abc.workers.dev'
+    );
+  });
+
+  it('retombe sur le .env quand app.json est vide ou blanc', () => {
+    expect(resoudreUrlProxy('', 'https://lexai-chat.abc.workers.dev')).toBe(
+      'https://lexai-chat.abc.workers.dev'
+    );
+    expect(resoudreUrlProxy('   ', 'https://lexai-chat.abc.workers.dev')).toBe(
+      'https://lexai-chat.abc.workers.dev'
+    );
+  });
+
+  it('retombe sur le secours Firebase quand rien n\'est configuré', () => {
+    expect(resoudreUrlProxy(undefined, undefined)).toBe(PROXY_FIREBASE_SECOURS);
+    expect(resoudreUrlProxy('', '')).toBe(PROXY_FIREBASE_SECOURS);
+  });
+
+  it('nettoie les espaces et le slash final (copier-coller depuis wrangler)', () => {
+    expect(resoudreUrlProxy(' https://lexai-chat.abc.workers.dev/ ')).toBe(
+      'https://lexai-chat.abc.workers.dev'
+    );
+    expect(resoudreUrlProxy('https://lexai-chat.abc.workers.dev///')).toBe(
+      'https://lexai-chat.abc.workers.dev'
+    );
   });
 });

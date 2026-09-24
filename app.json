@@ -54,7 +54,8 @@
       "firebaseProjectId": "lex-academy-10eef",
       "firebaseStorageBucket": "lex-academy-10eef.firebasestorage.app",
       "firebaseMessagingSenderId": "512518959635",
-      "firebaseAppId": "1:512518959635:web:b2463918d2633a4bea85e6"
+      "firebaseAppId": "1:512518959635:web:b2463918d2633a4bea85e6",
+      "lexaiProxyUrl": ""
     }
   }
 }

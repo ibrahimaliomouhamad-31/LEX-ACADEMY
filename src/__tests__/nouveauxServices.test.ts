@@ -62,8 +62,6 @@ import {
   ContexteBadges,
   evaluerBadges,
   liguePourXp,
-  quetesDeLaSemaine,
-  numeroSemaine,
 } from '../services/motivation';
 
 
@@ -343,12 +341,5 @@ describe('Motivation & ligues (cycle F)', () => {
     const debloques = resultats.filter((r) => r.debloque);
     expect(debloques.some((d) => d.badge.id === 'dix_exos')).toBe(true);
     expect(debloques.some((d) => d.badge.id === 'cinquante_exos')).toBe(false);
-  });
-
-  it('selectionne 3 quetes par semaine de facon deterministic', () => {
-    const quetes = quetesDeLaSemaine();
-    expect(quetes.length).toBe(3);
-    const quetes2 = quetesDeLaSemaine();
-    expect(quetes2.length).toBe(3);
   });
 });

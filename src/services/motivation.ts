@@ -1,4 +1,4 @@
-// MOTIVATION : badges, quêtes hebdomadaires et ligues.
+// MOTIVATION : badges et ligues.
 // 100% hors-ligne : tout se calcule depuis les données locales de l'élève.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -127,41 +127,4 @@ export function liguePourXp(xp: number): { nom: string; emoji: string; min: numb
     min: actuelle.min,
     prochainPalier: suivante ? suivante.min : null,
   };
-}
-
-// --- Quêtes hebdomadaires (déterministes : mêmes pour toute la semaine) ---
-export interface Quete {
-  id: string;
-  titre: string;
-  emoji: string;
-  objectif: number;
-  mesurer: (ctx: ContexteBadges) => number;
-}
-
-const TOUTES_QUETES: Quete[] = [
-  { id: 'q_exos_10', titre: 'Résous 10 exercices officiels', emoji: '✍️', objectif: 10, mesurer: (c) => c.exosResolus },
-  { id: 'q_infini_30', titre: 'Fais 30 exercices infinis', emoji: '♾️', objectif: 30, mesurer: (c) => c.infiniTotal },
-  { id: 'q_qcm_5', titre: 'Atteins 5 au QCM Éclair', emoji: '⚡', objectif: 5, mesurer: (c) => c.qcmRecord },
-  { id: 'q_flash_2', titre: 'Révise 2 decks de flashcards', emoji: '🃏', objectif: 2, mesurer: (c) => c.flashcardsRevues },
-  { id: 'q_tel_3', titre: 'Télécharge 3 chapitres', emoji: '📥', objectif: 3, mesurer: (c) => c.chapitresTelecharges },
-];
-
-export function numeroSemaine(): number {
-  const d = new Date();
-  const debut = new Date(d.getFullYear(), 0, 1);
-  const jours = Math.floor((d.getTime() - debut.getTime()) / 86400000);
-  return Math.floor((jours + debut.getDay() + 1) / 7) + d.getFullYear() * 100;
-}
-
-export function quetesDeLaSemaine(): Quete[] {
-  const graine = numeroSemaine();
-  const pool = [...TOUTES_QUETES];
-  const choisies: Quete[] = [];
-  let h = graine;
-  while (choisies.length < 3 && pool.length > 0) {
-    h = (h * 1103515245 + 12345) >>> 0;
-    const i = h % pool.length;
-    choisies.push(pool.splice(i, 1)[0]);
-  }
-  return choisies;
 }
