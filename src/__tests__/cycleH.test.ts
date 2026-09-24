@@ -38,7 +38,6 @@ jest.mock('../services/userStorage', () => ({
 }));
 
 import { evaluer, formater } from '../services/calculatrice';
-import { QCM_SVT, themesSvt } from '../services/qcmSvt';
 import { selPourCompte, hacherAvecSel, hacherMotDePasse, genererSel } from '../services/auth';
 import { chiffrer, dechiffrer, estChiffre, chiffrerAsync, dechiffrerAsync } from '../services/chiffrement';
 import { scellerStreak, streakAuthentique, signalerAlteration } from '../services/integrite';
@@ -133,50 +132,6 @@ describe('Calculatrice (cycle H)', () => {
 
   it('lance une erreur pour division par zéro', () => {
     expect(() => evaluer('1 / 0')).toThrow();
-  });
-});
-
-// ========== QCM SVT (cycle H) ==========
-describe('QCM SVT (cycle H)', () => {
-  it('a au moins 30 questions', () => {
-    expect(QCM_SVT.length).toBeGreaterThanOrEqual(30);
-  });
-
-  it('toutes les questions ont 4 options', () => {
-    for (const q of QCM_SVT) {
-      expect(q.options.length).toBe(4);
-    }
-  });
-
-  it('toutes les questions ont un bonneIndex valide (0-3)', () => {
-    for (const q of QCM_SVT) {
-      expect(q.bonneIndex).toBeGreaterThanOrEqual(0);
-      expect(q.bonneIndex).toBeLessThanOrEqual(3);
-    }
-  });
-
-  it('toutes les questions ont une explication', () => {
-    for (const q of QCM_SVT) {
-      expect(q.explication.length).toBeGreaterThan(0);
-    }
-  });
-
-  it('couvre les 3 niveaux (Seconde, Première, Terminale)', () => {
-    const niveaux = new Set(QCM_SVT.map((q) => q.niveau));
-    expect(niveaux.has('Seconde')).toBe(true);
-    expect(niveaux.has('Première')).toBe(true);
-    expect(niveaux.has('Terminale')).toBe(true);
-  });
-
-  it('a des thèmes variés', () => {
-    const themes = themesSvt();
-    expect(themes.length).toBeGreaterThanOrEqual(5);
-  });
-
-  it('tous les IDs sont uniques', () => {
-    const ids = QCM_SVT.map((q) => q.id);
-    const uniques = new Set(ids);
-    expect(uniques.size).toBe(ids.length);
   });
 });
 

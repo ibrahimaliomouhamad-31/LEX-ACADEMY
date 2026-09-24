@@ -20,7 +20,7 @@ export const CLES_GLOBALES_PROGRESSION: readonly string[] = [
   'lex_exos_resolus', 'lex_booster_double_xp_fin',
   // Scores pédagogiques
   'lex_flashcards_scores', 'lex_qcm_meilleur',
-  'lex_qcm_svt_scores', 'lex_infini_stats', 'lex_olympiades_resolus',
+  'lex_infini_stats', 'lex_olympiades_resolus',
   // Révisions planifiées (SM2)
   'lex_srs', 'lex_srs_sm2', 'lex_srs_faits',
   // Objectifs / positionnement / progression
