@@ -3,9 +3,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { selectionnerClesProgression } from '../services/sauvegardeCompte';
 import {
-  Alert,
   ScrollView,
-  Share,
   StatusBar,
   StyleSheet,
   Text,
@@ -13,6 +11,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { alerte } from '../utils/alerte';
+import { partager as partagerTexte } from '../utils/partager';
 import { parseObjetJSON } from '../utils/correctifsAudit';
 
 // Encodage base64 unicode-safe (ternaire : web/native ont btoa/atob dans React Native ? non toujours)
@@ -61,13 +61,13 @@ export default function Transfert() {
       // ⚠️ WhatsApp coupe les messages très longs : si le cache est gros,
       // l'élève doit d'abord vider ses téléchargements (Paramètres).
       if (codeGenere.length > 1500000) {
-        Alert.alert(
+        alerte(
           'Code très volumineux',
           "Tes données (journal, badges, notes…) deviennent lourdes : le code risque d'être coupé par WhatsApp. Pense à régénérer le code après une synchronisation."
         );
       }
     } catch (erreur) {
-      Alert.alert('Erreur', 'Impossible de générer le code de sauvegarde.');
+      alerte('Erreur', 'Impossible de générer le code de sauvegarde.');
     } finally {
       setGenereEnCours(false);
     }
@@ -75,20 +75,16 @@ export default function Transfert() {
 
   const partager = async () => {
     if (!code) return;
-    try {
-      await Share.share({ message: `Mon code de sauvegarde LEX ACADEMY (garde-le précieusement) :\n\n${code}` });
-    } catch {
-      // partage annulé
-    }
+    await partagerTexte(`Mon code de sauvegarde LEX ACADEMY (garde-le précieusement) :\n\n${code}`);
   };
 
   const restaurer = () => {
     const texte = codeEntree.trim();
     if (texte.length < 10) {
-      Alert.alert('Code invalide', 'Colle le code de sauvegarde complet dans la zone de texte.');
+      alerte('Code invalide', 'Colle le code de sauvegarde complet dans la zone de texte.');
       return;
     }
-    Alert.alert(
+    alerte(
       'Restaurer les données ?',
       'Tes données actuelles sur ce téléphone seront REMPLACÉES par celles du code. Continuer ?',
       [
@@ -108,10 +104,10 @@ export default function Transfert() {
               const locales = (await AsyncStorage.getAllKeys()).filter((k) => k.startsWith('lex_'));
               if (locales.length > 0) await AsyncStorage.multiRemove(locales);
               await AsyncStorage.multiSet(paires);
-              Alert.alert('✅ Restauré !', `${paires.length} éléments récupérés. Redémarre l'application pour tout voir.`);
+              alerte('✅ Restauré !', `${paires.length} éléments récupérés. Redémarre l'application pour tout voir.`);
               setCodeEntree('');
             } catch {
-              Alert.alert('Code illisible', 'Ce code semble incorrect ou corrompu. Vérifie qu\'il est complet.');
+              alerte('Code illisible', 'Ce code semble incorrect ou corrompu. Vérifie qu\'il est complet.');
             }
           },
         },

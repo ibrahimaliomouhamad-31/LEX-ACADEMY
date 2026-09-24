@@ -2,9 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  Alert,
   ScrollView,
-  Share,
   StatusBar,
   StyleSheet,
   Text,
@@ -12,6 +10,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { alerte } from '../utils/alerte';
+import { partager } from '../utils/partager';
 import { getAllCoursCache, getExercices, saveExercices, saveCours, type Exercice } from '../services/cacheHorsLigne';
 import { parseObjetJSON, tableauDeChaines } from '../utils/correctifsAudit';
 
@@ -57,13 +57,13 @@ export default function Partage() {
       const paquet = { chapitreId, exos, cours };
       const code = PREFIXE + versBase64(JSON.stringify(paquet));
       setCodeGenere(code);
-      Alert.alert(
+      alerte(
         'Code prêt !',
         `${exos.length} exercices${cours ? ' + le cours' : ''} empaquetés.\nEnvoie le code par WhatsApp à ton camarade, ou montre-le lui directement.`,
-        [{ text: '📤 Partager', onPress: () => Share.share({ message: `Voici un chapitre LEX ACADEMY :\n\n${code}` }) }, { text: 'Fermer' }]
+        [{ text: '📤 Partager', onPress: () => partager(`Voici un chapitre LEX ACADEMY :\n\n${code}`) }, { text: 'Fermer' }]
       );
     } catch {
-      Alert.alert('Erreur', 'Impossible de générer le code pour ce chapitre.');
+      alerte('Erreur', 'Impossible de générer le code pour ce chapitre.');
     } finally {
       setChargement(false);
     }
@@ -72,7 +72,7 @@ export default function Partage() {
   const importerCode = () => {
     const texte = codeEntree.trim();
     if (!texte.startsWith(PREFIXE)) {
-      Alert.alert('Code invalide', 'Le code doit commencer par LEX1:. Vérifie qu\'il est complet.');
+      alerte('Code invalide', 'Le code doit commencer par LEX1:. Vérifie qu\'il est complet.');
       return;
     }
     try {
@@ -94,7 +94,7 @@ export default function Partage() {
         if (paquet.cours) {
           await saveCours({ ...paquet.cours, id: paquet.chapitreId });
         }
-        Alert.alert(
+        alerte(
           '✅ Importé !',
           `Chapitre ${paquet.chapitreId} reçu : ${paquet.exos?.length || 0} exercices${paquet.cours ? ' + cours complet' : ''}. Disponible hors-ligne !`
         );
@@ -102,7 +102,7 @@ export default function Partage() {
         setCours(await getAllCoursCache());
       })();
     } catch {
-      Alert.alert('Code illisible', 'Ce code semble incomplet ou corrompu.');
+      alerte('Code illisible', 'Ce code semble incomplet ou corrompu.');
     }
   };
 
@@ -143,7 +143,7 @@ export default function Partage() {
         {codeGenere !== null && (
           <TouchableOpacity
             style={styles.boutonPartager}
-            onPress={() => Share.share({ message: `Voici un chapitre LEX ACADEMY :\n\n${codeGenere}` })}
+            onPress={() => partager(`Voici un chapitre LEX ACADEMY :\n\n${codeGenere}`)}
           >
             <Text style={styles.boutonPartagerText}>📤 Partager le dernier code</Text>
           </TouchableOpacity>
