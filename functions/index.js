@@ -58,7 +58,10 @@ function limiter(ip) {
   return entree.compte <= MAX_REQUETES;
 }
 
-exports.lexaiChat = onRequest({ cors: true }, async (req, res) => {
+// 🔒 SECRET DÉCLARÉ : la valeur n'est injectée dans process.env QUE si elle
+// apparaît ici (option `secrets` de firebase-functions/v2). Sans cette ligne,
+// CLE_GROQ resterait undefined même après `functions:secrets:set`.
+exports.lexaiChat = onRequest({ cors: true, secrets: ['GROQ_API_KEY'] }, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Headers', 'Content-Type');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
