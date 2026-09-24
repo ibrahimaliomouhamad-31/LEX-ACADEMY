@@ -2,18 +2,18 @@
 /**
  * tmp/creer_superadmin.js
  * -----------------------
- * Crée le superadmin Mouhamad Ibrahim Alio (mot de passe : 33132010Asaim)
- * dans Firebase Auth + Firestore.
+ * Crée le superadmin Mouhamad Ibrahim Alio dans Firebase Auth + Firestore.
  *
  * ⚠️  Ce script doit être lancé APRÈS suppression_totale.js (ou sur une base
  *     fraîche). Il crée :
- *     - Un utilisateur Auth (email aléatoire, mot de passe 33132010Asaim)
+ *     - Un utilisateur Auth (email aléatoire, mot de passe fourni via la
+ *       variable d'environnement SUPERADMIN_MOT_DE_PASSE)
  *     - Un document admins/<uid> avec role: 'superadmin'
  *     - Un document roles/<uid> avec estSuperAdmin: true, role: 'superadmin'
  *     - Une sentinelle config/superadmin (uid) pour verrouiller le bootstrap
  *
  * Usage (depuis la racine) :
- *   node tmp/creer_superadmin.js
+ *   SUPERADMIN_MOT_DE_PASSE='<mot de passe>' node tmp/creer_superadmin.js
  *
  * Prérequis : fichier firebase-service-account.json à la racine, ou variable
  *   FIREBASE_SERVICE_ACCOUNT pointant vers lui.
@@ -47,10 +47,19 @@ const db = admin.firestore();
 const auth = admin.auth();
 
 // ─── Données du superadmin ───────────────────────────────────────────────
+// 🔐 Mot de passe fourni par variable d'environnement — JAMAIS écrit dans le
+// dépôt (il était en clair ici, récupérable par quiconque clone le repo).
+const motDePasseEnv = process.env.SUPERADMIN_MOT_DE_PASSE;
+if (!motDePasseEnv || motDePasseEnv.length < 8) {
+  console.error('❌  Définissez SUPERADMIN_MOT_DE_PASSE (8 caractères minimum) :');
+  console.error("     SUPERADMIN_MOT_DE_PASSE='...' node tmp/creer_superadmin.js");
+  process.exit(1);
+}
+
 const SUPERADMIN = {
   nom: 'Mouhamad Ibrahim Alio',
   email: `superadmin-${Date.now()}@lex-academy.local`,
-  motDePasse: '33132010Asaim',
+  motDePasse: motDePasseEnv,
   role: 'superadmin',
 };
 
@@ -61,7 +70,7 @@ async function creerSuperadmin() {
   console.log('📋  Profil :');
   console.log(`   Nom     : ${SUPERADMIN.nom}`);
   console.log(`   Email   : ${SUPERADMIN.email}`);
-  console.log(`   Motdep  : ${SUPERADMIN.motDePasse} (à changer après première connexion)`);
+  console.log('   Motdep  : **** (fourni via SUPERADMIN_MOT_DE_PASSE)');
   console.log('');
 
   // 1. Créer l'utilisateur Auth
@@ -132,13 +141,13 @@ async function creerSuperadmin() {
   console.log('📌  Prochaines étapes :');
   console.log('   1. Connectez-vous avec :');
   console.log(`      Email : ${SUPERADMIN.email}`);
-  console.log(`      Mot de passe : ${SUPERADMIN.motDePasse}`);
+  console.log('      Mot de passe : celui défini dans SUPERADMIN_MOT_DE_PASSE (non affiché)');
   console.log('   2. CHANGEZ immédiatement votre mot de passe');
   console.log('   3. Vérifiez que vous avez accès à l\'écran Administration');
   console.log('');
   console.log('🔒  Sécurité :');
   console.log('   - Ce script est IRREVERSIBLE');
-  console.log('   - Le mot de passe est en clair dans les logs → changez-le après première connexion');
+  console.log('   - Le mot de passe n’est jamais écrit dans le dépôt → changez-le après première connexion');
   console.log('   - Le fichier firebase-service-account.json doit être gardé secret');
   console.log('');
 
