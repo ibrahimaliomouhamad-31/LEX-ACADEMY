@@ -15,8 +15,10 @@
  *   1. npx wrangler login
  *   2. npx wrangler secret put GROQ_API_KEY     (coller la clé gsk_…)
  *   3. npx wrangler deploy                      (affiche l'URL workers.dev)
- *   4. coller cette URL dans .env :
- *      EXPO_PUBLIC_LEXAI_PROXY_URL=https://lexai-chat.<hash>.workers.dev
+ *   4. coller cette URL dans app.json → extra.lexaiProxyUrl
+ *      (équivalent : EXPO_PUBLIC_LEXAI_PROXY_URL dans .env)
+ *   → plus simple depuis la racine du projet : npm run lexai:login / lexai:secret
+ *     / lexai:deploy, puis npm run lexai:check pour valider l'URL en ligne.
  */
 
 const MODELE_AUTORISE = 'openai/gpt-oss-120b';

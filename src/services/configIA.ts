@@ -17,15 +17,59 @@
 // 🔁 MIGRATION PROXY (alternative gratuite) : Firebase Cloud Functions exige
 // le plan BLAZE (payant) — cloudbuild + secretmanager sont refusés sur Spark.
 // Le proxy vit désormais sur Cloudflare Workers (plan Free : 100 000 req/jour,
-// sans carte). L'URL se configure dans .env :
-//   EXPO_PUBLIC_LEXAI_PROXY_URL=https://lexai-chat.<hash>.workers.dev
-// (wrangler deploy l'affiche — voir workers/lexai-chat/README.md).
-// En attendant, l'ancienne URL Firebase reste en fallback : le 404 HTML qu'elle
-// renvoie est géré côté écran (« assistant non activé », pas de faux blame
-// connexion).
-export const URL_PROXY: string =
-  process.env.EXPO_PUBLIC_LEXAI_PROXY_URL ||
+// sans carte). Voir workers/lexai-chat/README.md.
+//
+// L'URL se configure à DEUX endroits (le premier non vide gagne) :
+//   1. app.json → extra.lexaiProxyUrl   ✅ recommandé : voyage dans l'APK,
+//      exactement comme extra.firebaseApiKey (aucun .env requis au build) ;
+//   2. .env → EXPO_PUBLIC_LEXAI_PROXY_URL (embarqué au démarrage du bundler).
+// Tant que rien n'est configuré, l'ancienne URL Firebase reste en secours : le
+// 404 HTML qu'elle renvoie est géré côté écran (« assistant non activé », pas
+// de faux blame connexion).
+// 🔍 Vérifier le proxy en ligne (avant/après déploiement) : npm run lexai:check
+export const PROXY_FIREBASE_SECOURS =
   'https://us-central1-lex-academy-10eef.cloudfunctions.net/lexaiChat';
+
+/** Clé de configuration dans `app.json` → `expo.extra`. */
+export const CLE_EXTRA_PROXY = 'lexaiProxyUrl';
+
+/** Nettoie une URL collée à la main : espaces + slash final (wrangler). */
+function nettoyerUrl(valeur?: string): string {
+  return typeof valeur === 'string' ? valeur.trim().replace(/\/+$/, '') : '';
+}
+
+/**
+ * Résout l'URL du proxy par priorité : app.json → .env → secours Firebase.
+ * Fonction PURE et testée : la lecture d'`app.json` est faite par l'appelant.
+ */
+export function resoudreUrlProxy(extraValue?: string, envValue?: string): string {
+  return nettoyerUrl(extraValue) || nettoyerUrl(envValue) || PROXY_FIREBASE_SECOURS;
+}
+
+/**
+ * Lit `app.json → extra.lexaiProxyUrl`. Import DIFFÉRÉ volontaire : ce service
+ * reste chargeable en environnement Node (tests), où les modules natifs d'Expo
+ * n'existent pas — les tests n'ont donc pas à mocker `expo-constants`.
+ */
+export function lireUrlProxyExtra(): string | undefined {
+  try {
+    // Import différé (voir JSDoc) : règle désactivée ligne à ligne, comme
+    // `utils/logger.ts` pour son propre require conditionnel.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const constants = require('expo-constants') as {
+      default?: { expoConfig?: { extra?: Record<string, unknown> } };
+    };
+    const valeur = constants.default?.expoConfig?.extra?.[CLE_EXTRA_PROXY];
+    return typeof valeur === 'string' ? valeur : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export const URL_PROXY: string = resoudreUrlProxy(
+  lireUrlProxyExtra(),
+  process.env.EXPO_PUBLIC_LEXAI_PROXY_URL
+);
 
 export function urlChat(): string {
   return URL_PROXY;
