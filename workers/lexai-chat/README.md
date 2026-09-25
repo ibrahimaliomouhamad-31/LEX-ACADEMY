@@ -10,6 +10,22 @@ payant (`cloudbuild` + `secretmanager` refusés sur le plan Spark).
   - rate-limit 60 / 10 min / IP, modèle imposé côté serveur
 - La clé Groq vit uniquement dans le **secret du worker**.
 
+## ✅ État en production (25/09/2026)
+
+| Élément | Valeur |
+|---|---|
+| URL du worker | **https://lexai-chat.lex-academy.workers.dev** |
+| Sous-domaine `workers.dev` | `lex-academy` (créé via l'API — le compte n'en avait aucun) |
+| Secret serveur | `GROQ_API_KEY` ✅ posé (`wrangler secret list` le confirme) |
+| Modèle imposé | `openai/gpt-oss-120b` (côté serveur : le client ne choisit jamais) |
+| Vérification | `npm run lexai:check` → **HTTP 200 + `{ reponse }`** (vraie réponse IA) |
+| Branchement app | `app.json → extra.lexaiProxyUrl` |
+
+L'ancienne URL (`us-central1-lex-academy-10eef.cloudfunctions.net/lexaiChat`)
+reste en **secours** dans `configIA.ts` mais répond **404** : la Cloud Function
+n'a jamais pu être déployée (plan Blaze payant exigé, `firebase functions:list`
+= 0 fonction). Le 404 est géré proprement côté écran (« assistant non activé »).
+
 ## Déploiement (une fois)
 
 ```bash
