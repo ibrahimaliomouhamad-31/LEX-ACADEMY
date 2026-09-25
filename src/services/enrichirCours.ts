@@ -483,7 +483,9 @@ function majuscule(s: string): string {
       "Resoudre sin x >= 1/2 sur [0 ; 2pi].",
       "Demontrer que cos(pi/2 - x) = sin x.",
     ],
-  },  probabilites: {
+  },
+
+  probabilites: {
     objectifs: [
       "Connaitre le vocabulaire : experience aleatoire, univers, evenement et evenement contraire.",
       "Application : Decrire l'univers d'un lancer de deux des (36 issues equiprobables).",
