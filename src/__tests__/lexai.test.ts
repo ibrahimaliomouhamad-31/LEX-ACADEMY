@@ -76,6 +76,50 @@ describe('LEX.AI — construireMessages (limites proxy)', () => {
   });
 });
 
+// ─── CONTEXTE COMPACTÉ (mémoire des échanges archivés par l'écran) ──────────
+describe('LEX.AI — construireMessages avec résumé compacté', () => {
+  const historique: MessageChat[] = [
+    { role: 'user', content: 'q1' },
+    { role: 'assistant', content: 'r1' },
+  ];
+
+  it("n'ajoute aucun message quand le résumé est vide ou blanc", () => {
+    const sans = construireMessages(historique, 'q2');
+    expect(construireMessages(historique, 'q2', '')).toEqual(sans);
+    expect(construireMessages(historique, 'q2', '   ')).toEqual(sans);
+    expect(sans.filter((m) => m.role === 'system')).toHaveLength(1);
+  });
+
+  it('injecte le résumé juste après le prompt système, question en dernier', () => {
+    const messages = construireMessages(historique, 'q2', 'Questions traitees : derivation.');
+    expect(messages[0]).toEqual({ role: 'system', content: SYSTEME_LEXAI });
+    expect(messages[1].role).toBe('system');
+    expect(messages[1].content).toContain('derivation');
+    expect(messages[messages.length - 1]).toEqual({ role: 'user', content: 'q2' });
+  });
+
+  it('borne le résumé envoyé (contexte léger, jamais 8000 caractères)', () => {
+    const messages = construireMessages([], 'q', 'x'.repeat(9000));
+    // 1500 caractères de résumé + le libellé du message système.
+    expect(messages[1].content.length).toBeLessThanOrEqual(1560);
+  });
+
+  it('reste sous 30 messages ET 32 Ko même saturé avec résumé', () => {
+    const charge: MessageChat[] = [];
+    for (let i = 0; i < 60; i++) {
+      charge.push({ role: 'user', content: 'q'.repeat(8000) });
+      charge.push({ role: 'assistant', content: 'r'.repeat(8000) });
+    }
+    const messages = construireMessages(charge, 'question finale', 'resume '.repeat(400));
+    expect(messages.length).toBeLessThanOrEqual(30);
+    expect(JSON.stringify(messages).length).toBeLessThanOrEqual(32000);
+    // Système, résumé et question survivent tous à la troncature.
+    expect(messages[0]).toEqual({ role: 'system', content: SYSTEME_LEXAI });
+    expect(messages[1].content).toContain('resume');
+    expect(messages[messages.length - 1].content).toBe('question finale');
+  });
+});
+
 // ─── PARSING DE LA RÉPONSE DU PROXY (contrat { reponse }) ───────────────────
 describe('LEX.AI — extraireReponse (contrat du proxy)', () => {
   it("lit le contrat { reponse } renvoyé par functions/index.js", () => {

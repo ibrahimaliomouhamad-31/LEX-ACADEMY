@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { partager } from '../utils/partager';
-import Speech from 'expo-speech';
+import { parler, stopperParole } from '../services/parole';
 import { db } from '../config/firebaseConfig';
 import { getCours, saveCours, type CoursCache } from '../services/cacheHorsLigne';
 import { genererSectionsCours, sectionsEnTexte } from '../services/enrichirCours';
@@ -68,12 +68,12 @@ export default function Cours() {
     fetchCours();
   }, [id]);
 
-  // 🎧 LECTURE AUDIO DU COURS (expo-speech, 100% hors-ligne) : l'élève peut
-  // réviser en marchant, économiser sa batterie, ou compenser la fatigue
-  // de lecture. Utile aussi pour les lecteurs débutants.
+  // 🎧 LECTURE AUDIO DU COURS (couche `parole` sécurisée web + natif,
+  // 100% hors-ligne) : l'élève peut réviser en marchant, économiser sa
+  // batterie, ou compenser la fatigue de lecture.
   const ecouterCours = async () => {
     if (!coursData) return;
-    Speech.stop();
+    await stopperParole();
     const plafond = await plafondTexteAudio();
     const texte = [
       coursData.titre ? `Chapitre : ${coursData.titre}.` : '',
@@ -87,11 +87,14 @@ export default function Cours() {
     if (!texte.trim()) {
       return;
     }
-    Speech.speak(texte.slice(0, plafond), { language: 'fr', rate: 0.95 });
+    // Texte plafonné (cohérent avec cours.tsx) puis lecture via la couche
+    // `parole` sécurisée (web + natif) — remplace l'appel direct
+    // Speech.speak qui crashait sur web (module undefined).
+    parler(texte.slice(0, plafond), { language: 'fr', rate: 0.95 });
   };
 
   const arreterAudio = () => {
-    Speech.stop();
+    stopperParole();
   };
 
   if (loading) {
@@ -115,7 +118,7 @@ export default function Cours() {
         </View>
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyEmoji}>📚</Text>
-          <Text style={styles.emptyText}>Ce chapitre n'existe pas encore dans la base de données.</Text>
+          <Text style={styles.emptyText}>Ce chapitre n&apos;existe pas encore dans la base de données.</Text>
         </View>
       </View>
     );
@@ -170,14 +173,14 @@ export default function Cours() {
         {!isRédige && (
           <View style={styles.cardGold}>
             <Text style={styles.cardTitleGold}>⏳ Chapitre en préparation</Text>
-            <Text style={styles.warningText}>L'équipe pédagogique de LEX ACADEMY rédige actuellement ce cours en détail. Revenez vérifier très bientôt pour le consulter !</Text>
+            <Text style={styles.warningText}>L&apos;équipe pédagogique de LEX ACADEMY rédige actuellement ce cours en détail. Revenez vérifier très bientôt pour le consulter !</Text>
           </View>
         )}
 
         {/* Carte Activité (S'affiche SEULEMENT si le champ existe sur Firebase) */}
         {coursData.activite && (
           <View style={styles.cardGreen}>
-            <Text style={styles.cardTitleGreen}>🧩 Activité d'approche</Text>
+            <Text style={styles.cardTitleGreen}>🧩 Activité d&apos;approche</Text>
             <Text style={styles.activityText}>{formatText(coursData.activite)}</Text>
           </View>
         )}
