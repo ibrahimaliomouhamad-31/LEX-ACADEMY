@@ -90,6 +90,7 @@ export function headersIA(): { [cle: string]: string } {
 const LIMITE_MESSAGES = 30;
 const LIMITE_MESSAGE = 8000;
 const LIMITE_TAILLE = 30000; // marge sous les 32 000 du proxy (JSON.stringify)
+const LIMITE_RESUME = 1500; // résumé compacté envoyé par l'écran LEX.AI
 
 export interface MessageChat {
   role: string;
@@ -98,10 +99,19 @@ export interface MessageChat {
 
 /**
  * Construit le tableau `messages` envoyé au proxy : prompt système en tête,
- * historique nettoyé (uniquement user/assistant non vides) et tronqué aux
- * limites serveur, question de l'élève en DERNIER.
+ * contexte compacté éventuel, historique nettoyé (uniquement user/assistant
+ * non vides) et tronqué aux limites serveur, question de l'élève en DERNIER.
+ *
+ * `resumeContexte` (optionnel) = résumé des échanges ARCHIVÉS par l'écran
+ * LEX.AI (compaction). Il part en second message `system` : le proxy ne
+ * valide que `content` (le rôle n'est pas contrôlé), donc la mémoire des
+ * vieux échanges survit à la troncature à 30 messages.
  */
-export function construireMessages(historique: MessageChat[], question: string): MessageChat[] {
+export function construireMessages(
+  historique: MessageChat[],
+  question: string,
+  resumeContexte?: string
+): MessageChat[] {
   const utiles = historique
     .filter(
       (m) =>
@@ -111,18 +121,25 @@ export function construireMessages(historique: MessageChat[], question: string):
     )
     .map((m) => ({ role: m.role, content: m.content.slice(0, LIMITE_MESSAGE) }));
 
-  // système (1) + historique + question (1) ≤ 30.
-  const maxHistorique = LIMITE_MESSAGES - 2;
+  const resume = (resumeContexte ?? '').trim().slice(0, LIMITE_RESUME);
+  const avecResume = resume !== '';
+
+  // système (1) + résumé (0 ou 1) + historique + question (1) ≤ 30.
+  const maxHistorique = LIMITE_MESSAGES - (avecResume ? 3 : 2);
   const messages: MessageChat[] = [
     { role: 'system', content: SYSTEME_LEXAI },
+    ...(avecResume
+      ? [{ role: 'system', content: `Contexte des échanges précédents (résumé compacté) :\n${resume}` }]
+      : []),
     ...utiles.slice(-maxHistorique),
     { role: 'user', content: question.slice(0, LIMITE_MESSAGE) },
   ];
 
   // Plafond 32 Ko : on raccourcit l'historique le plus ancien — jamais le
-  // système ni la question (qui vient d'être posée).
-  while (messages.length > 3 && JSON.stringify(messages).length > LIMITE_TAILLE) {
-    messages.splice(1, 1);
+  // système, ni le résumé compacté, ni la question (qui vient d'être posée).
+  const premierHistorique = avecResume ? 2 : 1;
+  while (messages.length > premierHistorique + 1 && JSON.stringify(messages).length > LIMITE_TAILLE) {
+    messages.splice(premierHistorique, 1);
   }
   return messages;
 }

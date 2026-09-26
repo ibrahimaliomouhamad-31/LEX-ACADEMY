@@ -9,9 +9,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Speech from 'expo-speech';
 import { getAllCoursCache } from '../services/cacheHorsLigne';
 import { plafondTexteAudio } from '../services/economieDonnees';
+import { parler, stopperParole } from '../services/parole';
 
 // 51 — COURS EN AUDIO (optionnel par nature : on n'entre que si on le veut).
 // Lit le cours à voix haute via la synthèse vocale — pour réviser en marchant,
@@ -37,27 +37,26 @@ export default function AudioCours() {
     })();
     return () => {
       annule = true;
-      Speech.stop();
+      stopperParole();
     };
   }, []);
 
   const lire = async (c: { id: string; texte: string }) => {
-    Speech.stop(); // stoppe la lecture en cours (relance ou coupure)
+    await stopperParole();
     if (enLecture === c.id) {
       setEnLecture(null);
       return;
     }
     setEnLecture(c.id);
-    // Plafond du mode économie de données : expo-speech coupe silencieusement
-    // les textes trop longs sur Android ; on borne explicitement le texte.
     const plafond = await plafondTexteAudio();
-    Speech.speak(c.texte.slice(0, plafond), {
+    const ok = await parler(c.texte.slice(0, plafond), {
       language: 'fr',
       rate: 0.95,
       onDone: () => setEnLecture(null),
       onStopped: () => setEnLecture(null),
       onError: () => setEnLecture(null),
     });
+    if (ok === false) setEnLecture(null);
   };
 
   return (
@@ -80,7 +79,7 @@ export default function AudioCours() {
           </Text>
           {cours.length === 0 ? (
             <Text style={styles.vide}>
-              Aucun cours audio-disponible. Télécharge des cours complets depuis 📘 Le Cours d'abord !
+              Aucun cours audio-disponible. Télécharge des cours complets depuis 📘 Le Cours d&apos;abord !
             </Text>
           ) : (
             cours.map((c) => (
@@ -88,7 +87,7 @@ export default function AudioCours() {
                 <Text style={styles.carteEmoji}>{enLecture === c.id ? '⏸️' : '▶️'}</Text>
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text style={styles.carteTitre} numberOfLines={2}>{c.titre}</Text>
-                  <Text style={styles.carteDetail}>~{Math.max(1, Math.round((c.texte || '').split(' ').length / 150))} min d'écoute</Text>
+                  <Text style={styles.carteDetail}>~{Math.max(1, Math.round((c.texte || '').split(' ').length / 150))} min d&apos;écoute</Text>
                 </View>
               </TouchableOpacity>
             ))
