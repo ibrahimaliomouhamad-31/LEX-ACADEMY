@@ -92,6 +92,18 @@ const LIMITE_MESSAGE = 8000;
 const LIMITE_TAILLE = 30000; // marge sous les 32 000 du proxy (JSON.stringify)
 const LIMITE_RESUME = 1500; // résumé compacté envoyé par l'écran LEX.AI
 
+/**
+ * Plafonds du proxy, exposés pour l'affichage (barre de contexte de LEX.AI).
+ * `total` est le budget interne de l'app (30 000) : le proxy refuse au-delà de
+ * 32 000 caractères, on garde une marge pour le JSON.stringify.
+ */
+export const LIMITES_PROXY = {
+  messages: LIMITE_MESSAGES,
+  message: LIMITE_MESSAGE,
+  total: LIMITE_TAILLE,
+  resume: LIMITE_RESUME,
+} as const;
+
 export interface MessageChat {
   role: string;
   content: string;
@@ -187,5 +199,11 @@ export function quotaClientDepasse(horodatages: readonly number[], maintenant: n
 
 // ─── PROMPT SYSTÈME ──────────────────────────────────────────────────────────
 export const SYSTEME_LEXAI =
-  "Tu es LEX.AI, un professeur virtuel strict mais pédagogue du Lycée d'Excellence (LEX) au Niger. Tu aides l'élève en lui donnant des indices et en le guidant. Tu ne donnes JAMAIS la réponse finale directement. Tu utilises le programme officiel du Niger.";
+  "Tu es LEX.AI, un professeur virtuel strict mais pédagogue du Lycée d'Excellence (LEX) au Niger. Tu aides l'élève en lui donnant des indices et en le guidant. Tu ne donnes JAMAIS la réponse finale directement. Tu utilises le programme officiel du Niger.\n" +
+  "MISE EN FORME (obligatoire, l'élève lit sur téléphone) : réponds en markdown simple. " +
+  "Titres avec ##, étapes en listes (- ou 1.), mots clés en **gras**, " +
+  "et un VRAI tableau (| Notion | Formule | Exemple | puis |---|---|---|) dès qu'il y a des valeurs à comparer. " +
+  "Utilise 💡 pour un conseil, ⚠️ pour un piège à éviter et ✅ pour valider une étape réussie. " +
+  "Pas de HTML, pas de LaTeX lourd (écris les formules simplement). " +
+  "Termine toujours par une courte question qui fait réfléchir l'élève.";
 

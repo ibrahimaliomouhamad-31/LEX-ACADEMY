@@ -1,7 +1,10 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import BarreContexte from '../components/BarreContexte';
+import ReponseIA from '../components/ReponseIA';
 import { urlChat, headersIA, construireMessages, extraireReponse, extraireErreurProxy, quotaClientDepasse } from '../services/configIA';
+import { mesurerContexte } from '../services/contexteIA';
 import { chercher, memoriser } from '../services/qaCache';
 import { estEnLigne } from '../utils/reseau';
 import { rapporterErreur } from '../utils/logger';
@@ -55,6 +58,11 @@ export default function LexAI() {
     [conv.messages]
   );
   const aCompacter = useMemo(() => doitCompacter(conv), [conv]);
+  // 📊 Remplissage du contexte envoyé au moteur (barre en haut du chat).
+  const mesureContexte = useMemo(
+    () => mesurerContexte(conv.messages, conv.resumeContexte),
+    [conv.messages, conv.resumeContexte]
+  );
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -270,6 +278,10 @@ export default function LexAI() {
         )}
       </View>
 
+      {/* 📊 Barre de contexte : l'élève voit quand la discussion sature
+          (messages transmis / 30, tokens estimés, messages déjà ignorés). */}
+      <BarreContexte mesure={mesureContexte} onCompacter={compacter} compactable={aCompacter} />
+
       <ScrollView 
         ref={scrollViewRef}
         style={styles.chatContainer} 
@@ -279,7 +291,13 @@ export default function LexAI() {
         {messages.map((msg, index) => (
           <View key={index} style={[styles.bubble, msg.role === 'user' ? styles.userBubble : styles.aiBubble]}>
             <Text style={styles.bulleRole}>{msg.role === 'user' ? '🧑 Toi' : '🤖 LEX.AI'}</Text>
-            <Text style={styles.bubbleText}>{msg.content}</Text>
+            {msg.role === 'user' ? (
+              <Text style={styles.bubbleText}>{msg.content}</Text>
+            ) : (
+              // 🎨 Réponses mises en forme : titres, listes, VRAIS tableaux,
+              // encadrés 💡/⚠️/✅, code et formules (services/markdownLex.ts).
+              <ReponseIA texte={msg.content} />
+            )}
           </View>
         ))}
         {conv.resumeContexte !== '' && (
@@ -392,7 +410,7 @@ const styles = StyleSheet.create({
   chatContainer: { flex: 1 },
   bubble: { maxWidth: '80%', padding: 15, borderRadius: 15, marginBottom: 15 },
   userBubble: { backgroundColor: '#3B82F6', alignSelf: 'flex-end', borderBottomRightRadius: 2 },
-  aiBubble: { backgroundColor: '#1E293B', alignSelf: 'flex-start', borderBottomLeftRadius: 2, borderLeftWidth: 3, borderLeftColor: '#FBBF24' },
+  aiBubble: { backgroundColor: '#1E293B', alignSelf: 'stretch', maxWidth: '100%', borderBottomLeftRadius: 2, borderLeftWidth: 3, borderLeftColor: '#FBBF24' },
   bubbleText: { color: '#F8FAFC', fontSize: 15, lineHeight: 21 },
   bulleRole: { color: '#FBBF24', fontSize: 11, fontWeight: 'bold', marginBottom: 6 },
   resumeBloc: { backgroundColor: '#0B2B1F', borderRadius: 10, padding: 10, marginBottom: 12, borderWidth: 1, borderColor: '#10B981' },
