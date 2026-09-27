@@ -7,11 +7,13 @@ import { partager } from '../utils/partager';
 import { parler, stopperParole } from '../services/parole';
 import { db } from '../config/firebaseConfig';
 import { getCours, saveCours, type CoursCache } from '../services/cacheHorsLigne';
+import { decouperCoursEnBlocs, type BlocCours } from '../services/miseEnFormeCours';
+import ReponseIA from '../components/ReponseIA';
 import { genererSectionsCours, sectionsEnTexte } from '../services/enrichirCours';
 import { plafondTexteAudio } from '../services/economieDonnees';
 import { construireFiche, ficheEnTexte } from '../services/fichesSynthese';
 import { dechiffrerAsync } from '../services/chiffrement';
-import { avertirDev, logDev, rapporterErreur } from '../utils/logger';
+import { rapporterErreur } from '../utils/logger';
 
 const formatText = (text: string) => {
   if (!text) return "";
@@ -26,12 +28,10 @@ export default function Cours() {
   const [coursData, setCoursData] = useState<CoursCache | null>(null);
   const [loading, setLoading] = useState(true);
   const [cahierClair, setCahierClair] = useState('');
-
-  const [showMethod, setShowMethod] = useState(false);
-  const [showDemo, setShowDemo] = useState(false);
-  const [showCorrection, setShowCorrection] = useState(false);
   // Sections pédagogiques générées localement (longueur × ~3)
   const [sectionsOuvertes, setSectionsOuvertes] = useState<Record<number, boolean>>({});
+  // Blocs fiche d'excellence repliés par défaut (méthode, démo, corrigé)
+  const [blocsOuverts, setBlocsOuverts] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const fetchCours = async () => {
@@ -127,6 +127,14 @@ export default function Cours() {
   // On vérifie si le cours est rédigé (s'il a au moins une théorie ou une activité)
   const isRédige = coursData.theorie || coursData.activite || coursData.methode_content;
 
+  // FICHE D'EXCELLENCE : les 6 blocs pédagogiques ordonnés
+  // (situation → savoirs → méthode → pièges → démo → corrigé),
+  // rendus en markdown riche via ReponseIA (titres, tableaux, encadrés).
+  const blocsCours: BlocCours[] = coursData ? decouperCoursEnBlocs(coursData) : [];
+  const blocEstOuvert = (cle: string) =>
+    cle === 'situation' || cle === 'savoirs' || cle === 'pieges' ? true : !!blocsOuverts[cle];
+  const basculerBloc = (cle: string) => setBlocsOuverts((p) => ({ ...p, [cle]: !p[cle] }));
+
   // Sections pédagogiques complémentaires générées LOCALEMENT (×3) pour rendre
   // le cours plus complet et plus efficace, même hors-ligne.
   const sectionsCours = coursData
@@ -177,75 +185,78 @@ export default function Cours() {
           </View>
         )}
 
-        {/* Carte Activité (S'affiche SEULEMENT si le champ existe sur Firebase) */}
-        {coursData.activite && (
-          <View style={styles.cardGreen}>
-            <Text style={styles.cardTitleGreen}>🧩 Activité d&apos;approche</Text>
-            <Text style={styles.activityText}>{formatText(coursData.activite)}</Text>
+        {/* FICHE D'EXCELLENCE : situation + savoirs (markdown riche) */}
+        {blocsCours.filter((b) => b.cle === 'situation' || b.cle === 'savoirs').map((bloc) => (
+          <View key={bloc.cle} style={bloc.cle === 'situation' ? styles.cardGreen : styles.cardBlue}>
+            <Text style={bloc.cle === 'situation' ? styles.cardTitleGreen : styles.cardTitle}>{bloc.titre}</Text>
+            <ReponseIA texte={bloc.markdown} />
           </View>
-        )}
+        ))}
 
-        {/* Carte Théorie */}
-        {coursData.theorie && (
-          <View style={styles.cardBlue}>
-            <Text style={styles.cardTitle}>🧠 1. La Théorie</Text>
-            <Text style={styles.courseText}>{formatText(coursData.theorie)}</Text>
-          </View>
-        )}
-
-        {/* Carte Méthode */}
-        {coursData.methode_content && (
-          <View style={styles.cardBlue}>
-            <Text style={styles.cardTitle}>⚙️ 2. La Méthode</Text>
-            <Text style={styles.cardSubtitle}>{formatText(coursData.methode_titre ?? '')}</Text>
-            <TouchableOpacity style={styles.expandBtn} onPress={() => setShowMethod(!showMethod)}>
-              <Text style={styles.expandBtnText}>{showMethod ? "🔼 Masquer les étapes" : "🔽 Afficher les étapes"}</Text>
-            </TouchableOpacity>
-            {showMethod && (
-              <View style={styles.hiddenContent}>
-                <Text style={styles.demoText}>{formatText(coursData.methode_content)}</Text>
-              </View>
+        {/* FICHE D'EXCELLENCE : methode (repliable, markdown riche) */}
+        {blocsCours.filter((b) => b.cle === 'methode').map((bloc) => (
+          <View key={bloc.cle} style={styles.cardBlue}>
+            <Text style={styles.cardTitle}>{bloc.titre}</Text>
+            {!blocEstOuvert(bloc.cle) ? (
+              <TouchableOpacity style={styles.expandBtn} onPress={() => basculerBloc(bloc.cle)}>
+                <Text style={styles.expandBtnText}>Afficher la methode pas-a-pas</Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <ReponseIA texte={bloc.markdown} />
+                <TouchableOpacity style={styles.expandBtn} onPress={() => basculerBloc(bloc.cle)}>
+                  <Text style={styles.expandBtnText}>Masquer</Text>
+                </TouchableOpacity>
+              </>
             )}
           </View>
-        )}
+        ))}
 
-        {/* Carte Piège */}
-        {coursData.piege && (
-          <View style={styles.cardRed}>
-            <Text style={styles.cardTitleRed}>⚠️ 3. Le Piège du Prof</Text>
-            <Text style={styles.warningText}>{formatText(coursData.piege)}</Text>
+        {/* FICHE D'EXCELLENCE : pieges (markdown riche) */}
+        {blocsCours.filter((b) => b.cle === 'pieges').map((bloc) => (
+          <View key={bloc.cle} style={styles.cardRed}>
+            <Text style={styles.cardTitleRed}>{bloc.titre}</Text>
+            <ReponseIA texte={bloc.markdown} />
           </View>
-        )}
+        ))}
 
-        {/* Carte Démonstration */}
-        {coursData.demo && (
-          <View style={styles.cardBlue}>
-            <Text style={styles.cardTitle}>🚀 4. Approfondissement (+150%)</Text>
-            <TouchableOpacity style={styles.expandBtn} onPress={() => setShowDemo(!showDemo)}>
-              <Text style={styles.expandBtnText}>{showDemo ? "🔼 Masquer la démonstration" : "🔽 Afficher la démonstration"}</Text>
-            </TouchableOpacity>
-            {showDemo && (
-              <View style={styles.hiddenContent}>
-                <Text style={styles.demoText}>{formatText(coursData.demo)}</Text>
-              </View>
+        {/* FICHE D'EXCELLENCE : demonstration (repliable) */}
+        {blocsCours.filter((b) => b.cle === 'demonstration').map((bloc) => (
+          <View key={bloc.cle} style={styles.cardBlue}>
+            <Text style={styles.cardTitle}>{bloc.titre}</Text>
+            {!blocEstOuvert(bloc.cle) ? (
+              <TouchableOpacity style={styles.expandBtn} onPress={() => basculerBloc(bloc.cle)}>
+                <Text style={styles.expandBtnText}>Afficher la demonstration</Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <ReponseIA texte={bloc.markdown} />
+                <TouchableOpacity style={styles.expandBtn} onPress={() => basculerBloc(bloc.cle)}>
+                  <Text style={styles.expandBtnText}>Masquer</Text>
+                </TouchableOpacity>
+              </>
             )}
           </View>
-        )}
+        ))}
 
-        {/* Carte Exercice Corrigé */}
-        {coursData.exercice_corrige && (
-          <View style={styles.cardGold}>
-            <Text style={styles.cardTitleGold}>🎓 Exercice Type Corrigé</Text>
-            <TouchableOpacity style={styles.expandBtnGold} onPress={() => setShowCorrection(!showCorrection)}>
-              <Text style={styles.expandBtnText}>{showCorrection ? "🔼 Masquer la correction" : "🔽 Afficher la correction détaillée"}</Text>
-            </TouchableOpacity>
-            {showCorrection && (
-              <View style={styles.hiddenContentGold}>
-                <Text style={styles.correctionText}>{formatText(coursData.exercice_corrige)}</Text>
-              </View>
+        {/* FICHE D'EXCELLENCE : exercice corrige (repliable, markdown riche) */}
+        {blocsCours.filter((b) => b.cle === 'exercice').map((bloc) => (
+          <View key={bloc.cle} style={styles.cardGold}>
+            <Text style={styles.cardTitleGold}>{bloc.titre}</Text>
+            {!blocEstOuvert(bloc.cle) ? (
+              <TouchableOpacity style={styles.expandBtnGold} onPress={() => basculerBloc(bloc.cle)}>
+                <Text style={styles.expandBtnTextGold}>Afficher le corrige</Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <ReponseIA texte={bloc.markdown} />
+                <TouchableOpacity style={styles.expandBtnGold} onPress={() => basculerBloc(bloc.cle)}>
+                  <Text style={styles.expandBtnTextGold}>Masquer</Text>
+                </TouchableOpacity>
+              </>
             )}
           </View>
-        )}
+        ))}
 
         {/* 🧺 Contenu extrait du cahier de l'élève (local). Ajouté quand l'élève l'a
             collé via l'écran "Mon cahier" (🧺). Toujours local, non synchronisé. */}
@@ -348,6 +359,7 @@ const styles = StyleSheet.create({
   cardGold: { backgroundColor: '#2D2412', borderRadius: 12, padding: 20, marginBottom: 20, borderLeftWidth: 3, borderLeftColor: '#FBBF24' },
   cardTitleGold: { color: '#FBBF24', fontSize: 17, fontWeight: 'bold', marginBottom: 12 },
   expandBtnGold: { marginTop: 10, backgroundColor: '#7F1D1D', padding: 12, borderRadius: 8, alignItems: 'center' },
+  expandBtnTextGold: { color: '#FDE68A', fontSize: 13, fontWeight: 'bold' },
   hiddenContentGold: { marginTop: 15, backgroundColor: '#0F172A', padding: 15, borderRadius: 8, borderWidth: 1, borderColor: '#FBBF24' },
   correctionText: { color: '#F8FAFC', fontSize: 14, lineHeight: 24 },
 
