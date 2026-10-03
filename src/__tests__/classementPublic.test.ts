@@ -51,10 +51,15 @@ import {
   lireCacheClassement,
   lireMonProfilPublic,
   maPosition,
+  plafonnerXp,
+  plafonnerXpSemaine,
   publierMonProfilPublic,
   requeteClassement,
+  XP_MAX_PUBLIE,
+  XP_MAX_PUBLIE_SEMAINE,
 } from '../services/classementPublic';
 import { getCurrentUserId } from '../services/userStorage';
+import { lireXpSemaineActuelle, lireXpTotal } from '../services/xpLocal';
 import { classeCanonique, niveauPourClasse, NIVEAUX_FILTRAGE } from '../utils/nomenclatureLycee';
 
 const CLASSES_ATTENDUES = ['2nde', '1ère C', '1ère D', 'Terminale C', 'Terminale D'];
@@ -263,5 +268,69 @@ describe('Classement public — position et fiche personnelle', () => {
     expect(await lireMonProfilPublic('mon-uid')).toBeNull();
     // En mode invité (uid null), aucun appel réseau n'est déclenché.
     expect(await lireMonProfilPublic(null)).toBeNull();
+  });
+});
+
+describe('Classement public — plafonds anti-triche (durcissement 2026-10-02)', () => {
+  it('plafonne un XP absurde au lieu de le laisser passer', () => {
+    expect(plafonnerXp(999_999_999)).toBe(XP_MAX_PUBLIE);
+    expect(plafonnerXp(XP_MAX_PUBLIE)).toBe(XP_MAX_PUBLIE);
+    expect(plafonnerXp(XP_MAX_PUBLIE + 1)).toBe(XP_MAX_PUBLIE);
+  });
+
+  it('plafonne l’XP hebdomadaire séparément du total', () => {
+    expect(plafonnerXpSemaine(999_999_999)).toBe(XP_MAX_PUBLIE_SEMAINE);
+    expect(plafonnerXpSemaine(XP_MAX_PUBLIE_SEMAINE + 1)).toBe(XP_MAX_PUBLIE_SEMAINE);
+    // 5 000 XP dans la semaine reste intact : c'est un score plausible.
+    expect(plafonnerXpSemaine(5_000)).toBe(5_000);
+  });
+
+  it('neutralise les valeurs hostiles (négatif, NaN, texte, absent)', () => {
+    expect(plafonnerXp(-999)).toBe(0);
+    expect(plafonnerXp(Number.NaN)).toBe(0);
+    expect(plafonnerXp('beaucoup')).toBe(0);
+    expect(plafonnerXp(undefined)).toBe(0);
+    expect(plafonnerXpSemaine(-1)).toBe(0);
+    expect(plafonnerXpSemaine(Number.NaN)).toBe(0);
+  });
+
+  it('arrondit et préserve les valeurs légitimes (maximum réel du LEX : 1 350)', () => {
+    expect(plafonnerXp(1350)).toBe(1350);
+    expect(plafonnerXp(419.6)).toBe(420);
+    expect(plafonnerXpSemaine(60)).toBe(60);
+  });
+
+  it('publie une fiche PLAFONNÉE quand l’XP local est truqué (jamais de rejet silencieux)', async () => {
+    setDoc.mockClear();
+    getDoc.mockResolvedValueOnce({
+      exists: () => true,
+      id: 'mon-uid',
+      data: () => ({ nom: 'Tricheur', classe: '1ereC', avatar: '🦁' }),
+    });
+    (lireXpTotal as jest.Mock).mockResolvedValueOnce(999_999_999);
+    (lireXpSemaineActuelle as jest.Mock).mockResolvedValueOnce(999_999_999);
+
+    expect(await publierMonProfilPublic()).toBe(true);
+    const appels = setDoc.mock.calls as unknown as [
+      unknown,
+      Record<string, unknown>,
+      { merge?: boolean },
+    ][];
+    // La fiche part quand même (le serveur l'accepterait sinon avec un
+    // `permission-denied` qui priverait l'élève de classement).
+    expect(appels[0][1]).toMatchObject({
+      xp: XP_MAX_PUBLIE,
+      xp_semaine: XP_MAX_PUBLIE_SEMAINE,
+    });
+  });
+
+  it('neutralise une valeur déjà polluée en base à l’affichage', () => {
+    // Des fiches écrites AVANT le durcissement peuvent contenir n'importe
+    // quel XP : on les borne aussi à la lecture, sans migration de données.
+    const [eleve] = elevesDepuisDocs([
+      document('pollue', { nom: 'Fantôme', xp: 999_999_999, xp_semaine: 999_999_999 }),
+    ]);
+    expect(eleve.xp).toBe(XP_MAX_PUBLIE);
+    expect(eleve.xp_semaine).toBe(XP_MAX_PUBLIE_SEMAINE);
   });
 });

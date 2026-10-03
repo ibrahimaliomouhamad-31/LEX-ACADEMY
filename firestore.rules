@@ -51,10 +51,13 @@ service cloud.firestore {
 
     // ============ SIGNALEMENTS (élève → admin) ============
     match /signalements/{docId} {
-      allow create: if request.resource.data.exoId is string
-        && request.resource.data.exoId.size() <= 120
-        && request.resource.data.raison is string
-        && request.resource.data.raison.size() <= 60;
+      // 🛡️ DURCISSEMENT 2026-10-02 : `create` était OUVERT AU MONDE (aucun
+      // `estAuth()`). Un simple POST REST anonyme, sans compte, remplissait la
+      // collection et faisait grossir le dashboard admin (spam + coût Spark).
+      // Désormais : compte obligatoire + forme FERMÉE (hasOnly) + propriété du
+      // signalement. `userId == null` reste accepté : la file hors-ligne peut
+      // contenir un signalement déposé en mode invité, envoyé après connexion.
+      allow create: if estAuth() && signalementValide();
       allow read: if isAdmin();
       // 🛠️ L'admin traite un signalement (marqué « ✔ Traité » = suppression).
       // Sans cette règle, la liste ne pouvait JAMAIS être vidée depuis l'app.
@@ -67,18 +70,26 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
     match /devoir_reponses/{docId} {
-      allow create: if request.resource.data.score is number
-        && request.resource.data.total is number
-        && request.resource.data.score >= 0
-        && request.resource.data.total > 0
-        && request.resource.data.score <= request.resource.data.total;
+      // 🛡️ DURCISSEMENT 2026-10-02 : `create` anonyme ouvert (aucun écran de
+      // l'app n'écrit plus cette collection depuis la suppression du service
+      // « devoirs » ; seul un ancien APK peut encore le faire).
+      allow create: if estAuth() && devoirReponseValide();
       allow read: if isAdmin() || estSoiMeme(resource.data.userId);
     }
 
     // ============ DEMANDES D'AIDE (mot de passe oublié) ============
     match /demandes_aide/{docId} {
-      allow create: if request.resource.data.nom is string
-        && request.resource.data.nom.size() <= 60;
+      // ⚠️ Création ANONYME INTENDUE : l'élève qui a perdu son mot de passe
+      // ne peut pas se connecter, c'est littéralement l'objet de cette
+      // collection. On n'ajoute donc PAS `estAuth()` (on casserait la
+      // récupération de compte) — mais on ferme la forme du document :
+      // `hasOnly` interdit tout champ supplémentaire (pollution/mass-assignment).
+      allow create: if request.resource.data.keys().hasOnly(['nom', 'dateISO'])
+        && request.resource.data.nom is string
+        && request.resource.data.nom.size() > 0
+        && request.resource.data.nom.size() <= 60
+        && request.resource.data.dateISO is string
+        && request.resource.data.dateISO.size() <= 40;
       allow read: if isAdmin();
       // 🛠️ L'admin voit la demande dans l'app (dashboard) puis la marque
       // « ✔ Traitée ». Avant, l'élève lisait « va voir l'administrateur » mais
@@ -88,8 +99,10 @@ service cloud.firestore {
 
     // ============ CRASH LOGS (rapports de plantage) ============
     match /crash_logs/{docId} {
-      allow create: if request.resource.data.message is string
-        && request.resource.data.message.size() <= 500;
+      // 🛡️ DURCISSEMENT 2026-10-02 : `create` anonyme ouvert → n'importe qui
+      // pouvait écrire des milliers de faux rapports de plantage (le vrai
+      // rapport arrive via `syncQueue`, toujours avec une session Firebase).
+      allow create: if estAuth() && crashLogValide();
       allow read: if isAdmin();
     }
 
@@ -124,8 +137,17 @@ service cloud.firestore {
       // `devenirSuperAdmin`) le pose. Sans
       // cette exclusion, un admin pourrait planter SON PROPRE `codeHash` puis
       // s'auto-promouvoir superadmin — la hiérarchie n'aurait plus aucun sens.
+      // 🛡️ DURCISSEMENT 2026-10-02 — DÉNI DE SERVICE FERMÉ : avant, la seule
+      // condition pour écrire `config/initialise` était `!adminInitialise()`.
+      // Or la sentinelle est LISIBLE AVANT CONNEXION : n'importe qui, SANS
+      // COMPTE, pouvait donc la créer et verrouiller DÉFINITIVEMENT le
+      // bootstrap de l'établissement (la vraie sentinelle n'aurait plus jamais
+      // pu être posée → plus aucun admin possible).
+      // Désormais la sentinelle n'est posable que par un compte AUTHENTIFIÉ qui
+      // vient d'être inscrit dans `admins/<uid>` par le flux de bootstrap, avec
+      // une forme fermée (`par`/`nom`/`le`) et `par == son propre uid`.
       allow create: if docId != 'superadmin'
-        && (isAdmin() || (!adminInitialise() && docId == 'initialise'));
+        && (isAdmin() || (docId == 'initialise' && sentinelleBootstrapValide()));
       allow update, delete: if docId != 'superadmin' && isAdmin();
     }
 
@@ -154,7 +176,15 @@ service cloud.firestore {
     // modèle `admins` devient invérifiable côté serveur — c'était le cas
     // avant, d'où un écran d'administration que PERSONNE ne pouvait ouvrir.
     match /admins/{userId} {
-      allow read: if true; // l'app vérifie l'appartenance ; contenus non sensibles
+      // 🛡️ DURCISSEMENT 2026-10-02 : `read: if true` publiait la LISTE DES
+      // ADMINISTRATEURS (noms compris) à tout client ANONYME, énumérable en
+      // boucle via l'API REST. `get` → soi-même (l'app teste son appartenance)
+      // ou un admin.
+      allow read: if estAuth() && (estSoiMeme(userId) || isAdmin());
+      // `list` : requis par le dashboard admin (`getDocs(collection admins)`)
+      // et par le contrôle « premier démarrage » du bootstrap — ce dernier
+      // n'existe que TANT QUE la sentinelle n'est pas posée.
+      allow list: if estAuth() && (isAdmin() || !adminInitialise());
       // create : un admin en place promeut qui il veut.
       allow create: if isAdmin() || (estSoiMeme(userId) && !adminInitialise());
       // update/delete : jamais en auto-promotion (ferme l'usurpation).
@@ -168,6 +198,91 @@ service cloud.firestore {
     }
     function estAuth() {
       return request.auth != null;
+    }
+
+    // ============ 🛡️ VALIDATEURS (durcissement 2026-10-02) ============
+    // Principe : toute écriture « élève » exige (1) un compte AUTHENTIFIÉ,
+    // (2) une forme de document FERMÉE (`hasOnly` → impossible d'injecter des
+    // champs arbitraires, donc pas de pollution ni de contournement du tri),
+    // (3) la PROPRIÉTÉ du document (`userId` = uid de l'appelant), et
+    // (4) des bornes de taille/valeur.
+
+    // 📣 Signalement d'exercice — écrit directement en ligne par
+    // `signalementService.ts` : { exoId, raison, dateISO, userId }.
+    // `userId` peut être `null` (signalement déposé hors-ligne en mode invité,
+    // envoyé plus tard) : on l'accepte, mais tout AUTRE uid est refusé (on ne
+    // peut pas se faire passer pour un camarade).
+    function signalementValide() {
+      return request.resource.data.keys().hasOnly(['exoId', 'raison', 'dateISO', 'userId'])
+        && request.resource.data.exoId is string
+        && request.resource.data.exoId.size() > 0
+        && request.resource.data.exoId.size() <= 120
+        && request.resource.data.raison is string
+        && request.resource.data.raison.size() > 0
+        && request.resource.data.raison.size() <= 60
+        && request.resource.data.dateISO is string
+        && request.resource.data.dateISO.size() <= 40
+        && (!('userId' in request.resource.data)
+            || request.resource.data.userId == null
+            || request.resource.data.userId == request.auth.uid);
+    }
+
+    // 🚨 Rapport de plantage — écrit par `syncQueue` (jamais directement) :
+    // celui-ci AJOUTE `userId` (= uid courant), `createdAt` et `syncedAt`.
+    function crashLogValide() {
+      return request.resource.data.keys().hasOnly(
+          ['message', 'stack', 'userId', 'dateISO', 'createdAt', 'syncedAt']
+        )
+        && request.resource.data.message is string
+        && request.resource.data.message.size() > 0
+        && request.resource.data.message.size() <= 500
+        && request.resource.data.userId == request.auth.uid
+        && (!('stack' in request.resource.data)
+            || (request.resource.data.stack is string
+                && request.resource.data.stack.size() <= 3000));
+    }
+
+    // 📝 Réponse à un devoir — seul un ancien APK écrit encore cette
+    // collection (service « devoirs » supprimé). On garde la cohérence
+    // score ≤ total, la propriété et une liste de champs connue.
+    function devoirReponseValide() {
+      return request.resource.data.keys().hasOnly(
+          ['userId', 'devoirId', 'titre', 'matiere', 'reponses', 'score',
+           'total', 'dateISO', 'nom', 'classe']
+        )
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.score is number
+        && request.resource.data.total is number
+        && request.resource.data.score >= 0
+        && request.resource.data.total > 0
+        && request.resource.data.score <= request.resource.data.total;
+    }
+
+    // 🔐 Sentinelle `config/initialise` — usage UNIQUE, réservé au compte qui
+    // vient d'être inscrit dans `admins/<uid>` (flux de bootstrap de
+    // `admin.tsx` : admins → roles → sentinelle). `par` = son propre uid :
+    // la sentinelle ne peut pas désigner quelqu'un d'autre.
+    function sentinelleBootstrapValide() {
+      return estAuth()
+        && !adminInitialise()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        && request.resource.data.keys().hasOnly(['par', 'nom', 'le'])
+        && request.resource.data.par == request.auth.uid;
+    }
+
+    // 🏆 PLAFONDS DU CLASSEMENT PUBLIC (durcissement 2026-10-02).
+    // L'XP publiée vient du téléphone (`xpLocal`), et le plan SPARK interdit la
+    // Cloud Function d'agrégation : sans plafond, un client modifié envoyait
+    // `999999999` et prenait la première place pour toujours.
+    // Valeurs défendables, mesurées sur les données réelles du LEX
+    // (backup du 22/08/2026 : 5 élèves, maximum 1 350 XP) et sur l'économie du
+    // jeu (barème le plus généreux : 50 XP par exercice, donc 100 000 XP =
+    // 2 000 exercices au maximum du barème ; le palier Légende 👑 est à 10 000).
+    function plafondXpTotal() {
+      return 100000;
+    }
+    function plafondXpSemaine() {
+      return 10000;
     }
     function donneesUtilisateurPropres() {
       // 🐞 CORRECTIF CRITIQUE : `request.resource.data` est le document
@@ -221,10 +336,18 @@ service cloud.firestore {
         && request.resource.data.nom.size() <= 60
         && (!('classe' in request.resource.data) || classeLyceeValide(request.resource.data.classe))
         && (!('niveau' in request.resource.data) || niveauLyceeValide(request.resource.data.niveau))
+        // 🛡️ DURCISSEMENT 2026-10-02 : bornes HAUTES ajoutées. L'XP publiée
+        // est auto-déclarée par le téléphone (plan Spark, pas de Cloud
+        // Function) : seul un plafond serveur empêche la prise de tête du
+        // classement par un client modifié.
         && (!('xp' in request.resource.data)
-            || (request.resource.data.xp is int && request.resource.data.xp >= 0))
+            || (request.resource.data.xp is int
+                && request.resource.data.xp >= 0
+                && request.resource.data.xp <= plafondXpTotal()))
         && (!('xp_semaine' in request.resource.data)
-            || (request.resource.data.xp_semaine is int && request.resource.data.xp_semaine >= 0))
+            || (request.resource.data.xp_semaine is int
+                && request.resource.data.xp_semaine >= 0
+                && request.resource.data.xp_semaine <= plafondXpSemaine()))
         && (!('avatar' in request.resource.data)
             || (request.resource.data.avatar is string && request.resource.data.avatar.size() <= 8));
     }

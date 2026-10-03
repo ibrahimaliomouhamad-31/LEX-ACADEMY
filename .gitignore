@@ -43,3 +43,14 @@ example
 /android
 .env
 functions/.env
+
+# 🔒 SECRETS & DONNÉES RÉELLES — audit du 02/10/2026
+# `backups/` contient des exports Firestore bruts (noms d'élèves, XP,
+# empreintes de mots de passe) : jamais dans le dépôt, ni en clair ni dans
+# l'historique. Les sauvegardes se font en local ou dans un stockage privé.
+backups/
+# Compte de service Firebase (clé privée) : le dépôt n'en versionne aucun.
+firebase-service-account.json
+serviceAccount*.json
+# Sauvegarde de dépôt avant réécriture d'historique (git bundle).
+*.bundle

@@ -69,6 +69,40 @@ const nombre = (valeur: unknown): number => {
   return Number.isFinite(n) && n > 0 ? n : 0;
 };
 
+/**
+ * 🏆 PLAFONDS DE LA FICHE PUBLIQUE — miroir EXACT des règles Firestore
+ * (`plafondXpTotal()` / `plafondXpSemaine()` de `firestore.rules`).
+ *
+ * Pourquoi aussi côté client : depuis le durcissement du 02/10/2026, le
+ * serveur REFUSE une fiche hors bornes (`permission-denied`). Sans
+ * plafonnement local, un élève au-dessus du plafond ne serait plus jamais
+ * publié — il disparaîtrait du classement EN SILENCE, sans aucun message.
+ * On borne donc AVANT d'envoyer : la fiche reste acceptée, la valeur est
+ * simplement plafonnée.
+ *
+ * Valeurs défendables (mesurées, pas devinées) :
+ *  - maximum réel observé au LEX : **1 350 XP** (backup du 22/08/2026, 5 élèves) ;
+ *  - palier le plus haut du jeu (Légende 👑) : **10 000 XP** ;
+ *  - barème le plus généreux : 50 XP par exercice → 100 000 XP = 2 000
+ *    exercices au maximum du barème (bien au-delà d'une scolarité entière).
+ */
+export const XP_MAX_PUBLIE = 100_000;
+export const XP_MAX_PUBLIE_SEMAINE = 10_000;
+
+/** Borne un XP de fiche publique dans [0, XP_MAX_PUBLIE] (entier, jamais NaN). */
+export function plafonnerXp(valeur: unknown): number {
+  const n = Math.round(Number(valeur));
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.min(n, XP_MAX_PUBLIE);
+}
+
+/** Borne l'XP hebdomadaire dans [0, XP_MAX_PUBLIE_SEMAINE] (entier, jamais NaN). */
+export function plafonnerXpSemaine(valeur: unknown): number {
+  const n = Math.round(Number(valeur));
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.min(n, XP_MAX_PUBLIE_SEMAINE);
+}
+
 /** Transforme des documents en élèves (UID conservé, jamais de champ privé). */
 export function elevesDepuisDocs(docs: DocClassement[]): EleveClassement[] {
   return docs
@@ -79,8 +113,8 @@ export function elevesDepuisDocs(docs: DocClassement[]): EleveClassement[] {
         nom: typeof donnees.nom === 'string' ? donnees.nom : 'Élève',
         classe: typeof donnees.classe === 'string' ? donnees.classe : '',
         niveau: typeof donnees.niveau === 'string' ? donnees.niveau : '',
-        xp: nombre(donnees.xp),
-        xp_semaine: nombre(donnees.xp_semaine),
+        xp: plafonnerXp(nombre(donnees.xp)),
+        xp_semaine: plafonnerXpSemaine(nombre(donnees.xp_semaine)),
         avatar: typeof donnees.avatar === 'string' ? donnees.avatar : '🎓',
       };
     })
@@ -191,8 +225,11 @@ export async function publierMonProfilPublic(): Promise<boolean> {
     const fiche: Record<string, unknown> = {
       nom: (profil.nom || 'Élève').slice(0, 60),
       classe,
-      xp: Math.max(0, Math.round(Number(xp) || 0)),
-      xp_semaine: Math.max(0, Math.round(Number(xpSemaine) || 0)),
+      // 🏆 PLAFONNÉ : le serveur refuse désormais une fiche hors bornes
+      // (voir `plafondXpTotal()` / `plafondXpSemaine()` dans firestore.rules).
+      // Plafonner ICI évite une publication rejetée en silence.
+      xp: plafonnerXp(xp),
+      xp_semaine: plafonnerXpSemaine(xpSemaine),
       avatar: profil.avatar || '',
       majISO: new Date().toISOString(),
     };
