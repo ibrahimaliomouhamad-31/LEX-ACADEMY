@@ -54,3 +54,7 @@ firebase-service-account.json
 serviceAccount*.json
 # Sauvegarde de dépôt avant réécriture d'historique (git bundle).
 *.bundle
+# Journaux de la CLI Firebase (lancées pour le déploiement des règles).
+firebase-debug.log
+firebase-debug.*.log
+.firebase/
