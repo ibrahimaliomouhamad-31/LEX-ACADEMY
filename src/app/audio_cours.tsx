@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { getAllCoursCache } from '../services/cacheHorsLigne';
 import { plafondTexteAudio } from '../services/economieDonnees';
-import { parler, stopperParole } from '../services/parole';
+import { parler, stopperParole, voixFrancaiseDisponible } from '../services/parole';
 
 // 51 — COURS EN AUDIO (optionnel par nature : on n'entre que si on le veut).
 // Lit le cours à voix haute via la synthèse vocale — pour réviser en marchant,
@@ -22,6 +22,22 @@ export default function AudioCours() {
   const [cours, setCours] = useState<{ id: string; titre: string; texte: string }[]>([]);
   const [chargement, setChargement] = useState(true);
   const [enLecture, setEnLecture] = useState<string | null>(null);
+  const [voixManquante, setVoixManquante] = useState(false);
+
+  // 🎙️ Diagnostic accent : si l'appareil n'a AUCUNE voix française, le texte
+  // serait lu par la voix par défaut (accent anglais). On prévient l'élève
+  // avec la marche à suivre plutôt que de le laisser comprendre tout seul.
+  useEffect(() => {
+    let annule = false;
+    voixFrancaiseDisponible()
+      .then((disponible) => {
+        if (!annule && !disponible) setVoixManquante(true);
+      })
+      .catch(() => undefined);
+    return () => {
+      annule = true;
+    };
+  }, []);
 
   useEffect(() => {
     let annule = false;
@@ -50,7 +66,8 @@ export default function AudioCours() {
     setEnLecture(c.id);
     const plafond = await plafondTexteAudio();
     const ok = await parler(c.texte.slice(0, plafond), {
-      language: 'fr',
+      // 🎙️ Plus de `language: 'fr'` : `parole.ts` impose `fr-FR` ET choisit
+      // la voix française elle-même (tag seul = accent anglais possible).
       rate: 0.95,
       onDone: () => setEnLecture(null),
       onStopped: () => setEnLecture(null),
@@ -77,6 +94,13 @@ export default function AudioCours() {
           <Text style={styles.intro}>
             Écoute tes cours téléchargés à voix haute — parfait pour réviser en marchant ou reposer tes yeux. 100% hors-ligne.
           </Text>
+          {voixManquante && (
+            <Text style={styles.avertissement}>
+              ⚠️ Ton appareil n&apos;a pas de voix française : le texte serait lu par la voix par
+              défaut (accent anglais). Android : Paramètres ▸ Synthèse vocale ▸ Google ▸
+              « Installer les données de voix » ▸ Français.
+            </Text>
+          )}
           {cours.length === 0 ? (
             <Text style={styles.vide}>
               Aucun cours audio-disponible. Télécharge des cours complets depuis 📘 Le Cours d&apos;abord !
@@ -106,6 +130,16 @@ const styles = StyleSheet.create({
   subject: { color: '#94A3B8', fontSize: 11, fontWeight: 'bold', letterSpacing: 1, textTransform: 'uppercase' },
   title: { color: '#F8FAFC', fontSize: 22, fontWeight: 'bold', marginTop: 5 },
   intro: { color: '#94A3B8', fontSize: 13, lineHeight: 19, marginBottom: 15 },
+  avertissement: {
+    color: '#0F172A',
+    backgroundColor: '#FBBF24',
+    fontSize: 12,
+    lineHeight: 18,
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 15,
+    overflow: 'hidden',
+  },
   vide: { color: '#94A3B8', fontSize: 14, textAlign: 'center', marginTop: 40, lineHeight: 22 },
   carte: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E293B', borderRadius: 12, padding: 16, marginBottom: 10, borderLeftWidth: 3, borderLeftColor: '#8B5CF6' },
   carteLecture: { borderWidth: 1.5, borderColor: '#8B5CF6' },

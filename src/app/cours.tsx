@@ -90,7 +90,9 @@ export default function Cours() {
     // Texte plafonné (cohérent avec cours.tsx) puis lecture via la couche
     // `parole` sécurisée (web + natif) — remplace l'appel direct
     // Speech.speak qui crashait sur web (module undefined).
-    parler(texte.slice(0, plafond), { language: 'fr', rate: 0.95 });
+    // 🎙️ Plus de `language: 'fr'` : `parole.ts` impose `fr-FR` ET choisit la
+    // voix française elle-même (un tag seul = accent anglais possible).
+    parler(texte.slice(0, plafond), { rate: 0.95 });
   };
 
   const arreterAudio = () => {

@@ -227,7 +227,8 @@ export default function Exercices() {
       await stopperParole();
       // Plafond du mode économie de données (cohérent avec cours.tsx)
       const plafond = await plafondTexteAudio();
-      parler(String(exoData.enonce).slice(0, plafond), { language: 'fr', rate: 0.95 });
+      // 🎙️ `parole.ts` gère `fr-FR` + la voix française elle-même.
+      parler(String(exoData.enonce).slice(0, plafond), { rate: 0.95 });
     }
   };
 
