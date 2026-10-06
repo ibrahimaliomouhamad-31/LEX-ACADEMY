@@ -2,7 +2,16 @@
   "expo": {
     "name": "LEX ACADEMY",
     "slug": "lex-academy-app",
+    "owner": "mouhamad-ibrahim-alio",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/c5f35362-b5cd-4e87-8bae-5b306eb7489d",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "myapp",
@@ -17,7 +26,13 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "package": "com.lex.academy"
+      "package": "com.lex.academy",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -46,16 +61,16 @@
       "router": {
         "origin": false
       },
-      "eas": {
-        "projectId": "lex-academy-10eef"
-      },
       "firebaseApiKey": "AIzaSyC3y581S0nHqYfIX4TjvumGKLgpDj1G1dg",
       "firebaseAuthDomain": "lex-academy-10eef.firebaseapp.com",
       "firebaseProjectId": "lex-academy-10eef",
       "firebaseStorageBucket": "lex-academy-10eef.firebasestorage.app",
       "firebaseMessagingSenderId": "512518959635",
       "firebaseAppId": "1:512518959635:web:b2463918d2633a4bea85e6",
-      "lexaiProxyUrl": "https://lexai-chat.lex-academy.workers.dev"
+      "lexaiProxyUrl": "https://lexai-chat.lex-academy.workers.dev",
+      "eas": {
+        "projectId": "c5f35362-b5cd-4e87-8bae-5b306eb7489d"
+      }
     }
   }
 }
